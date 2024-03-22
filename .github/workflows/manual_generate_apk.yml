@@ -38,6 +38,9 @@ jobs:
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r21e
+
+      - name: Testing
+        run: bash ./gradlew androidGitVersion --stacktrace --no-daemon --debug
       
       - name: Assemble APK
         run: bash ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace --no-daemon
