@@ -5,7 +5,7 @@ on:
 
       buildVariant:
         type: choice
-        description: 'Build Variant'     
+        description: 'Build Variant'
         required: true
         default: 'NormalOptimized'
         options: 
@@ -25,13 +25,13 @@ jobs:
           submodules: recursive
         
       - name: Setup JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
         
-      #- name: Setup SDK
-      #  uses: android-actions/setup-android@v2
+      - name: Setup SDK
+        uses: android-actions/setup-android@v3
           
       #- name: Setup NDK
       #  uses: nttld/setup-ndk@v1
