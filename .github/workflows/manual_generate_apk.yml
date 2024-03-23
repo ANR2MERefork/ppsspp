@@ -23,6 +23,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Get tags
+        run: git fetch --tags origin
         
       - name: Setup JDK
         uses: actions/setup-java@v4
