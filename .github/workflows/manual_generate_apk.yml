@@ -24,8 +24,8 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Get tags
-        run: git fetch --tags origin
+      - name: Create a dummy tag (androidGitVersion need at least one tag to exist)
+        run: git tag dummy
         
       - name: Setup JDK
         uses: actions/setup-java@v4
@@ -42,11 +42,11 @@ jobs:
         with:
           ndk-version: r21e
 
-      - name: Testing
-        run: bash ./gradlew androidGitVersion --stacktrace --no-daemon --info
+      - name: Test androidGitVersion
+        run: ./gradle --quiet androidGitVersion
       
       - name: Assemble APK
-        run: bash ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace --no-daemon
+        run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
       
       #- name: Gradle Test
       #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
