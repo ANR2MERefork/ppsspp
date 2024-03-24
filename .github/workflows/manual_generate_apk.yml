@@ -24,8 +24,8 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Create a dummy tag (androidGitVersion need at least one tag to exist)
-        run: git tag dummy
+      - name: Create a dummy tag (androidGitVersion need at least one valid tag to exist)
+        run: git tag v0
         
       - name: Setup JDK
         uses: actions/setup-java@v4
