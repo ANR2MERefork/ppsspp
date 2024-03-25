@@ -11,6 +11,8 @@ on:
         options: 
         - NormalOptimized
         - NormalDebug
+        - VrDebug
+        - VrOptimized
 
 jobs:
 
@@ -24,13 +26,18 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Create a dummy tag (androidGitVersion need at least one valid tag to exist)
-        run: git tag v0
+      - name: Fetch tags
+        run: |
+          git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
+
+      - name: Set Env Var(s)
+        run: |
+          echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
         
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'semeru'
+          distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
         
@@ -55,10 +62,8 @@ jobs:
         run: |
           find . -name "*.apk"
           mkdir ppsspp
-          if [ -e android/build/*/apk/*/*/android-normal-optimized.apk ]; then
-            cp android/build/*/apk/*/*/android-normal-optimized.apk ppsspp/
-          elif [ -e android/build/*/apk/*/*/android-normal-debug.apk ]; then
-            cp android/build/*/apk/*/*/android-normal-debug.apk ppsspp/
+          if [ -e android/build/*/apk/*/*/*.apk ]; then
+            cp android/build/*/apk/*/*/*.apk ppsspp/
           fi
 
       - name: Upload artifact
