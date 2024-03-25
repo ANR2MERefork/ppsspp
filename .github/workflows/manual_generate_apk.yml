@@ -31,7 +31,8 @@ jobs:
       - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
         if: ${{ env.VALID_TAGS_COUNT == '0' }}
         run: |
-          git remote add upstream https://github.com/hrydgard/ppsspp.git
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
         
       - name: Setup JDK
@@ -41,10 +42,10 @@ jobs:
           java-version: '17'
           cache: 'gradle'
         
-      #- name: Setup SDK
+      #- name: Setup SDK # gradlew will install SDK automatically, thus this step not needed
       #  uses: android-actions/setup-android@v3
           
-      #- name: Setup NDK # may cause a conflict with NDK installed by gradlew, thus causing cmake/ninja to fails
+      #- name: Setup NDK # gradle will install NDK (side by side) automatically, thus explictly seting up NDK here will cause not enough storage issue when building debug variant
       #  uses: nttld/setup-ndk@v1
       #  with:
       #    ndk-version: r21e
@@ -67,7 +68,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: android-${{ github.event.inputs.buildVariant }} build
           path: ppsspp/
