@@ -30,7 +30,8 @@ jobs:
         run: |
           echo "VALID_TAGS_COUNT=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_ENV
 
-      - name: Fetch upstream tags
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
+        if: ${{ env.VALID_TAGS_COUNT != 'A' }}
         run: |
           git remote add upstream https://github.com/hrydgard/ppsspp.git
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
