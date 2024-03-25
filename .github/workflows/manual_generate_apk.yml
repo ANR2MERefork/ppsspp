@@ -41,8 +41,8 @@ jobs:
           java-version: '17'
           cache: 'gradle'
         
-      #- name: Setup SDK
-      #  uses: android-actions/setup-android@v3
+      - name: Setup SDK
+        uses: android-actions/setup-android@v3
           
       #- name: Setup NDK # may cause a conflict with NDK installed by gradlew, thus causing cmake/ninja to fails
       #  uses: nttld/setup-ndk@v1
