@@ -28,11 +28,11 @@ jobs:
 
       - name: Set Env Var(s)
         run: |
-          echo "GIT_TAGS_COUNT=$(git tag | wc -l)" >> $GITHUB_ENV
+          echo "VALID_TAGS_COUNT=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_ENV
 
       - name: Fetch upstream tags
         run: |
-          # git remote add upstream https://github.com/hrydgard/ppsspp.git
+          git remote add upstream https://github.com/hrydgard/ppsspp.git
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
         
       - name: Setup JDK
