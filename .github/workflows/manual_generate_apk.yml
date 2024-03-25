@@ -11,8 +11,6 @@ on:
         options: 
         - NormalOptimized
         - NormalDebug
-        - VrDebug
-        - VrOptimized
 
 jobs:
 
@@ -46,7 +44,7 @@ jobs:
       #- name: Setup SDK
       #  uses: android-actions/setup-android@v3
           
-      #- name: Setup NDK
+      #- name: Setup NDK # may cause a conflict with NDK installed by gradlew, thus causing cmake/ninja to fails
       #  uses: nttld/setup-ndk@v1
       #  with:
       #    ndk-version: r21e
