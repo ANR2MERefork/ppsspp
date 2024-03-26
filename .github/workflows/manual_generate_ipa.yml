@@ -29,7 +29,7 @@ jobs:
           echo "VALID_TAGS_COUNT=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_ENV
           echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
 
-      - name: Fetch upstream tags # required for git describe to return a valid version
+      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
         if: ${{ env.VALID_TAGS_COUNT == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
