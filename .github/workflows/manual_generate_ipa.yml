@@ -27,7 +27,7 @@ jobs:
       - name: Valid Version Tags
         id: valid-tags
         run: |
-          # git tag v0.0.1
+          git tag v0.0.1
           echo "count=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_OUTPUT
 
       - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
@@ -40,6 +40,7 @@ jobs:
       - name: Set Env Var(s)
         run: |
           echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
+          env
         
       - name: Create macOS git-version.cpp & Version.txt
         run: |
