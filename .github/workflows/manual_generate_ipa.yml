@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
         
-      - name: Valid Version Tags
+      - name: Check Valid Version Tags
         id: valid-tags
         run: |
           git tag v0.0.1
@@ -40,7 +40,14 @@ jobs:
       - name: Set Env Var(s)
         run: |
           echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
+          echo "Content of [GIT_VERSION] = ${GIT_VERSION}"
+          echo "Content of [GITHUB_ENV] = ${github.env}"
+          echo "Content of [GITHUB_OUTPUT] = ${github.output}"
+          echo "Content of [[GIT_VERSION]] = ${{GIT_VERSION}}"
+          echo "Content of [[GITHUB_ENV]] = ${{github.env}}"
+          echo "Content of [[GITHUB_OUTPUT]] = ${{github.output}}"
           env
+          output
         
       - name: Create macOS git-version.cpp & Version.txt
         run: |
