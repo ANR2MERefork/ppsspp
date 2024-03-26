@@ -30,13 +30,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Set Env Var(s)
+        run: |
+          echo "VALID_TAGS_COUNT=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_ENV
+          
+      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+        if: ${{ env.VALID_TAGS_COUNT == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
         
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v2
           
       #- name: Setup cache # We probably need something like MSBuildCache for MSBuild to be able to use cache properly
       #  id: cache-uwp
@@ -91,7 +102,7 @@ jobs:
           #ls ppsspp
           
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: UWP-${{ github.event.inputs.buildConfiguration }}-${{ github.event.inputs.buildPlatform }} build
           path: ppsspp/
