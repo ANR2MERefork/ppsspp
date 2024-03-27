@@ -51,7 +51,7 @@ jobs:
           echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
           # Testing values ...
           echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
-          echo "count ${{steps.valid-tags.outputs.count}}"
+          echo "count=${{steps.valid-tags.outputs.count}}"
           echo $(echo $GIT_VERSION | cut -c 2-)
           # Testing file location ...
           find . -name "Version.txt"
