@@ -37,9 +37,10 @@ jobs:
 
       - name: Check Valid Version Tags
         id: valid-tags
+        shell: bash
         run: |
           git tag v0.0.1
-          bash echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
           
       - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
         if: ${{ steps.valid-tags.outputs.count == '0' }}
