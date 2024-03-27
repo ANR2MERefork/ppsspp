@@ -39,12 +39,7 @@ jobs:
         id: valid-tags
         shell: bash
         run: |
-          git tag v0
-          echo "count0=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_OUTPUT
-          # echo "count1=$(git tag -l 'v[0-9]*' | wc -l | bc)" >> $GITHUB_OUTPUT
-          echo "count2=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
-          echo "count3=$(git tag -l 'v[0-9]*' | wc -l | awk '{print $1}')" >> $GITHUB_OUTPUT
-          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT # $env:GITHUB_OUTPUT on pwsh
           
       - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
         if: ${{ steps.valid-tags.outputs.count == '0' }}
@@ -76,10 +71,6 @@ jobs:
           echo "double ${{ github.event.inputs.buildConfiguration }}"
           echo ${{github.workspace}}
           echo "count=${{steps.valid-tags.outputs.count}}"
-          echo "count0=${{steps.valid-tags.outputs.count0}}"
-          # echo "count1=${{steps.valid-tags.outputs.count1}}"
-          echo "count2=${{steps.valid-tags.outputs.count2}}"
-          echo "count3=${{steps.valid-tags.outputs.count3}}"
           echo "single ${ github.event.inputs.buildConfiguration }"
           echo $env:GITHUB_WORKSPACE
       
