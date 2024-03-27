@@ -69,7 +69,7 @@ jobs:
           echo "Content of [[github.workspace]] = ${{github.workspace}}"
           echo "double ${{ github.event.inputs.buildConfiguration }}"
           echo ${{github.workspace}}
-          echo "count ${steps.valid-tags.outputs.count}"
+          echo "count ${{steps.valid-tags.outputs.count}}"
           echo "single ${ github.event.inputs.buildConfiguration }"
           echo $env:GITHUB_WORKSPACE
       
