@@ -40,7 +40,8 @@ jobs:
         # shell: bash
         run: |
           git tag v0
-          echo "count1=$(git tag -l 'v[0-9]*' | wc -l | bc)"
+          echo "count0=$(git tag -l 'v[0-9]*' | wc -l)"
+          # echo "count1=$(git tag -l 'v[0-9]*' | wc -l | bc)"
           echo "count2=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')"
           echo "count3=$(git tag -l 'v[0-9]*' | wc -l | awk '{print $1}')"
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
