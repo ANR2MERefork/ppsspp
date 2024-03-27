@@ -44,6 +44,7 @@ jobs:
           echo "Content of [github.env] = ${{github.env}}"
           echo "Content of [github.output] = ${{github.output}}"
           echo "Content of [env.GITHUB_OUTPUT] = ${{env.GITHUB_OUTPUT}}"
+          echo "Content of [steps.valid-tags.outputs.count] = ${{steps.valid-tags.outputs.count}}"
           env
           output
         
