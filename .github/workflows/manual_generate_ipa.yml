@@ -26,6 +26,7 @@ jobs:
         
       - name: Check Valid Version Tags
         id: valid-tags
+        shell: bash
         run: |
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
@@ -50,6 +51,7 @@ jobs:
           echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
           # Testing values ...
           echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
+          echo "count ${{steps.valid-tags.outputs.count}}"
           echo $(echo $GIT_VERSION | cut -c 2-)
           # Testing file location ...
           find . -name "Version.txt"
