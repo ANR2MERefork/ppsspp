@@ -41,9 +41,9 @@ jobs:
         run: |
           echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
           echo "Content of [GIT_VERSION] = ${GIT_VERSION}"
-          echo "Content of [github.env] = ${github.env}"
-          echo "Content of [github.output] = ${github.output}"
-          echo "Content of [env.GITHUB_OUTPUT] = ${env.GITHUB_OUTPUT}"
+          echo "Content of [github.env] = ${{github.env}}"
+          echo "Content of [github.output] = ${{github.output}}"
+          echo "Content of [env.GITHUB_OUTPUT] = ${{env.GITHUB_OUTPUT}}"
           env
           output
         
