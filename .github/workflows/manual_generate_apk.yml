@@ -26,6 +26,7 @@ jobs:
 
       - name: Check Valid Version Tags
         id: valid-tags
+        shell: bash
         run: |
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
@@ -52,7 +53,9 @@ jobs:
       #    ndk-version: r21e
 
       - name: Test androidGitVersion
-        run: gradle --quiet androidGitVersion
+        run: |
+          echo "count ${{steps.valid-tags.outputs.count}}"
+          gradle --quiet androidGitVersion
       
       - name: Assemble APK
         run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
