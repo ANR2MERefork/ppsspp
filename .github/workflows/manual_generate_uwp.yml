@@ -37,7 +37,7 @@ jobs:
 
       - name: Check Valid Version Tags
         id: valid-tags
-        # shell: bash
+        shell: bash
         run: |
           git tag v0
           echo "count0=$(git tag -l 'v[0-9]*' | wc -l)" >> $GITHUB_OUTPUT
