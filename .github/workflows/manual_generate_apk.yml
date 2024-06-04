@@ -53,6 +53,9 @@ jobs:
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r21e
+          link-to-sdk: true
+          local-cache: true
+          add-to-path: false
 
       - name: Test androidGitVersion
         run: |
