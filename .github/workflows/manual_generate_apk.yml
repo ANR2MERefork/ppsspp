@@ -51,6 +51,7 @@ jobs:
           
       - name: Setup NDK # gradle may install NDK automatically if an existing one is not detected, thus explictly seting up NDK here could cause not enough storage issue when building debug variant
         uses: nttld/setup-ndk@v1
+        id: setup-ndk
         with:
           ndk-version: r21e
           link-to-sdk: true # this will let gradle/gradlew to use existing NDK & SDK platform tools instead of automatically downloading it
