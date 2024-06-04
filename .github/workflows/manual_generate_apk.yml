@@ -46,16 +46,18 @@ jobs:
           java-version: '17'
           cache: 'gradle'
         
-      - name: Setup SDK # gradlew will install SDK automatically, thus this step not needed
+      - name: Setup SDK # gradlew may install SDK platform tools automatically if an existing one is not detected, thus this step not needed
         uses: android-actions/setup-android@v3
           
-      - name: Setup NDK # gradle will install NDK (side by side) automatically, thus explictly seting up NDK here will cause not enough storage issue when building debug variant
+      - name: Setup NDK # gradle may install NDK automatically if an existing one is not detected, thus explictly seting up NDK here could cause not enough storage issue when building debug variant
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r21e
-          link-to-sdk: true
-          local-cache: false
+          link-to-sdk: true # this will let gradle/gradlew to use existing NDK & SDK platform tools instead of automatically downloading it
+          local-cache: true # locally caching 1gb cache size of NGK took much longer time than disabling it, it will always be added to tool cache anyway
           add-to-path: false
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Test androidGitVersion
         run: |
