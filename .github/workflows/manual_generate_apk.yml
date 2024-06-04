@@ -54,12 +54,12 @@ jobs:
         with:
           ndk-version: r21e
           link-to-sdk: true # this will let gradle/gradlew to use existing NDK & SDK platform tools instead of automatically downloading it
-          local-cache: true # locally caching 1gb cache size of NGK took much longer time than disabling it, it will always be added to tool cache anyway
+          local-cache: true # locally caching 1gb cache size of NDK can took much longer time than disabling it, it will always be added to tool cache anyway
           add-to-path: false
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Test androidGitVersion
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
           gradle --quiet androidGitVersion
