@@ -49,10 +49,10 @@ jobs:
       #- name: Setup SDK # gradlew will install SDK automatically, thus this step not needed
       #  uses: android-actions/setup-android@v3
           
-      #- name: Setup NDK # gradle will install NDK (side by side) automatically, thus explictly seting up NDK here will cause not enough storage issue when building debug variant
-      #  uses: nttld/setup-ndk@v1
-      #  with:
-      #    ndk-version: r21e
+      - name: Setup NDK # gradle will install NDK (side by side) automatically, thus explictly seting up NDK here will cause not enough storage issue when building debug variant
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r21e
 
       - name: Test androidGitVersion
         run: |
