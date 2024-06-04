@@ -44,7 +44,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          # cache: 'gradle' # incompatible with gradle/actions/setup-gradle@v3 caching
+          #cache: 'gradle' # incompatible with gradle/actions/setup-gradle@v3 caching
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -65,20 +65,19 @@ jobs:
           ndk-version: r21e
           link-to-sdk: true # this will let gradle/gradlew to use existing NDK & SDK platform tools instead of automatically downloading it
           #local-cache: true # locally caching 1gb+ cache size of NDK might be too much with little benefit, it will always be added to tool cache anyway
-          add-to-path: false
+          #add-to-path: false
 
       - name: Test androidGitVersion
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
           gradle --quiet androidGitVersion
-          env
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       
       - name: Assemble APK
         run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        #env:
+        #  ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       
       #- name: Gradle Test
       #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
