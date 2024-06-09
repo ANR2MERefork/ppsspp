@@ -70,7 +70,7 @@ jobs:
       - name: Test androidGitVersion
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
-          gradle --quiet androidGitVersion
+          gradle --quiet androidGitVersion --no-configuration-cache
         #env:
         #  ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       
