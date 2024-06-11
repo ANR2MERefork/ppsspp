@@ -1,4 +1,6 @@
 name: Manual Generate iOS IPA
+run-name: Build from [Branch = ${{ GITHUB_REF }}] && [COMMIT SHA = ${{ GITHUB_SHA }}]
+
 on:
   workflow_dispatch:
     inputs:
@@ -23,6 +25,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+          #ref: ${{ GITHUB_SHA }}
         
       - name: Check Valid Version Tags
         id: valid-tags
