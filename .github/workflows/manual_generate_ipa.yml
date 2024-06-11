@@ -1,5 +1,5 @@
 name: Manual Generate iOS IPA
-run-name: Build from [Branch = ${{ inputs.branch }}] && [COMMIT SHA = ${{ github.sha }}]
+run-name: Build from [Branch = ${{ github.ref_name }}] && [COMMIT SHA = ${{ github.sha }}]
 
 on:
   workflow_dispatch:
