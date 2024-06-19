@@ -64,12 +64,14 @@ jobs:
         run: |
           uname -a
           apk list -i
+          apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
+          ./b.sh --${{ github.event.inputs.buildVariant }}
         shell: alpine-target.sh {0}
 
       - name: Run script on the Host system
         run: |
           uname -a
-          dpkg -l
+          apt list --installed
         shell: bash
       
       - name: Package build
