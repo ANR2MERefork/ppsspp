@@ -71,7 +71,7 @@ jobs:
           pwd
           git config --global --add safe.directory "$PWD" # fix dubious ownership issue when running git describe inside a container
           cd ffmpeg # Build a minimal FFMPEG
-          rm config.h
+          rm -f config.h
           set -e
 
           ARCH=${{ github.event.inputs.cpuArch }}         
