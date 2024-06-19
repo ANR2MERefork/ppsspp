@@ -61,11 +61,15 @@ jobs:
           shell-name: alpine-target.sh
 
       - name: Run script inside Alpine chroot
-        run: uname -m
+        run: |
+          uname -a
+          apk list -i
         shell: alpine-target.sh {0}
 
       - name: Run script on the Host system
-        run: uname -m
+        run: |
+          uname -a
+          dpkg -l
         shell: bash
       
       - name: Package build
