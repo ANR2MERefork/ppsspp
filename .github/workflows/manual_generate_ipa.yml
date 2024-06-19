@@ -65,6 +65,8 @@ jobs:
           uname -a
           apk list -i
           apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
+          pwd
+          git config --global --add safe.directory "$PWD"
           ./b.sh --${{ github.event.inputs.buildVariant }}
         shell: alpine-target.sh --root {0}
 
@@ -72,6 +74,7 @@ jobs:
         run: |
           uname -a
           apt list --installed
+          pwd
         shell: bash
       
       - name: Package build
