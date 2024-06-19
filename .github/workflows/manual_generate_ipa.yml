@@ -70,9 +70,9 @@ jobs:
           apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
           pwd
           git config --global --add safe.directory "$PWD" # fix dubious ownership issue when running git describe inside a container
-          pushd ffmpeg
+          cd ffmpeg
           ./linux_x86-64.sh
-          popd
+          cd ..
           ./b.sh --${{ github.event.inputs.buildVariant }}
         shell: alpine-target.sh --root {0}
 
