@@ -142,6 +142,8 @@ jobs:
               --enable-parser=mpegvideo \
               --enable-parser=aac \
               --enable-parser=mpegaudio"
+
+          echo ${VIDEO_ENCODERS}
           
           ./configure \
               --prefix=./linux/${ARCH} \
