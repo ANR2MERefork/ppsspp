@@ -143,24 +143,24 @@ jobs:
               --enable-parser=aac \
               --enable-parser=mpegaudio"
 
-          echo "${VIDEO_ENCODERS}"
+          echo "VIDEO_ENCODERS="${VIDEO_ENCODERS}
           
           ./configure \
-              --prefix=./linux/"${ARCH}" \
-              "${GENERAL}" \
+              --prefix=./linux/${ARCH} \
+              ${GENERAL} \
               --extra-cflags="-D__STDC_CONSTANT_MACROS -O3" \
               --enable-zlib \
           	  --disable-yasm \
               --disable-everything \
-              "${MODULES}" \
-              "${VIDEO_DECODERS}" \
-              "${AUDIO_DECODERS}" \
-              "${VIDEO_ENCODERS}" \
-              "${AUDIO_ENCODERS}" \
-              "${DEMUXERS}" \
-              "${MUXERS}" \
-              "${PARSERS}" \
-          	  --arch="${ARCH}" \
+              ${MODULES} \
+              ${VIDEO_DECODERS} \
+              ${AUDIO_DECODERS} \
+              ${VIDEO_ENCODERS} \
+              ${AUDIO_ENCODERS} \
+              ${DEMUXERS} \
+              ${MUXERS} \
+              ${PARSERS} \
+          	  --arch=${ARCH} \
              
           make clean
           make install
