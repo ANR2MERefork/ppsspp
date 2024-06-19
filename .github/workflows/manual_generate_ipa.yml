@@ -74,7 +74,7 @@ jobs:
           rm -f config.h
           set -e
 
-          ARCH=${{ github.event.inputs.cpuArch }}         
+          ARCH="${{ github.event.inputs.cpuArch }}"
           #   --enable-cross-compile \
           #   --cc=mipsel-linux-gcc \
           #   --cxx=mipsel-linux-g++ \
