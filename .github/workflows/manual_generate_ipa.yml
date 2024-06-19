@@ -64,9 +64,12 @@ jobs:
         run: |
           uname -a
           apk list -i
+          apk update
+          apk add --upgrade apk-tools
+          apk upgrade --available
           apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
           pwd
-          git config --global --add safe.directory "$PWD" # fix dubious ownership issue when running git describe in a container
+          git config --global --add safe.directory "$PWD" # fix dubious ownership issue when running git describe inside a container
           ./b.sh --${{ github.event.inputs.buildVariant }}
         shell: alpine-target.sh --root {0}
 
