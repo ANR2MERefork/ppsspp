@@ -57,7 +57,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'edge' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.17' || 'edge' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Run script inside Alpine chroot
@@ -67,7 +67,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev gcompat # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev gcompat # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
           git config --global --add safe.directory "$PWD" # fix dubious ownership issue when running git describe inside a container
 
