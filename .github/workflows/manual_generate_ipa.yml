@@ -57,7 +57,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: edge # riscv64 only supported on edge, but LFS64 interfaces (ie. fopen64 and others with 64-bit naming) have been removed since musl 1.2.4 (Alpine 3.19)
+          branch: edge # riscv64 only supported on edge, but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine 3.19)
           shell-name: alpine-target.sh
 
       - name: Run script inside Alpine chroot
