@@ -27,6 +27,18 @@ on:
         - ppc64le
         - s390x
 
+      createAppImage:
+        type: boolean
+        description: 'Create AppImage bundle'
+        required: true
+        default: true
+
+      runTest:
+        type: boolean
+        description: 'Run Tests'
+        required: true
+        default: false
+
 jobs:
 
   build:
@@ -221,8 +233,17 @@ jobs:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
           path: ppsspp/
 
+      - name: Run script inside Alpine chroot (Build Tests)
+        if: ${{ github.event.inputs.runTest }}
+        #working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          # Build tests
+          ./b.sh --headless --unittest
+        shell: alpine-target.sh --root {0}
+
   test:
     name: Testing ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} headless
+    if: ${{ github.event.inputs.runTest }}
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -242,21 +263,21 @@ jobs:
         # Doing this to avoid ffmpeg and other large submodules.
         run: git submodule update --init pspautotests assets/lang
 
-      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (build arch)
-        id: alpine-build
-        uses: jirutka/setup-alpine@v1
-        with:
-          arch: ${{ github.event.inputs.cpuArch }}
-          branch: edge
-          packages: >
-            build-base
-            wget
-            git
-            bash
-            cmake
-            python3
-            glu-dev
-          shell-name: alpine-build.sh
+      #- name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (build arch)
+      #  id: alpine-build
+      #  uses: jirutka/setup-alpine@v1
+      #  with:
+      #    arch: ${{ github.event.inputs.cpuArch }}
+      #    branch: edge
+      #    packages: >
+      #      build-base
+      #      wget
+      #      git
+      #      bash
+      #      cmake
+      #      python3
+      #      glu-dev
+      #    shell-name: alpine-build.sh
 
       - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (test arch)
         id: alpine-test
@@ -271,16 +292,16 @@ jobs:
             #gcompat
           shell-name: alpine-test.sh
   
-      - name: Run script inside Alpine chroot (Build Tests)
-        working-directory: ${{ env.GITHUB_WORKSPACE }}
-        run: |
-          uname -a
-          # Fix dubious ownership issue when running git describe inside a container
-          git config --global --add safe.directory "$PWD"
-          
-          # Build tests
-          ./b.sh --headless --unittest
-        shell: alpine-target.sh --root {0}
+      #- name: Run script inside Alpine chroot (Build Tests)
+      #  working-directory: ${{ env.GITHUB_WORKSPACE }}
+      #  run: |
+      #    uname -a
+      #    # Fix dubious ownership issue when running git describe inside a container
+      #    git config --global --add safe.directory "$PWD"
+      #    
+      #    # Build tests
+      #    ./b.sh --headless --unittest
+      #  shell: alpine-build.sh --root {0}
         
       - name: Fix test permissions
         working-directory: ${{ env.GITHUB_WORKSPACE }}
