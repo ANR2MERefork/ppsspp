@@ -220,3 +220,90 @@ jobs:
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
           path: ppsspp/
+
+  test:
+    name: Testing ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} headless
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+    env:
+      CROSS_SYSROOT: /mnt/alpine-${{ github.event.inputs.cpuArch }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+  
+      - name: Fetch tests
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        # Doing this to avoid ffmpeg and other large submodules.
+        run: git submodule update --init pspautotests assets/lang
+
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (build arch)
+        id: alpine-build
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ github.event.inputs.cpuArch }}
+          branch: edge
+          packages: >
+            build-base
+            wget
+            git
+            bash
+            cmake
+            python3
+            glu-dev
+          shell-name: alpine-build.sh
+
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (test arch)
+        id: alpine-test
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ github.event.inputs.cpuArch }}
+          branch: edge
+          packages: >
+            sdl2
+            libstdc++
+            glu-dev
+            #gcompat
+          shell-name: alpine-test.sh
+  
+      - name: Run script inside Alpine chroot (Build Tests)
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          uname -a
+          # Fix dubious ownership issue when running git describe inside a container
+          git config --global --add safe.directory "$PWD"
+          
+          # Build tests
+          ./b.sh --headless --unittest
+        shell: alpine-target.sh --root {0}
+        
+      - name: Fix test permissions
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          cp `find . -name PPSSPPHeadless` .
+          chmod +x PPSSPPHeadless
+          cp `find . -name PPSSPPUnitTest` .
+          chmod +x PPSSPPUnitTest
+        shell: alpine-test.sh --root {0}
+  
+      - name: Execute Unit tests
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          if [ -e ./PPSSPPUnitTest ]; then
+            ./PPSSPPUnitTest ALL
+          fi
+        shell: alpine-test.sh {0}
+  
+      - name: Execute Headless tests
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          if [ -e PPSSPPHeadless ]; then
+            python test.py -g --graphics=software
+          fi
+        shell: alpine-test.sh {0}
+        
