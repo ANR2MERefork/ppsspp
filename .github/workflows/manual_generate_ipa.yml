@@ -89,7 +89,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD"
@@ -227,7 +227,7 @@ jobs:
             cp -r assets ppsspp/assets
           fi
 
-      - name: Upload artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
@@ -240,6 +240,25 @@ jobs:
           # Build tests
           ./b.sh --headless --unittest
         shell: alpine-target.sh --root {0}
+
+      - name: Package Test build
+        run: |
+          find . -name "PPSSPPHeadless" -exec file {} \;
+          mkdir test
+          if [ -e build*/PPSSPPHeadless ]; then
+            cp build*/PPSSPPHeadless test/
+            cp -r assets test/assets
+          fi
+          find . -name "PPSSPPUnitTest" -exec file {} \;
+          if [ -e build*/PPSSPPUnitTest ]; then
+            cp build*/PPSSPPUnitTest test/
+          fi
+
+      - name: Upload Test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} headless
+          path: test/
 
   test:
     name: Testing ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} headless
@@ -291,6 +310,12 @@ jobs:
             glu-dev
             #gcompat
           shell-name: alpine-test.sh
+
+      - name: Download Test build
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} headless
+          path: test/
   
       #- name: Run script inside Alpine chroot (Build Tests)
       #  working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -306,9 +331,11 @@ jobs:
       - name: Fix test permissions
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
-          cp `find . -name PPSSPPHeadless` .
+          #cp `find . -name PPSSPPHeadless` .
+          find . -name PPSSPPHeadless -exec cp {} . \;
           chmod +x PPSSPPHeadless
-          cp `find . -name PPSSPPUnitTest` .
+          #cp `find . -name PPSSPPUnitTest` .
+          find . -name PPSSPPUnitTest -exec cp {} . \;
           chmod +x PPSSPPUnitTest
         shell: alpine-test.sh --root {0}
   
