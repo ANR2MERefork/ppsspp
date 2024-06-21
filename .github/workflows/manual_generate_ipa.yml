@@ -29,7 +29,7 @@ on:
 
 jobs:
 
-  apk:
+  build:
     name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
     runs-on: ubuntu-latest
 
@@ -206,14 +206,14 @@ jobs:
           pwd
         shell: bash
       
-      - name: Package build
+      - name: Package Standard Binary build
         run: |
-          find . -name "PPSSPPSDL"
-          mkdir ppsspp
-          if [ -e android/build/*/apk/*/*/*.apk ]; then
-            cp android/build/*/apk/*/*/*.apk ppsspp/
-          fi
           find . -name "PPSSPPSDL" -exec file {} \;
+          mkdir ppsspp
+          if [ -e build*/PPSSPPSDL ]; then
+            cp build*/PPSSPPSDL ppsspp/
+            cp -r assets ppsspp/assets
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
