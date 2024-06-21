@@ -121,8 +121,10 @@ jobs:
           
           GENERAL="
           	--target-os=linux \
+            --enable-pic \
           	--disable-shared \
           	--enable-static"
+            #--extra-ldexeflags='-pie'
           
           MODULES="\
              --disable-avdevice \
@@ -345,17 +347,19 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           uname -a
+          find . -name PPSSPPUnitTest -exec file {} \;
           #if [ -e ./PPSSPPUnitTest ]; then
           #  ./PPSSPPUnitTest ALL
           #fi
-        shell: alpine-test.sh {0}
+        shell: alpine-test.sh --root {0}
   
       - name: Execute Headless tests
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           uname -a
+          find . -name PPSSPPHeadless -exec file {} \;
           if [ -e PPSSPPHeadless ]; then
             python test.py -g --graphics=software
           fi
-        shell: alpine-test.sh {0}
+        shell: alpine-test.sh --root {0}
         
