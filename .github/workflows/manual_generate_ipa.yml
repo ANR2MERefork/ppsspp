@@ -57,7 +57,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.15' || 'edge' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Run script inside Alpine chroot
@@ -71,7 +71,7 @@ jobs:
           pwd
           git config --global --add safe.directory "$PWD" # fix dubious ownership issue when running git describe inside a container
 
-          export SDL_VERSION=2.26.5 # 2.0.22 # The latest version is 2.30.4, meanwhile Apline v3.17 have SDL2 version 2.26.5-r0 but have directfb.h issue
+          export SDL_VERSION=2.0.22 # The latest version is 2.30.x, meanwhile Apline v3.17 have SDL2 version 2.26.5-r0 but have directfb.h issue
           wget https://github.com/libsdl-org/SDL/archive/refs/tags/release-${SDL_VERSION}.tar.gz && \
           tar -xf release-${SDL_VERSION}.tar.gz && cd SDL-release-${SDL_VERSION} && mkdir build && cd build && \
           cmake -DCMAKE_BUILD_TYPE=Release .. && \
