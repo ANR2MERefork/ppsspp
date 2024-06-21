@@ -70,7 +70,6 @@ jobs:
         env:
           CC: gcc # clang
           CXX: g++ # clang++
-          NDK_CCACHE: ccache
           USE_CCACHE: 1
         run: |
           uname -a
