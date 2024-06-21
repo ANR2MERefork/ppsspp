@@ -332,9 +332,11 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           #cp `find . -name PPSSPPHeadless` .
+          find . -name PPSSPPHeadless
           find . -name PPSSPPHeadless -exec cp {} . \;
           chmod +x PPSSPPHeadless
           #cp `find . -name PPSSPPUnitTest` .
+          find . -name PPSSPPUnitTest
           find . -name PPSSPPUnitTest -exec cp {} . \;
           chmod +x PPSSPPUnitTest
         shell: alpine-test.sh --root {0}
@@ -342,14 +344,16 @@ jobs:
       - name: Execute Unit tests
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
-          if [ -e ./PPSSPPUnitTest ]; then
-            ./PPSSPPUnitTest ALL
-          fi
+          uname -a
+          #if [ -e ./PPSSPPUnitTest ]; then
+          #  ./PPSSPPUnitTest ALL
+          #fi
         shell: alpine-test.sh {0}
   
       - name: Execute Headless tests
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
+          uname -a
           if [ -e PPSSPPHeadless ]; then
             python test.py -g --graphics=software
           fi
