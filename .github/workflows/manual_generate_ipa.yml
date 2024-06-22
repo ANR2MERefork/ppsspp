@@ -117,7 +117,7 @@ jobs:
           cd .. && cd ..
           # End of Build SDL2 from source
 
-          rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
+          #rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
           # Build a minimal FFMPEG (some arch may get 'fopen64' or 'fcntl64' issue during linking, or tried to link the wrong arch)
           cd ffmpeg
           rm -f config.h
@@ -267,7 +267,6 @@ jobs:
           file ./ffmpeg/linux/x86/lib/libavcodec.a
           find . -name PPSSPPHeadless -exec file {} \;
           find . -name PPSSPPUnitTest -exec file {} \;
-          find . -name libavcodec.a -exec file {} \;
         shell: alpine-target.sh --root {0}
 
       - name: Package Test build
