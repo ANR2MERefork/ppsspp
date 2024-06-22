@@ -80,8 +80,8 @@ jobs:
 
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: clang # gcc
-          CXX: clang++ # g++
+          CC: gcc
+          CXX: g++
           USE_CCACHE: 1
         run: |
           uname -a
@@ -90,14 +90,12 @@ jobs:
           apk add --upgrade apk-tools
           apk upgrade --available
           apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
-          apk add clang lld compiler-rt
+          #apk add clang lld compiler-rt && clang --version && clang++ --version
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
           gcc --version
           g++ --version
           ld -v
-          clang --version
-          clang++ --version
           
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD"
@@ -148,10 +146,10 @@ jobs:
              --disable-ffmpeg"
           
           VIDEO_DECODERS="\
-             --enable-decoder=h264 \
              --enable-decoder=h263 \
              --enable-decoder=h263p \
              --enable-decoder=mpeg2video"
+             #--enable-decoder=h264 \
           
           AUDIO_DECODERS="\
               --enable-decoder=aac \
@@ -162,7 +160,6 @@ jobs:
               --enable-decoder=pcm_s8"
             
           DEMUXERS="\
-              --enable-demuxer=h264 \
               --enable-demuxer=h263 \
               --enable-demuxer=mpegps \
               --enable-demuxer=mpegvideo \
@@ -173,6 +170,7 @@ jobs:
               --enable-demuxer=pcm_s16le \
               --enable-demuxer=pcm_s8 \
               --enable-demuxer=wav"
+              #--enable-demuxer=h264 \
           
           VIDEO_ENCODERS="\
               --enable-encoder=huffyuv
@@ -186,11 +184,11 @@ jobs:
               --enable-muxer=avi"
           
           PARSERS="\
-              --enable-parser=h264 \
               --enable-parser=mpeg4video \
               --enable-parser=mpegvideo \
               --enable-parser=aac \
               --enable-parser=mpegaudio"
+              #--enable-parser=h264 \
 
           echo "VIDEO_ENCODERS="${VIDEO_ENCODERS}
 
@@ -233,7 +231,7 @@ jobs:
           uname -a
           apt list --installed
           pwd
-          gcc -v 2>&1 | grep -o -e '[^ ]*pi.' # Checking default pie flags
+          gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
         shell: bash
       
       - name: Package Standard Binary build
@@ -256,8 +254,8 @@ jobs:
         if: ${{ github.event.inputs.runTest == 'true' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
-          CC: clang # gcc
-          CXX: clang++ # g++
+          CC: gcc
+          CXX: g++
           USE_CCACHE: 1
         run: |
           # Build tests
