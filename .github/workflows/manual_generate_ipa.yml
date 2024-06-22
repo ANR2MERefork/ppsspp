@@ -91,7 +91,7 @@ jobs:
           apk upgrade --available
           apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
-          gcc -v |& grep -o -e '[^ ]*pie'
+          gcc -v 2>&1 | grep -o -e '[^ ]*pi.' # Checking default pie flags
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD"
 
@@ -222,7 +222,7 @@ jobs:
           uname -a
           apt list --installed
           pwd
-          gcc -v |& grep -o -e '[^ ]*pie'
+          gcc -v 2>&1 | grep -o -e '[^ ]*pi.' # Checking default pie flags
         shell: bash
       
       - name: Package Standard Binary build
