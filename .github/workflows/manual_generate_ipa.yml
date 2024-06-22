@@ -89,7 +89,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash cmake python3 glu-dev clang lld compiler-rt compiler-rt-static # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base wget git bash cmake python3 glu-dev clang lld compiler-rt # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
           gcc --version
