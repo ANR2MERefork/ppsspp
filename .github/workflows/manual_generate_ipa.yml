@@ -124,7 +124,6 @@ jobs:
           	--disable-shared \
           	--enable-static"
             #--enable-pic \
-            #--extra-ldexeflags='-pie'
           
           MODULES="\
              --disable-avdevice \
@@ -190,7 +189,9 @@ jobs:
           ./configure \
               --prefix=./linux/${ARCH} \
               ${GENERAL} \
-              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3" \
+              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fPIE" \
+              --extra-ldflags="-pie" \
+              --extra-ldexeflags="-pie" \
               --enable-zlib \
           	  --disable-yasm \
               --disable-everything \
