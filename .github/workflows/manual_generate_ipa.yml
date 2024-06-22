@@ -91,7 +91,13 @@ jobs:
           apk upgrade --available
           apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
-          gcc -v 2>&1 | grep -o -e '[^ ]*pi.' # Checking default pie flags
+          gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+          gcc --version
+          g++ --version
+          ld -v
+          clang --version
+          clang++ --version
+          
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD"
 
@@ -123,8 +129,8 @@ jobs:
           GENERAL="
              --target-os=linux \
              --disable-shared \
-             --enable-static \
-             --enable-pic"
+             --enable-static"
+             #--enable-pic"
           
           MODULES="\
              --disable-avdevice \
