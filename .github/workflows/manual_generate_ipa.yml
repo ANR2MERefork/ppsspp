@@ -64,7 +64,7 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
       
-      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (target arch)
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Target arch)
         id: alpine-target
         uses: jirutka/setup-alpine@v1
         with:
@@ -221,6 +221,7 @@ jobs:
         shell: bash
       
       - name: Package Standard Binary build
+        if: ${{ !github.event.inputs.createAppImage }}
         run: |
           find . -name "PPSSPPSDL" -exec file {} \;
           mkdir ppsspp
@@ -284,7 +285,7 @@ jobs:
         # Doing this to avoid ffmpeg and other large submodules.
         run: git submodule update --init pspautotests assets/lang
 
-      #- name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (build arch)
+      #- name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Build arch)
       #  id: alpine-build
       #  uses: jirutka/setup-alpine@v1
       #  with:
@@ -300,7 +301,7 @@ jobs:
       #      glu-dev
       #    shell-name: alpine-build.sh
 
-      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (test arch)
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Test arch)
         id: alpine-test
         uses: jirutka/setup-alpine@v1
         with:
@@ -341,6 +342,8 @@ jobs:
           find . -name PPSSPPUnitTest
           find . -name PPSSPPUnitTest -exec cp "{}" . \;
           chmod +x PPSSPPUnitTest
+          find . -name PPSSPPHeadless
+          find . -name PPSSPPUnitTest
         shell: alpine-test.sh --root {0}
   
       - name: Execute Unit tests
@@ -355,7 +358,6 @@ jobs:
         shell: alpine-test.sh --root {0}
   
       - name: Execute Headless tests
-        continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           uname -a
