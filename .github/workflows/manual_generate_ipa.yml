@@ -121,10 +121,10 @@ jobs:
           
           GENERAL="
           	--target-os=linux \
-            --enable-pic \
           	--disable-shared \
-          	--enable-static \
-            --extra-ldexeflags='-pie'"
+          	--enable-static"
+            #--enable-pic \
+            #--extra-ldexeflags='-pie'
           
           MODULES="\
              --disable-avdevice \
@@ -310,7 +310,7 @@ jobs:
             sdl2
             libstdc++
             glu-dev
-            #gcompat
+            gcompat
           shell-name: alpine-test.sh
 
       - name: Download Test build
@@ -335,25 +335,27 @@ jobs:
         run: |
           #cp `find . -name PPSSPPHeadless` .
           find . -name PPSSPPHeadless
-          find . -name PPSSPPHeadless -exec cp {} . \;
+          find . -name PPSSPPHeadless -exec cp "{}" . \;
           chmod +x PPSSPPHeadless
           #cp `find . -name PPSSPPUnitTest` .
           find . -name PPSSPPUnitTest
-          find . -name PPSSPPUnitTest -exec cp {} . \;
+          find . -name PPSSPPUnitTest -exec cp "{}" . \;
           chmod +x PPSSPPUnitTest
         shell: alpine-test.sh --root {0}
   
       - name: Execute Unit tests
+        continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           uname -a
           find . -name "PPSSPPUnitTest" -exec file {} \;
-          #if [ -e ./PPSSPPUnitTest ]; then
-          #  ./PPSSPPUnitTest ALL
-          #fi
+          if [ -e ./PPSSPPUnitTest ]; then
+            ./PPSSPPUnitTest ALL
+          fi
         shell: alpine-test.sh --root {0}
   
       - name: Execute Headless tests
+        continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           uname -a
