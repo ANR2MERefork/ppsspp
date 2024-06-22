@@ -91,6 +91,7 @@ jobs:
           apk upgrade --available
           apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
+          gcc -v |& grep -o -e '[^ ]*pie'
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD"
 
@@ -122,8 +123,8 @@ jobs:
           GENERAL="
              --target-os=linux \
              --disable-shared \
-             --enable-static"
-             #--enable-pic \
+             --enable-static \
+             --enable-pic"
           
           MODULES="\
              --disable-avdevice \
@@ -190,10 +191,10 @@ jobs:
               --prefix=./linux/${ARCH} \
               ${GENERAL} \
               --pkg-config-flags="--static" \
-              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fPIE" \
-              --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3 -fPIE" \
-              --extra-ldflags="-pie" \
-              --extra-ldexeflags="-pie" \
+              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
+              --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
+              --extra-ldflags="-no-pie" \
+              --extra-ldexeflags="-no-pie" \
               --enable-zlib \
               --disable-yasm \
               --disable-everything \
@@ -221,10 +222,11 @@ jobs:
           uname -a
           apt list --installed
           pwd
+          gcc -v |& grep -o -e '[^ ]*pie'
         shell: bash
       
       - name: Package Standard Binary build
-        if: ${{ !github.event.inputs.createAppImage }}
+        if: ${{ ! github.event.inputs.createAppImage }}
         run: |
           find . -name "PPSSPPSDL" -exec file {} \;
           mkdir ppsspp
