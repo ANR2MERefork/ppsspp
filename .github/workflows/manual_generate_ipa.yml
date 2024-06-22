@@ -80,8 +80,8 @@ jobs:
 
       - name: Run script inside Alpine chroot
         env:
-          CC: gcc # clang
-          CXX: g++ # clang++
+          CC: clang # gcc
+          CXX: clang++ # g++
           USE_CCACHE: 1
         run: |
           uname -a
@@ -89,7 +89,8 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash cmake python3 glu-dev clang lld compiler-rt # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add clang lld compiler-rt
+          apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
           gcc --version
@@ -236,7 +237,7 @@ jobs:
         shell: bash
       
       - name: Package Standard Binary build
-        if: ${{ ! github.event.inputs.createAppImage }}
+        if: ${{ github.event.inputs.createAppImage != 'true' }}
         run: |
           find . -name "PPSSPPSDL" -exec file {} \;
           mkdir ppsspp
@@ -252,11 +253,13 @@ jobs:
           path: ppsspp/
 
       - name: Run script inside Alpine chroot (Build Tests)
-        if: ${{ github.event.inputs.runTest }}
+        if: ${{ github.event.inputs.runTest == 'true' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           # Build tests
           ./b.sh --headless --unittest
+          find . -name PPSSPPHeadless -exec file {} \;
+          find . -name PPSSPPUnitTest -exec file {} \;
         shell: alpine-target.sh --root {0}
 
       - name: Package Test build
@@ -280,8 +283,8 @@ jobs:
 
   test:
     name: Testing ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} headless
-    if: ${{ github.event.inputs.runTest }}
-    continue-on-error: true
+    if: ${{ github.event.inputs.runTest == 'true' }}
+    #continue-on-error: true
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
@@ -357,8 +360,6 @@ jobs:
           find . -name PPSSPPUnitTest
           find . -name PPSSPPUnitTest -exec cp "{}" . \;
           chmod +x PPSSPPUnitTest
-          find . -name PPSSPPHeadless
-          find . -name PPSSPPUnitTest
         shell: alpine-test.sh --root {0}
   
       - name: Execute Unit tests
