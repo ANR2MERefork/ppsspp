@@ -120,10 +120,10 @@ jobs:
           #   --cxx=mipsel-linux-g++ \
           
           GENERAL="
-          	--target-os=linux \
-          	--disable-shared \
-          	--enable-static"
-            #--enable-pic \
+             --target-os=linux \
+             --disable-shared \
+             --enable-static"
+             #--enable-pic \
           
           MODULES="\
              --disable-avdevice \
@@ -167,15 +167,15 @@ jobs:
               --enable-demuxer=wav"
           
           VIDEO_ENCODERS="\
-          	  --enable-encoder=huffyuv
-          	  --enable-encoder=ffv1
-          	  --enable-encoder=mjpeg"
+              --enable-encoder=huffyuv
+              --enable-encoder=ffv1
+              --enable-encoder=mjpeg"
           
           AUDIO_ENCODERS="\
-          	  --enable-encoder=pcm_s16le"
+              --enable-encoder=pcm_s16le"
           
           MUXERS="\
-            	--enable-muxer=avi"
+              --enable-muxer=avi"
           
           PARSERS="\
               --enable-parser=h264 \
@@ -195,7 +195,7 @@ jobs:
               --extra-ldflags="-pie" \
               --extra-ldexeflags="-pie" \
               --enable-zlib \
-          	  --disable-yasm \
+              --disable-yasm \
               --disable-everything \
               ${MODULES} \
               ${VIDEO_DECODERS} \
@@ -205,7 +205,7 @@ jobs:
               ${DEMUXERS} \
               ${MUXERS} \
               ${PARSERS} \
-          	  --arch=${ARCH} \
+              --arch=${ARCH} \
              
           make clean
           make install
