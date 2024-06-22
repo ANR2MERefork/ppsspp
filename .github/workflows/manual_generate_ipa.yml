@@ -78,7 +78,7 @@ jobs:
           key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
           create-symlink: true
 
-      - name: Run script inside Alpine chroot
+      - name: Run script inside Alpine chroot (Build Target arch)
         env:
           CC: clang # gcc
           CXX: clang++ # g++
@@ -89,8 +89,8 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add clang lld compiler-rt
           apk add build-base wget git bash cmake python3 glu-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add clang lld compiler-rt
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
           gcc --version
@@ -255,6 +255,10 @@ jobs:
       - name: Run script inside Alpine chroot (Build Tests)
         if: ${{ github.event.inputs.runTest == 'true' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          CC: clang # gcc
+          CXX: clang++ # g++
+          USE_CCACHE: 1
         run: |
           # Build tests
           ./b.sh --headless --unittest
