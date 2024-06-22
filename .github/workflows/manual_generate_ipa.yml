@@ -192,15 +192,17 @@ jobs:
               --enable-parser=mpegaudio"
 
           echo "VIDEO_ENCODERS="${VIDEO_ENCODERS}
-          
+
+          # cflags: -static-pie
+          # ldflags when using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
           ./configure \
               --prefix=./linux/${ARCH} \
               ${GENERAL} \
               --pkg-config=$(which pkg-config) \
               --pkg-config-flags="--static" \
-              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \ # -static-pie
+              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
               --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
-              --extra-ldflags="-no-pie -Wl,-Bsymbolic" \ # ldflags whe using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
+              --extra-ldflags="-no-pie -Wl,-Bsymbolic" \
               --extra-ldexeflags="-no-pie" \
               --enable-zlib \
               --disable-yasm \
