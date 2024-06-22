@@ -82,6 +82,8 @@ jobs:
         env:
           CC: gcc
           CXX: g++
+          CPPFLAGS: -fno-pie -no-pie
+          LDFLAGS: -no-pie
           USE_CCACHE: 1
         run: |
           uname -a
@@ -115,6 +117,7 @@ jobs:
           cd .. && cd ..
           # End of Build SDL2 from source
 
+          rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
           # Build a minimal FFMPEG (some arch may get 'fopen64' or 'fcntl64' issue during linking, or tried to link the wrong arch)
           cd ffmpeg
           rm -f config.h
@@ -146,10 +149,10 @@ jobs:
              --disable-ffmpeg"
           
           VIDEO_DECODERS="\
+             --enable-decoder=h264 \
              --enable-decoder=h263 \
              --enable-decoder=h263p \
              --enable-decoder=mpeg2video"
-             #--enable-decoder=h264 \
           
           AUDIO_DECODERS="\
               --enable-decoder=aac \
@@ -160,6 +163,7 @@ jobs:
               --enable-decoder=pcm_s8"
             
           DEMUXERS="\
+              --enable-demuxer=h264 \
               --enable-demuxer=h263 \
               --enable-demuxer=mpegps \
               --enable-demuxer=mpegvideo \
@@ -170,7 +174,6 @@ jobs:
               --enable-demuxer=pcm_s16le \
               --enable-demuxer=pcm_s8 \
               --enable-demuxer=wav"
-              #--enable-demuxer=h264 \
           
           VIDEO_ENCODERS="\
               --enable-encoder=huffyuv
@@ -184,11 +187,11 @@ jobs:
               --enable-muxer=avi"
           
           PARSERS="\
+              --enable-parser=h264 \
               --enable-parser=mpeg4video \
               --enable-parser=mpegvideo \
               --enable-parser=aac \
               --enable-parser=mpegaudio"
-              #--enable-parser=h264 \
 
           echo "VIDEO_ENCODERS="${VIDEO_ENCODERS}
 
@@ -255,6 +258,8 @@ jobs:
         env:
           CC: gcc
           CXX: g++
+          CPPFLAGS: -fno-pie -no-pie
+          LDFLAGS: -no-pie
           USE_CCACHE: 1
         run: |
           # Build tests
