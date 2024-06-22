@@ -129,8 +129,8 @@ jobs:
           GENERAL="
              --target-os=linux \
              --disable-shared \
-             --enable-static"
-             #--enable-pic"
+             --enable-static \
+             --enable-pic"
           
           MODULES="\
              --disable-avdevice \
@@ -196,10 +196,11 @@ jobs:
           ./configure \
               --prefix=./linux/${ARCH} \
               ${GENERAL} \
+              --pkg-config=$(which pkg-config) \
               --pkg-config-flags="--static" \
-              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
+              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \ # -static-pie
               --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
-              --extra-ldflags="-no-pie" \
+              --extra-ldflags="-no-pie -Wl,-Bsymbolic" \ # ldflags whe using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
               --extra-ldexeflags="-no-pie" \
               --enable-zlib \
               --disable-yasm \
@@ -218,6 +219,7 @@ jobs:
           make install
           cd ..
           # End of Build a minimal FFMPEG
+          file ./ffmpeg/linux/x86/lib/libavcodec.a
 
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
           ./b.sh --${{ github.event.inputs.buildVariant }}
