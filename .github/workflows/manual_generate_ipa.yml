@@ -189,7 +189,9 @@ jobs:
           ./configure \
               --prefix=./linux/${ARCH} \
               ${GENERAL} \
+              --pkg-config-flags="--static" \
               --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fPIE" \
+              --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3 -fPIE" \
               --extra-ldflags="-pie" \
               --extra-ldexeflags="-pie" \
               --enable-zlib \
