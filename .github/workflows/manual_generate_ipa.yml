@@ -123,8 +123,8 @@ jobs:
           	--target-os=linux \
             --enable-pic \
           	--disable-shared \
-          	--enable-static"
-            #--extra-ldexeflags='-pie'
+          	--enable-static \
+            --extra-ldexeflags='-pie'"
           
           MODULES="\
              --disable-avdevice \
@@ -347,7 +347,7 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           uname -a
-          find . -name PPSSPPUnitTest -exec file {} \;
+          find . -name "PPSSPPUnitTest" -exec file {} \;
           #if [ -e ./PPSSPPUnitTest ]; then
           #  ./PPSSPPUnitTest ALL
           #fi
