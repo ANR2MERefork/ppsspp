@@ -220,7 +220,6 @@ jobs:
           make install
           cd ..
           # End of Build a minimal FFMPEG
-          file ./ffmpeg/linux/x86/lib/libavcodec.a
 
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
           ./b.sh --${{ github.event.inputs.buildVariant }}
@@ -260,8 +259,10 @@ jobs:
         run: |
           # Build tests
           ./b.sh --headless --unittest
+          file ./ffmpeg/linux/x86/lib/libavcodec.a
           find . -name PPSSPPHeadless -exec file {} \;
           find . -name PPSSPPUnitTest -exec file {} \;
+          find . -name libavcodec.a -exec file {} \;
         shell: alpine-target.sh --root {0}
 
       - name: Package Test build
