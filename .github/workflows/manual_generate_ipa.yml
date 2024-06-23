@@ -21,7 +21,7 @@ on:
         - x86_64
         - x86
         - aarch64
-        - armhf
+        - armhf # uname -m shows armv7l
         - armv7
         - riscv64
         - ppc64le
@@ -69,7 +69,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: edge # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Setup ccache
@@ -87,6 +87,7 @@ jobs:
           USE_CCACHE: 1
         run: |
           uname -a
+          cat /proc/cpuinfo
           apk list -i
           apk update
           apk add --upgrade apk-tools
@@ -117,15 +118,17 @@ jobs:
           cd .. && cd ..
           # End of Build SDL2 from source
 
-          rm -f ./ffmpeg/linux/armv7/lib/libavutil.a
-          find . -name libavutil.a
+          #rm -f ./ffmpeg/linux/armv7/lib/libavutil.a
+          #find . -name libavutil.a
           #rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
+          #find . -name libavcodec.a
           # Build a minimal FFMPEG (some arch may get 'fopen64' or 'fcntl64' issue during linking, or tried to link the wrong arch)
           cd ffmpeg
           rm -f config.h
           set -e
 
-          ARCH="${{ github.event.inputs.cpuArch }}"
+          # armhf can be detected as armv7l too
+          ARCH="${{ github.event.inputs.cpuArch == 'armhf' && 'armv7' || github.event.inputs.cpuArch }}"
           #   --enable-cross-compile \
           #   --cc=mipsel-linux-gcc \
           #   --cxx=mipsel-linux-g++ \
@@ -225,7 +228,8 @@ jobs:
           make install
           cd ..
           # End of Build a minimal FFMPEG
-          find . -name libavutil.a
+          #find . -name libavutil.a
+          #find . -name libavcodec.a
 
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
           ./b.sh --${{ github.event.inputs.buildVariant }}
@@ -234,6 +238,7 @@ jobs:
       - name: Run script on the Host system
         run: |
           uname -a
+          cat /proc/cpuinfo
           apt list --installed
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
