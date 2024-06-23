@@ -82,7 +82,7 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fno-pie -no-pie -D_GNU_SOURCE
+          CPPFLAGS: -fno-pie -fno-plt -no-pie -D_GNU_SOURCE
           LDFLAGS: -no-pie
           USE_CCACHE: 1
         run: |
@@ -224,6 +224,7 @@ jobs:
           make install
           cd ..
           # End of Build a minimal FFMPEG
+          find . -name libavutil.a
 
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
           ./b.sh --${{ github.event.inputs.buildVariant }}
@@ -259,7 +260,7 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fno-pie -no-pie -D_GNU_SOURCE
+          CPPFLAGS: -fno-pie -fno-plt -no-pie -D_GNU_SOURCE
           LDFLAGS: -no-pie
           USE_CCACHE: 1
         run: |
