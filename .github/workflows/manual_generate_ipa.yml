@@ -258,12 +258,13 @@ jobs:
       - name: Package AppImage build (on target arch)
         if: ${{ github.event.inputs.createAppImage == 'true' }}
         run: |
+          pwd
           find . -name "PPSSPPSDL" -exec file {} \;
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
-            ~/ppsspp/ppsspp/ppsspp/scripts/makeappimage_32-bit.sh
+            ./../scripts/makeappimage_32-bit.sh
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
-            ~/ppsspp/ppsspp/ppsspp/scripts/makeappimage_64-bit.sh
+            ./../scripts/makeappimage_64-bit.sh
           fi
           cd -
           mkdir ppsspp
