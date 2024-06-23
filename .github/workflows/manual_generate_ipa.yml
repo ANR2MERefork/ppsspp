@@ -82,7 +82,7 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fno-pie -no-pie
+          CPPFLAGS: -fno-pie -no-pie -D_GNU_SOURCE
           LDFLAGS: -no-pie
           USE_CCACHE: 1
         run: |
@@ -258,7 +258,7 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fno-pie -no-pie
+          CPPFLAGS: -fno-pie -no-pie -D_GNU_SOURCE
           LDFLAGS: -no-pie
           USE_CCACHE: 1
         run: |
