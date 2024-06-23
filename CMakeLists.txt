@@ -52,12 +52,12 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		endif()
 		if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
 			set(ARMV7_DEVICE ON)
-   			# Some armv7 doesn't have neon feature
-   			#string(FIND "${OUTSTR}" "neon" pos)
-			#if(NOT (pos LESS 0))
+   			# Some armv7 doesn't have neon feature, might also consider detecting & using vfpv3[d16/d32] when neon is not supported
+   			string(FIND "${OUTSTR}" "neon" pos)
+			if(NOT (pos LESS 0))
    				message("Using NEON")
 				add_compile_options(-mfpu=neon)
-    			#endif()
+    			endif()
 			# Horrifying workaround for bug in android cmake stuff for asm files
 			if(ANDROID)
 				set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -target armv7a-none-linux-android")
