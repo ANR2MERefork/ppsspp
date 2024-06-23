@@ -127,7 +127,7 @@ jobs:
           rm -f config.h
           set -e
 
-          # armhf can be detected as armv7l too! Since PPSSPP will search "^armv7" libraries at /armv7/ subdirecory, here we go:
+          # armhf can be detected as armv7l too! Since PPSSPP will search "^armv7" libraries at /armv7/ subdirecory, so here we go:
           ARCH="${{ github.event.inputs.cpuArch == 'armhf' && 'armv7' || github.event.inputs.cpuArch }}"
           #   --enable-cross-compile \
           #   --cc=mipsel-linux-gcc \
@@ -253,6 +253,22 @@ jobs:
             cp build*/PPSSPPSDL ppsspp/
             cp -r assets ppsspp/assets
           fi
+
+      - name: Package AppImage build (on target arch)
+        if: ${{ github.event.inputs.createAppImage == 'true' }}
+        run: |
+          find . -name "PPSSPPSDL" -exec file {} \;
+          cd build
+          if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
+            ~/ppsspp/scripts/makeappimage_32-bit.sh
+          elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+            ~/ppsspp/scripts/makeappimage_64-bit.sh
+          fi
+          cd -
+          mkdir ppsspp
+          find . -name "AppRun" -exec file {} \;
+          find . -name "*.AppImage" -exec file {} \;
+        shell: alpine-target.sh --root {0}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
