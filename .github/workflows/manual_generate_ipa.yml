@@ -118,6 +118,7 @@ jobs:
           # End of Build SDL2 from source
 
           rm -f ./ffmpeg/linux/armv7/lib/libavutil.a
+          find . -name libavutil.a
           #rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
           # Build a minimal FFMPEG (some arch may get 'fopen64' or 'fcntl64' issue during linking, or tried to link the wrong arch)
           cd ffmpeg
