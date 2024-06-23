@@ -250,7 +250,8 @@ jobs:
           find . -name "PPSSPPSDL" -exec file {} \;
           mkdir ppsspp
           if [ -e build*/PPSSPPSDL ]; then
-            cp build*/PPSSPPSDL ppsspp/
+            cp -a build*/PPSSPPSDL ppsspp/
+            chmod +x ppsspp/PPSSPPSDL
             cp -r assets ppsspp/assets
           fi
 
@@ -260,17 +261,17 @@ jobs:
           find . -name "PPSSPPSDL" -exec file {} \;
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
-            ~/ppsspp/ppsspp/scripts/makeappimage_32-bit.sh
+            ~/ppsspp/ppsspp/ppsspp/scripts/makeappimage_32-bit.sh
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
-            ~/ppsspp/ppsspp/scripts/makeappimage_64-bit.sh
+            ~/ppsspp/ppsspp/ppsspp/scripts/makeappimage_64-bit.sh
           fi
           cd -
           mkdir ppsspp
           find . -name "AppRun" -exec file {} \;
           find . -name "*.AppImage" -exec file {} \;
-          zip -qry "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage" ./AppDir/*.*
+          zip -qry "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage" AppDir/*.*
           chmod +x "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage"
-          cp -a "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage" /ppsspp
+          cp -a "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage" ppsspp/
         shell: alpine-target.sh --root {0}
 
       - name: Upload build artifact
