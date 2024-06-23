@@ -21,8 +21,8 @@ on:
         - x86_64
         - x86
         - aarch64
-        - armhf # uname -m shows armv7l
-        - armv7
+        - armhf   # Since this runs on QEMU: both "armhf" and
+        - armv7   #     "armv7" shows "armv7l" on "uname -m" but "cat /proc/cpuinfo" shows (v8l) with neon feature
         - riscv64
         - ppc64le
         - s390x
@@ -122,12 +122,12 @@ jobs:
           #find . -name libavutil.a
           #rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
           #find . -name libavcodec.a
-          # Build a minimal FFMPEG (some arch may get 'fopen64' or 'fcntl64' issue during linking, or tried to link the wrong arch)
+          # Build a minimal FFMPEG (without recompiling some arch may get 'fopen64' or 'fcntl64' issue during PPSSPP linking)
           cd ffmpeg
           rm -f config.h
           set -e
 
-          # armhf can be detected as armv7l too
+          # armhf can be detected as armv7l too! Since PPSSPP will search "^armv7" libraries at /armv7/ subdirecory, here we go:
           ARCH="${{ github.event.inputs.cpuArch == 'armhf' && 'armv7' || github.event.inputs.cpuArch }}"
           #   --enable-cross-compile \
           #   --cc=mipsel-linux-gcc \
@@ -297,7 +297,7 @@ jobs:
           path: test/
 
   test:
-    name: Testing ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} headless
+    name: Testing Headless & Unit tests
     if: ${{ github.event.inputs.runTest == 'true' }}
     #continue-on-error: true
     strategy:
@@ -344,7 +344,7 @@ jobs:
             sdl2
             libstdc++
             glu-dev
-            gcompat
+            #gcompat
           shell-name: alpine-test.sh
 
       - name: Download Test build
