@@ -54,7 +54,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 			set(ARMV7_DEVICE ON)
    			# Some armv7 doesn't have neon feature, might also consider detecting & using vfpv3[d16/d32] when neon is not supported
    			string(FIND "${OUTSTR}" "neon" pos)
-			if(NOT (pos LESS 0))
+			if(NOT UNIX OR NOT (pos LESS 0))
    				message("Using NEON")
 				add_compile_options(-mfpu=neon)
     			endif()
