@@ -63,6 +63,13 @@ jobs:
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+
+      - name: Workaround before running AppImage in a container without patching the magic bytes
+        run: |
+          # run this on the host
+          sudo update-binfmts --disable appimage-type2
+          # to reenable, use
+          # sudo update-binfmts --enable appimage-type2
       
       - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Target arch)
         id: alpine-target
@@ -93,7 +100,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash zip cmake python3 glu-dev fuse fuse3 # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs gcompat # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           #apk add clang lld compiler-rt && clang --version && clang++ --version
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
@@ -276,7 +283,7 @@ jobs:
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
             APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*i686.*mage$')
           	wget -q "$APPIMAGETOOL" -O ./appimagetool-i686.AppImage
-            # Patch the ELF header of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
+            # Patch the ELF header (magic bytes) of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
             sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i appimagetool-i686.AppImage
             chmod +x appimagetool-i686.AppImage
 
@@ -289,7 +296,7 @@ jobs:
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
             APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
           	wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
-            # Patch the ELF header of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
+            # Patch the ELF header (magic bytes) of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
             sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i appimagetool-x86_64.AppImage
             chmod +x appimagetool-x86_64.AppImage
 
