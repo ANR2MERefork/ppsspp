@@ -85,6 +85,7 @@ jobs:
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
           cat /proc/cpuinfo
@@ -265,6 +266,8 @@ jobs:
 
       - name: Package AppImage build (on target arch)
         if: ${{ github.event.inputs.createAppImage != 'false' }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           pwd
           echo $HOME
@@ -321,6 +324,7 @@ jobs:
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           # Build tests
           ./b.sh --headless --unittest
@@ -432,6 +436,8 @@ jobs:
       - name: Execute Unit tests
         continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
           find . -name "PPSSPPUnitTest" -exec file {} \;
@@ -442,6 +448,8 @@ jobs:
   
       - name: Execute Headless tests
         working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
           find . -name PPSSPPHeadless -exec file {} \;
