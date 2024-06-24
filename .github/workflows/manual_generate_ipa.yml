@@ -82,9 +82,8 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fno-pie -fno-plt -no-pie -D_GNU_SOURCE -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
-          DEFAULT_LIBC: LIBC_GLIBC
           USE_CCACHE: 1
         run: |
           uname -a
@@ -142,12 +141,12 @@ jobs:
           #   --enable-cross-compile \
           #   --cc=mipsel-linux-gcc \
           #   --cxx=mipsel-linux-g++ \
+          #   --extra-libs="-lgcc" \
           
           GENERAL="
              --target-os=linux \
              --disable-shared \
-             --enable-static \
-             --enable-pic"
+             --enable-static"
           
           MODULES="\
              --disable-avdevice \
@@ -212,15 +211,14 @@ jobs:
 
           # cflags: -static-pie
           # ldflags when using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
+          # extra-ldexeflags If your target platform requires position independent binaries: -pie # -no-pie
           ./configure \
               --prefix=./linux/${ARCHDIR} \
               ${GENERAL} \
-              --pkg-config=$(which pkg-config) \
-              --pkg-config-flags="--static" \
-              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
-              --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3 -fno-pie -no-pie" \
-              --extra-ldflags="-no-pie -Wl,-Bsymbolic" \
-              --extra-ldexeflags="-no-pie" \
+              --extra-cflags="-D__STDC_CONSTANT_MACROS -O3" \
+              --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3" \
+              --extra-ldflags="-Wl,-Bsymbolic" \
+              --enable-pic \
               --enable-zlib \
               --disable-yasm \
               --disable-everything \
@@ -255,7 +253,7 @@ jobs:
         shell: bash
       
       - name: Package Standard Binary build
-        if: ${{ github.event.inputs.createAppImage != 'true' }}
+        if: ${{ github.event.inputs.createAppImage == 'false' }}
         run: |
           find . -name "PPSSPPSDL" -exec file {} \;
           mkdir ppsspp
@@ -266,17 +264,44 @@ jobs:
           fi
 
       - name: Package AppImage build (on target arch)
-        if: ${{ github.event.inputs.createAppImage == 'true' }}
+        if: ${{ github.event.inputs.createAppImage != 'false' }}
         run: |
           pwd
+          echo $HOME
           find . -name "PPSSPPSDL" -exec file {} \;
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
             chmod +x ./../scripts/makeappimage_32-bit.sh
             (./../scripts/makeappimage_32-bit.sh)
+            # alternative, because ./linuxdeploy-i386.AppImage not found from within the makeappimage_32-bit.sh script
+            ./linuxdeploy-i386.AppImage --appimage-extract-and-run --appdir=AppDir \
+            	--exclude-library="libX*" \
+            	--exclude-library="libglib*" \
+            	--exclude-library="libgobject*" \
+            	--exclude-library="libgdk_pixbuf*" \
+            	--exclude-library="libwayland*" \
+            	--exclude-library="libgmodule*" \
+            	--exclude-library="libgio*" \
+            	--exclude-library="libxcb*" \
+            	--exclude-library="libxkbcommon*" \
+            	--exclude-library="libdb*"
+            VERSION=$(./AppDir/AppRun --version) ./appimagetool-i686.AppImage --appimage-extract-and-run AppDir
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
             chmod +x ./../scripts/makeappimage_64-bit.sh
             (./../scripts/makeappimage_64-bit.sh)
+            # alternative, because ./linuxdeploy-x86_64.AppImage not found from within the makeappimage_64-bit.sh script
+            ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir=AppDir \
+            	--exclude-library="libX*" \
+            	--exclude-library="libglib*" \
+            	--exclude-library="libgobject*" \
+            	--exclude-library="libgdk_pixbuf*" \
+            	--exclude-library="libwayland*" \
+            	--exclude-library="libgmodule*" \
+            	--exclude-library="libgio*" \
+            	--exclude-library="libxcb*" \
+            	--exclude-library="libxkbcommon*" \
+            	--exclude-library="libdb*"
+            VERSION=$(./AppDir/AppRun --version) ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
           fi
           cd -
           mkdir ppsspp
@@ -294,14 +319,13 @@ jobs:
           path: ppsspp/
 
       - name: Run script inside Alpine chroot (Build Tests)
-        if: ${{ github.event.inputs.runTest == 'true' }}
+        if: ${{ github.event.inputs.runTest != 'false' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fno-pie -fno-plt -no-pie -D_GNU_SOURCE -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
-          DEFAULT_LIBC: LIBC_GLIBC
           USE_CCACHE: 1
         run: |
           # Build tests
@@ -332,7 +356,7 @@ jobs:
 
   test:
     name: Testing Headless & Unit tests
-    if: ${{ github.event.inputs.runTest == 'true' }}
+    if: ${{ github.event.inputs.runTest != 'false' }}
     #continue-on-error: true
     strategy:
       fail-fast: false
