@@ -69,8 +69,9 @@ jobs:
           update-binfmts --display
           # run this on the host, might affect the host permanently on the runner (even on the next runs)
           #sudo update-binfmts --disable appimage-type2
-          
-          # to reenable, use
+
+          # to reenable, use:
+          sudo apt install appimagelauncher -y
           sudo update-binfmts --enable appimage-type2
       
       - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Target arch)
