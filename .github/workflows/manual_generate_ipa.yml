@@ -67,10 +67,12 @@ jobs:
       - name: Workaround before running AppImage in a container without patching the magic bytes
         run: |
           update-binfmts --display
-          # run this on the host, might affect the host permanently on the runner (even on the next runs)
+          # run this on the host, might affect the host permanently on the runner (even on the next runs) and can't be enabled again!
           #sudo update-binfmts --disable appimage-type2
 
           # to reenable, use:
+          sudo add-apt-repository ppa:appimagelauncher-team/stable
+          sudo apt update
           sudo apt install appimagelauncher -y
           sudo update-binfmts --enable appimage-type2
       
