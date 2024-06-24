@@ -64,13 +64,14 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
-      #- name: Workaround before running AppImage in a container without patching the magic bytes
-      #  run: |
-      #    update-binfmts --display
-      #    # run this on the host
-      #    sudo update-binfmts --disable appimage-type2
-      #    # to reenable, use
-      #    # sudo update-binfmts --enable appimage-type2
+      - name: Workaround before running AppImage in a container without patching the magic bytes
+        run: |
+          update-binfmts --display
+          # run this on the host, might affect the host permanently on the runner (even on the next runs)
+          #sudo update-binfmts --disable appimage-type2
+          
+          # to reenable, use
+          sudo update-binfmts --enable appimage-type2
       
       - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Target arch)
         id: alpine-target
