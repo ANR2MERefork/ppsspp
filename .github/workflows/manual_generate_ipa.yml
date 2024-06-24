@@ -64,17 +64,19 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
-      - name: Workaround before running AppImage in a container without patching the magic bytes
+      - name: Supposedly a Workaround before running AppImage in a container without patching the magic bytes
         run: |
           update-binfmts --display
-          # run this on the host, might affect the host permanently on the runner (even on the next runs) and can't be enabled again!
+          # run this on the host, might affect the host permanently on the runner (even on the next runs) and can't be enabled again without reinstalling!
           #sudo update-binfmts --disable appimage-type2
 
           # to reenable, use:
-          sudo add-apt-repository ppa:appimagelauncher-team/stable
-          sudo apt update
-          sudo apt install appimagelauncher -y
-          sudo update-binfmts --enable appimage-type2
+          #sudo add-apt-repository ppa:appimagelauncher-team/stable
+          #sudo apt update
+          #sudo apt install appimagelauncher -y
+          # automatic from appimagelauncher: update-binfmts --package appimage --install appimage-type1 /usr/bin/AppImageLauncher --magic 'AI\x01' --offset 8
+          # automatic from appimagelauncher: update-binfmts --package appimage --install appimage-type2 /usr/bin/AppImageLauncher --magic 'AI\x02' --offset 8
+          #sudo update-binfmts --enable appimage-type2
       
       - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Target arch)
         id: alpine-target
@@ -297,7 +299,7 @@ jobs:
             chmod +x linuxdeploy-i386.AppImage
     
             chmod +x ./../scripts/makeappimage_32-bit.sh
-            ./../scripts/makeappimage_32-bit.sh
+            ./../scripts/makeappimage_32-bit.sh # linuxdeploy-x86_64.AppImage might be missing some library or not support Alpine Linux?
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
             APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
           	wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
@@ -310,7 +312,7 @@ jobs:
             chmod +x linuxdeploy-x86_64.AppImage
             
             chmod +x ./../scripts/makeappimage_64-bit.sh
-            ./../scripts/makeappimage_64-bit.sh
+            ./../scripts/makeappimage_64-bit.sh # linuxdeploy-x86_64.AppImage might be missing some library or not support Alpine Linux?
           fi
           cd -
           mkdir ppsspp
