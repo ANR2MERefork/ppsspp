@@ -272,36 +272,10 @@ jobs:
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
             chmod +x ./../scripts/makeappimage_32-bit.sh
-            (./../scripts/makeappimage_32-bit.sh)
-            # alternative, because ./linuxdeploy-i386.AppImage not found from within the makeappimage_32-bit.sh script
-            ./linuxdeploy-i386.AppImage --appimage-extract-and-run --appdir=AppDir \
-            	--exclude-library="libX*" \
-            	--exclude-library="libglib*" \
-            	--exclude-library="libgobject*" \
-            	--exclude-library="libgdk_pixbuf*" \
-            	--exclude-library="libwayland*" \
-            	--exclude-library="libgmodule*" \
-            	--exclude-library="libgio*" \
-            	--exclude-library="libxcb*" \
-            	--exclude-library="libxkbcommon*" \
-            	--exclude-library="libdb*"
-            VERSION=$(./AppDir/AppRun --version) ./appimagetool-i686.AppImage --appimage-extract-and-run AppDir
+            ./../scripts/makeappimage_32-bit.sh
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
             chmod +x ./../scripts/makeappimage_64-bit.sh
-            (./../scripts/makeappimage_64-bit.sh)
-            # alternative, because ./linuxdeploy-x86_64.AppImage not found from within the makeappimage_64-bit.sh script
-            ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir=AppDir \
-            	--exclude-library="libX*" \
-            	--exclude-library="libglib*" \
-            	--exclude-library="libgobject*" \
-            	--exclude-library="libgdk_pixbuf*" \
-            	--exclude-library="libwayland*" \
-            	--exclude-library="libgmodule*" \
-            	--exclude-library="libgio*" \
-            	--exclude-library="libxcb*" \
-            	--exclude-library="libxkbcommon*" \
-            	--exclude-library="libdb*"
-            VERSION=$(./AppDir/AppRun --version) ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
+            ./../scripts/makeappimage_64-bit.sh
           fi
           cd -
           mkdir ppsspp
