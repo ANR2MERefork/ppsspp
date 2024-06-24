@@ -92,7 +92,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash zip cmake python3 glu-dev fuse3 # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base wget git bash zip cmake python3 glu-dev fuse fuse3 # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev # need to install sdl2 from source when using Alpine v3.18 or older?
           #apk add clang lld compiler-rt && clang --version && clang++ --version
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
@@ -271,9 +271,27 @@ jobs:
           find . -name "PPSSPPSDL" -exec file {} \;
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
+            APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*i686.*mage$')
+          	wget -q "$APPIMAGETOOL" -O ./appimagetool-i686.AppImage
+            sed -i 's|AI\x02|\x00\x00\x00|' appimagetool-i686.AppImage
+            chmod +x appimagetool-x86_64.AppImage
+
+            wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-i686.AppImage
+            sed -i 's|AI\x02|\x00\x00\x00|' linuxdeploy-i686.AppImage
+            chmod +x linuxdeploy-i686.AppImage
+    
             chmod +x ./../scripts/makeappimage_32-bit.sh
             ./../scripts/makeappimage_32-bit.sh
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+            APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
+          	wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
+            sed -i 's|AI\x02|\x00\x00\x00|' appimagetool-x86_64.AppImage
+            chmod +x appimagetool-x86_64.AppImage
+
+            wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+            sed -i 's|AI\x02|\x00\x00\x00|' linuxdeploy-x86_64.AppImage
+            chmod +x linuxdeploy-x86_64.AppImage
+            
             chmod +x ./../scripts/makeappimage_64-bit.sh
             ./../scripts/makeappimage_64-bit.sh
           fi
