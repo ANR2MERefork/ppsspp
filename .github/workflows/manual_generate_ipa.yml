@@ -131,12 +131,13 @@ jobs:
           # armhf can be detected as armv7l too! Since PPSSPP will search "^armv7" libraries at /armv7/ subdirecory, so here we go:
           #ARCH="${{ github.event.inputs.cpuArch == 'armhf' && 'armv7' || github.event.inputs.cpuArch }}"
           # PPSSPP will fallback to x86_64 search path with Unknown CMAKE_SYSTEM_PROCESSOR
+          ARCH="${{ github.event.inputs.cpuArch }}"
+          ARCHDIR=${ARCH}
           if [ "${{ github.event.inputs.cpuArch }}" == "armhf" ]; then
             ARCH="armv7"
+            ARCHDIR="armv7"
           elif [ "${{ github.event.inputs.cpuArch }}" == "ppc64le" ]; then
-            ARCH="x86_64"
-          else
-            ARCH="${{ github.event.inputs.cpuArch }}"
+            ARCHDIR="x86_64"
           fi
           #   --enable-cross-compile \
           #   --cc=mipsel-linux-gcc \
@@ -212,7 +213,7 @@ jobs:
           # cflags: -static-pie
           # ldflags when using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
           ./configure \
-              --prefix=./linux/${ARCH} \
+              --prefix=./linux/${ARCHDIR} \
               ${GENERAL} \
               --pkg-config=$(which pkg-config) \
               --pkg-config-flags="--static" \
