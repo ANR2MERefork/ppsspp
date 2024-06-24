@@ -262,10 +262,10 @@ jobs:
           find . -name "PPSSPPSDL" -exec file {} \;
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
-            chmod +x /../scripts/makeappimage_32-bit.sh
+            chmod +x ./../scripts/makeappimage_32-bit.sh
             ./../scripts/makeappimage_32-bit.sh
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
-            chmod +x /../scripts/makeappimage_64-bit.sh
+            chmod +x ./../scripts/makeappimage_64-bit.sh
             ./../scripts/makeappimage_64-bit.sh
           fi
           cd -
