@@ -18,8 +18,8 @@ on:
         required: true
         default: 'x86_64'
         options: 
-        - x86_64
-        - x86
+        - x86_64  # native performance
+        - x86     # native performance
         - aarch64
         - armhf   # Since this runs on QEMU: both "armhf" and
         - armv7   #     "armv7" shows "armv7l" on "uname -m" but "cat /proc/cpuinfo" shows (v8l) with neon feature
@@ -263,10 +263,10 @@ jobs:
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
             chmod +x ./../scripts/makeappimage_32-bit.sh
-            ./../scripts/makeappimage_32-bit.sh
+            (./../scripts/makeappimage_32-bit.sh)
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
             chmod +x ./../scripts/makeappimage_64-bit.sh
-            ./../scripts/makeappimage_64-bit.sh
+            (./../scripts/makeappimage_64-bit.sh)
           fi
           cd -
           mkdir ppsspp
