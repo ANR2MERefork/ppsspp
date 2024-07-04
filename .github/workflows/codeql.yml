@@ -61,6 +61,9 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -89,8 +92,8 @@ jobs:
           'your code, for example:'
         echo '  make bootstrap'
         echo '  make release'
-        #exit 1
         ./b.sh
+        #exit 1
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
