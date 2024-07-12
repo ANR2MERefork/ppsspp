@@ -317,10 +317,7 @@ jobs:
           cd -
           mkdir ppsspp
           find . -name "AppRun" -exec file {} \;
-          find . -name "*.AppImage" -exec file {} \;
-          zip -qry "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage" AppDir/*.*
-          chmod +x "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage"
-          cp -a "PPSSPPSDL${{ github.event.inputs.cpuArch }}.AppImage" ppsspp/
+          find ./build -type f -name "PPSSPP*.AppImage" -exec file {} \; -exec chmod +x {} \; -exec cp -a {} ppsspp/
         shell: alpine-target.sh --root {0}
 
       - name: Upload build artifact
