@@ -317,7 +317,7 @@ jobs:
           cd -
           mkdir ppsspp
           find . -name "AppRun" -exec file {} \;
-          find ./build -type f -name "PPSSPP*.AppImage" -exec file {} \; -exec chmod +x {} \; -exec cp -a {} ppsspp/
+          find ./build -type f -name "PPSSPP*.AppImage" -exec file {} \; -exec chmod +x {} \; -exec cp -a {} ppsspp/ \;
         shell: alpine-target.sh --root {0}
 
       - name: Upload build artifact
