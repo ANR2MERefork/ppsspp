@@ -113,7 +113,9 @@ id<PPSSPPViewController> sharedViewController;
 
 @end
 
-@implementation PPSSPPViewControllerGL
+@implementation PPSSPPViewControllerGL {
+	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+}
 
 -(id) init {
 	self = [super init];
@@ -132,7 +134,8 @@ id<PPSSPPViewController> sharedViewController;
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
-    return YES;
+	// Would love to hide it, but it prevents the double-swipe protection from working.
+	return NO;
 }
 
 - (void)shareText:(NSString *)text {
@@ -219,7 +222,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
+	INFO_LOG(G3D, "viewDidAppear");
 	[self hideKeyboard];
+	[self updateGesture];
 }
 
 - (void)viewDidLoad {
@@ -268,10 +273,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[locationHelper setDelegate:self];
 
 	[self hideKeyboard];
-
-	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
-	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
-	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
 	// Initialize the motion manager for accelerometer control.
 	self.motionManager = [[CMMotionManager alloc] init];
@@ -447,7 +448,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	} else {
 		INFO_LOG(SYSTEM, "Allow system gestures on the bottom");
 		// Allow task switching gestures to take precedence, without causing
-		// scroll events in the UI.
+		// scroll events in the UI. Otherwise, we get "ghost" scrolls when switching tasks.
 		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
 	}
 }
@@ -456,6 +457,24 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 {
 	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
 	[self hideKeyboard];
+	[self updateGesture];
+}
+
+- (void)updateGesture {
+	INFO_LOG(SYSTEM, "Updating swipe gesture.");
+
+	if (mBackGestureRecognizer) {
+		INFO_LOG(SYSTEM, "Removing swipe gesture.");
+		[[self view] removeGestureRecognizer:mBackGestureRecognizer];
+		mBackGestureRecognizer = nil;
+	}
+
+	if (GetUIState() != UISTATE_INGAME) {
+		INFO_LOG(SYSTEM, "Adding swipe gesture.");
+		mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
+		[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
+		[[self view] addGestureRecognizer:mBackGestureRecognizer];
+	}
 }
 
 - (UIView *)getView {

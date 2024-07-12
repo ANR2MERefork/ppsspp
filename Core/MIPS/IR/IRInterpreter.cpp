@@ -89,6 +89,64 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
+void IRApplyRounding(MIPSState *mips) {
+	u32 fcr1Bits = mips->fcr31 & 0x01000003;
+	// If these are 0, we just leave things as they are.
+	if (fcr1Bits) {
+		int rmode = fcr1Bits & 3;
+		bool ftz = (fcr1Bits & 0x01000000) != 0;
+#if PPSSPP_ARCH(SSE2)
+		u32 csr = _mm_getcsr() & ~0x6000;
+		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
+		if (rmode & 1) {
+			rmode ^= 2;
+		}
+		csr |= rmode << 13;
+
+		if (ftz) {
+			// Flush to zero
+			csr |= 0x8000;
+		}
+		_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(WINDOWS)
+		// On ARM64 we need to use inline assembly for a portable solution.
+		// Unfortunately we don't have this possibility on Windows with MSVC, so ifdeffed out above.
+		// Note that in the JIT, for fcvts, we use specific conversions. We could use the FCVTS variants
+		// directly through inline assembly.
+		u64 fpcr;  // not really 64-bit, just to match the register size.
+		asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+
+		// Translate MIPS to ARM rounding mode
+		static const u8 lookup[4] = {0, 3, 1, 2};
+
+		fpcr &= ~(3 << 22);    // Clear bits [23:22]
+		fpcr |= (lookup[rmode] << 22);
+
+		if (ftz) {
+			fpcr |= 1 << 24;
+		}
+		// Write back the modified FPCR
+		asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+#endif
+	}
+}
+
+void IRRestoreRounding() {
+#if PPSSPP_ARCH(SSE2)
+	// TODO: We should avoid this if we didn't apply rounding in the first place.
+	// In the meantime, clear out FTZ and rounding mode bits.
+	u32 csr = _mm_getcsr();
+	csr &= ~(7 << 13);
+	_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(WINDOWS)
+	u64 fpcr;  // not really 64-bit, just to match the regsiter size.
+	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
+	// Write back the modified FPCR
+	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+#endif
+}
+
 // We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
 u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 	while (true) {
@@ -466,11 +524,20 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
+#if PPSSPP_ARCH(ARM_NEON) && 0
+			// Untested
+			uint32x4_t value = vld1q_u32(&mips->fi[inst->src1]);
+			value = vshlq_n_u32(value, 1);
+			uint32x2_t halved = vshrn_n_u32(value, 8);
+			uint32x2_t halvedAgain = vshrn_n_u32(vcombine_u32(halved, vdup_n_u32(0)), 8);
+			mips->fi[inst->dest] = vget_lane_u32(halvedAgain, 0);
+#else
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
 			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
 			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
 			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
 			mips->fi[inst->dest] = val;
+#endif
 			break;
 		}
 
@@ -565,9 +632,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		// Not quickly implementable on all platforms, unfortunately.
 		case IROp::Vec4Dot:
 		{
+			// Not quickly implementable on all platforms, unfortunately.
+			// Though, this is still pretty fast compared to one split into multiple IR instructions.
+			// This might be good though: https://gist.github.com/rikusalminen/3040241
 			float dot = mips->f[inst->src1] * mips->f[inst->src2];
 			for (int i = 1; i < 4; i++)
 				dot += mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
@@ -760,8 +829,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		}
 		case IROp::BSwap32:
 		{
-			u32 x = mips->r[inst->src1];
-			mips->r[inst->dest] = swap32(x);
+			mips->r[inst->dest] = swap32(mips->r[inst->src1]);
 			break;
 		}
 
@@ -772,12 +840,31 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = mips->f[inst->src1] - mips->f[inst->src2];
 			break;
 		case IROp::FMul:
-			if ((mips->f[inst->src2] == 0.0f && my_isinf(mips->f[inst->src1])) || (mips->f[inst->src1] == 0.0f && my_isinf(mips->f[inst->src2]))) {
+#if 1
+		{
+			float a = mips->f[inst->src1];
+			float b = mips->f[inst->src2];
+			if ((b == 0.0f && my_isinf(a)) || (a == 0.0f && my_isinf(b))) {
 				mips->fi[inst->dest] = 0x7fc00000;
 			} else {
-				mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
+				mips->f[inst->dest] = a * b;
 			}
+		}
 			break;
+#else
+			// Not sure if faster since it needs to load the operands twice? But the code is simpler.
+			{
+				// Takes care of negative zero by masking away the top bit, which also makes the inf check shorter.
+				u32 a = mips->fi[inst->src1] & 0x7FFFFFFF;
+				u32 b = mips->fi[inst->src2] & 0x7FFFFFFF;
+				if ((a == 0 && b == 0x7F800000) || (b == 0 && a == 0x7F800000)) {
+					mips->fi[inst->dest] = 0x7fc00000;
+				} else {
+					mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
+				}
+				break;
+			}
+#endif
 		case IROp::FDiv:
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			break;
@@ -826,9 +913,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = vfpu_clamp(mips->f[inst->src1], -1.0f, 1.0f);
 			break;
 
-		// Bitwise trickery
 		case IROp::FSign:
 		{
+			// Bitwise trickery
 			u32 val;
 			memcpy(&val, &mips->f[inst->src1], sizeof(u32));
 			if (val == 0 || val == 0x80000000)
@@ -956,6 +1043,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			}
+			// TODO: Inline assembly to use here would be better.
 			switch (IRRoundMode(mips->fcr31 & 3)) {
 			case IRRoundMode::RINT_0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;
 			case IRRoundMode::CAST_1: mips->fs[inst->dest] = (int)src; break;
@@ -1097,10 +1185,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::ApplyRoundingMode:
-			// TODO: Implement
+			IRApplyRounding(mips);
 			break;
 		case IROp::RestoreRoundingMode:
-			// TODO: Implement
+			IRRestoreRounding();
 			break;
 		case IROp::UpdateRoundingMode:
 			// TODO: Implement
