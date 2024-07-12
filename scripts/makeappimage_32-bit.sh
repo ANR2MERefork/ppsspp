@@ -30,4 +30,4 @@ rm AppDir/ppsspp.png
 pushd AppDir
 ln -s usr/share/icons/hicolor/256x256/apps/ppsspp.png
 popd
-ARCH=i386 VERSION=$(./AppDir/AppRun --version) ./appimagetool-i686.AppImage --appimage-extract-and-run AppDir
+ARCH=i686 VERSION=$(./AppDir/AppRun --version) ./appimagetool-i686.AppImage --appimage-extract-and-run AppDir
