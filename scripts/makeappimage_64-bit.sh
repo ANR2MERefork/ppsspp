@@ -40,7 +40,7 @@ cp ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./AppDir/usr/share/icons/hicol
 
 DESTDIR=AppDir make install
 chmod +x AppDir/AppRun
-./appimagetool-x86_64.AppImage --appimage-extract-and-run -s deploy AppDir/usr/share/applications/*.desktop
+./appimagetool-x86_64.AppImage --appimage-extract-and-run deploy AppDir/usr/share/applications/*.desktop
 
 rm AppDir/ppsspp.png
 pushd AppDir
