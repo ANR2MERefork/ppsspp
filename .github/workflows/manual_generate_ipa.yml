@@ -96,8 +96,8 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -D_GNU_SOURCE # -fno-split-stack
-          LDFLAGS: -no-pie
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static #-D_GNU_SOURCE -D_XOPEN_SOURCE=700 # -fno-split-stack
+          LDFLAGS: -no-pie -static
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
@@ -282,10 +282,11 @@ jobs:
         if: ${{ github.event.inputs.createAppImage != 'false' }}
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
+          NO_STRIP: 'true'
         run: |
           pwd
           echo $HOME
-          find . -name "PPSSPPSDL" -exec file {} \;
+          find . -name "PPSSPPSDL" -exec file {} 
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
             APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*i686.*mage$')
@@ -332,8 +333,8 @@ jobs:
         env:
           CC: gcc
           CXX: g++
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -D_GNU_SOURCE # -fno-split-stack
-          LDFLAGS: -no-pie
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static #-D_GNU_SOURCE -D_XOPEN_SOURCE=700 # -fno-split-stack
+          LDFLAGS: -no-pie -static
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
