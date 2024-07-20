@@ -270,7 +270,7 @@ jobs:
       - name: Package Standard Binary build
         if: ${{ github.event.inputs.createAppImage == 'false' }}
         run: |
-          find . -name "PPSSPPSDL" -exec file {} \;
+          find . -name "PPSSPPSDL"  file {} \;
           mkdir ppsspp
           if [ -e build*/PPSSPPSDL ]; then
             cp -a build*/PPSSPPSDL ppsspp/
@@ -286,7 +286,7 @@ jobs:
         run: |
           pwd
           echo $HOME
-          find . -name "PPSSPPSDL" -exec file {} 
+          find . -name "PPSSPPSDL" -exec file {} \;
           cd build
           if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
             APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*i686.*mage$')
