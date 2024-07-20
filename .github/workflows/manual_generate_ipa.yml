@@ -97,7 +97,7 @@ jobs:
           CC: gcc
           CXX: g++
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-          LDFLAGS: -no-pie -static
+          LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
@@ -334,7 +334,7 @@ jobs:
           CC: gcc
           CXX: g++
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-          LDFLAGS: -no-pie -static
+          LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
