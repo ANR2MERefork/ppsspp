@@ -478,7 +478,9 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
-          find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec LD_DEBUG=scopes {} -g --graphics=software \; # -exec readelf -a {} \;
+          sudo apt-get install strace
+          cd test
+          find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software` {} \; # -exec readelf -a {} \;
           if [ -e PPSSPPHeadless ]; then
             python test.py -g --graphics=software
           fi
