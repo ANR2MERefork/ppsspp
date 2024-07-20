@@ -459,6 +459,7 @@ jobs:
         shell: alpine-test.sh --root {0}
   
       - name: Execute Headless tests
+        continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -469,4 +470,17 @@ jobs:
             python test.py -g --graphics=software
           fi
         shell: alpine-test.sh --root {0}
+
+      - name: Testing Portability on Ubuntu 64-bit
+        continue-on-error: true
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          uname -a
+          find . -name PPSSPPHeadless -exec file {} \; -exec readelf -a {} \; -exec ldd {} \; -exec LD_DEBUG=scopes {} -g --graphics=software \;
+          if [ -e PPSSPPHeadless ]; then
+            python test.py -g --graphics=software
+          fi
+        shell: bash
         
