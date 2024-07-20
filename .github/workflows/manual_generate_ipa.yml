@@ -478,8 +478,8 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
-          #sudo apt-get install strace
-          sudo apt-get install musl-tools
+          apt-get install musl
+          ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
           #cd test
           find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec sudo strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software' {} \; # -exec readelf -a {} \; -quit
           if [ -e PPSSPPHeadless ]; then
