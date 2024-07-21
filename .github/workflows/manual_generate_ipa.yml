@@ -94,9 +94,9 @@ jobs:
 
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: musl-gcc -static # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++ -static
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -332,9 +332,9 @@ jobs:
         if: ${{ github.event.inputs.runTest != 'false' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
-          CC: musl-gcc -static # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CC: usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++ -static
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
