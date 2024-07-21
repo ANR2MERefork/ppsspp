@@ -94,8 +94,8 @@ jobs:
 
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: g++ -static
+          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: g++
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
@@ -333,8 +333,8 @@ jobs:
         if: ${{ github.event.inputs.runTest != 'false' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
-          CC: usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: g++ -static
+          CC: usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: g++
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
