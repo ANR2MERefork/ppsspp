@@ -256,7 +256,7 @@ jobs:
           #find . -name libavcodec.a
 
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
-          ./b.sh --${{ github.event.inputs.buildVariant }}
+          ./b.sh --${{ github.event.inputs.buildVariant }} --no-png
         shell: alpine-target.sh --root {0}
 
       - name: Run script on the Host system
@@ -340,7 +340,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           # Build tests
-          ./b.sh --headless --unittest
+          ./b.sh --headless --unittest --no-png
           file ./ffmpeg/linux/x86/lib/libavcodec.a
           find . -name PPSSPPHeadless -exec file {} \;
           find . -name PPSSPPUnitTest -exec file {} \;
