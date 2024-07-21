@@ -94,7 +94,7 @@ jobs:
 
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static
+          CC: musl-gcc -static # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++ -static
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           #apk add clang lld compiler-rt && clang --version && clang++ --version
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
@@ -332,7 +332,7 @@ jobs:
         if: ${{ github.event.inputs.runTest != 'false' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
-          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static
+          CC: musl-gcc -static # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++ -static
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
