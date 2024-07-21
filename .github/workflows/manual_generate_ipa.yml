@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs sdl2-dev sdl2_ttf-dev glew-dev libpng-dev # fontconfig-dev su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           #apk add clang lld compiler-rt && clang --version && clang++ --version
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
@@ -256,7 +256,7 @@ jobs:
           #find . -name libavcodec.a
 
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
-          ./b.sh --${{ github.event.inputs.buildVariant }} --no-png
+          ./b.sh --${{ github.event.inputs.buildVariant }} --no-png --no-sdl2
         shell: alpine-target.sh --root {0}
 
       - name: Run script on the Host system
@@ -340,7 +340,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           # Build tests
-          ./b.sh --headless --unittest --no-png
+          ./b.sh --headless --unittest --no-png --no-sdl2
           file ./ffmpeg/linux/x86/lib/libavcodec.a
           find . -name PPSSPPHeadless -exec file {} \;
           find . -name PPSSPPUnitTest -exec file {} \;
