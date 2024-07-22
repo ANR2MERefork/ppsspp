@@ -96,7 +96,7 @@ jobs:
         env:
           CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -335,7 +335,7 @@ jobs:
         env:
           CC: usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
