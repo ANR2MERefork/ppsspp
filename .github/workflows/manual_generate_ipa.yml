@@ -95,8 +95,8 @@ jobs:
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
           CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -std=c++11 -fno-sized-deallocation
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ -D_XOPEN_SOURCE=600 #-D_GNU_SOURCE # -fno-split-stack
+          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -fno-sized-deallocation # -std=c++11 
+          CPPFLAGS: -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -334,8 +334,8 @@ jobs:
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
           CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -std=c++11 -fno-sized-deallocation
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ -D_XOPEN_SOURCE=600 #-D_GNU_SOURCE # -fno-split-stack
+          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -fno-sized-deallocation # -std=c++11 
+          CPPFLAGS: -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
