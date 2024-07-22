@@ -96,7 +96,7 @@ jobs:
         env:
           CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -255,7 +255,7 @@ jobs:
           #find . -name libavutil.a
           #find . -name libavcodec.a
 
-          export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
+          #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
           ./b.sh --${{ github.event.inputs.buildVariant }} --no-png --no-sdl2
         shell: alpine-target.sh --root {0}
@@ -335,13 +335,13 @@ jobs:
         env:
           CC: usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: g++
-          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           # Build tests
-          export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
+          #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
           ./b.sh --headless --unittest --no-png --no-sdl2
           file ./ffmpeg/linux/x86/lib/libavcodec.a
           find . -name PPSSPPHeadless -exec file {} \;
