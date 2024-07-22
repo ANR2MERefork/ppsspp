@@ -475,7 +475,7 @@ jobs:
         shell: alpine-test.sh --root {0}
 
       - name: Testing Portability on Ubuntu 64-bit
-        if: ${{ github.event.inputs.cpuArch == 'x86_64` }}
+        if: ${{ github.event.inputs.cpuArch == 'x86_64' }}
         continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
