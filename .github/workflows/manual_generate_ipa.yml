@@ -94,8 +94,8 @@ jobs:
 
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++
+          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -static
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
@@ -228,12 +228,12 @@ jobs:
           # cflags: -static-pie
           # ldflags when using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
           # extra-ldexeflags If your target platform requires position independent binaries: -pie # -no-pie
+          #--extra-ldflags="-Wl,-Bsymbolic" \
           ./configure \
               --prefix=./linux/${ARCHDIR} \
               ${GENERAL} \
               --extra-cflags="-D__STDC_CONSTANT_MACROS -O3" \
               --extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3" \
-              --extra-ldflags="-Wl,-Bsymbolic" \
               --enable-pic \
               --enable-zlib \
               --disable-yasm \
@@ -333,8 +333,8 @@ jobs:
         if: ${{ github.event.inputs.runTest != 'false' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
-          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++
+          CC: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -static # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -static
           CPPFLAGS: -fPIC -fno-pie -fno-plt -no-pie -static -static-libgcc -static-libstdc++ -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
@@ -475,13 +475,14 @@ jobs:
         shell: alpine-test.sh --root {0}
 
       - name: Testing Portability on Ubuntu 64-bit
+        if: ${{ github.event.inputs.cpuArch == 'x86_64` }}
         continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
-          sudo apt-get install musl
+          sudo apt-get install musl libgl1-mesa-glx -y
           sudo ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
           #cd test
           find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec readelf -d {} \; -exec sudo strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software' {} \; # -exec readelf -a {} \; -quit
