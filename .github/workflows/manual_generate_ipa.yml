@@ -96,7 +96,7 @@ jobs:
         env:
           CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -fno-unwind-tables -fno-exceptions -static # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fno-pie -no-pie -static -fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -161,8 +161,8 @@ jobs:
           
           GENERAL="
              --target-os=linux \
-             --cc=clang \
-             --cxx=clang++ \
+             --cc=$CC \
+             --cxx=$CXX \
              --disable-shared \
              --enable-static"
           
@@ -237,8 +237,8 @@ jobs:
           ./configure \
               --prefix=./linux/${ARCHDIR} \
               ${GENERAL} \
-              --extra-cflags="-fno-pie -no-pie -fno-unwind-tables -fno-exceptions" \
-              --extra-cxxflags="-fno-pie -no-pie -fno-unwind-tables -fno-exceptions" \
+              --extra-cflags="-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti" \
+              --extra-cxxflags="-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti" \
               --extra-ldflags="-no-pie" \
               --enable-zlib \
               --disable-yasm \
@@ -340,7 +340,7 @@ jobs:
         env:
           CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -fno-unwind-tables -fno-exceptions -static # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fno-pie -no-pie -static -fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
