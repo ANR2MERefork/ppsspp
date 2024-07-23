@@ -496,8 +496,8 @@ jobs:
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libgcc_s.*"
           ls /lib/x86_64-linux-musl
           ls /usr/lib/x86_64-linux-musl
-          sudo bash -c (cd /usr/lib;
-          ln -s /usr/lib/x86_64-linux-gnu x86_64-linux-musl;
+          sudo bash -c (cd /usr/lib; \
+          ln -s /usr/lib/x86_64-linux-gnu x86_64-linux-musl; \
           cd -);
           sudo ln -s /lib/x86_64-linux-gnu /lib/x86_64-linux-musl
           sudo ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
