@@ -498,9 +498,13 @@ jobs:
           ls /usr/lib/x86_64-linux-musl
           sudo ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
           sudo ln -s /lib/x86_64-linux-gnu /lib/x86_64-linux-musl
-          #sudo ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1
-          #sudo ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6
-          #sudo ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1
+          sudo ln -s /usr/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-musl
+          sudo ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1
+          sudo ln -s /lib/x86_64-linux-gnu/libGLdispatch.so.0 /lib/x86_64-linux-musl/libGLdispatch.so.0
+          sudo ln -s /lib/x86_64-linux-gnu/libGLX.so.0 /lib/x86_64-linux-musl/libGLX.so.0
+          sudo ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib/x86_64-linux-musl/ld-linux-x86-64.so.2
+          sudo ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6
+          sudo ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1
           
           #cd test
           find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec readelf -d {} \; -exec sudo strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software' {} \; # -exec readelf -a {} \; -quit
