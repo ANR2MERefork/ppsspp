@@ -494,10 +494,13 @@ jobs:
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libc.*"
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libstdc++.*"
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libgcc_s.*"
+          ls /lib/x86_64-linux-musl
+          ls /usr/lib/x86_64-linux-musl
           sudo ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
-          sudo ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1
-          sudo ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6
-          sudo ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1
+          sudo ln -s /lib/x86_64-linux-gnu /lib/x86_64-linux-musl
+          #sudo ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1
+          #sudo ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6
+          #sudo ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1
           
           #cd test
           find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec readelf -d {} \; -exec sudo strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software' {} \; # -exec readelf -a {} \; -quit
