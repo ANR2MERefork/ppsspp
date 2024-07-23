@@ -522,7 +522,7 @@ jobs:
           fi ;\
           if [ ! -e /lib/x86_64-linux-musl/libgcc_s.so.1 ] ; then \
             ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1 \
-          fi'
+          fi ;'
           
           #cd test
           find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec readelf -d {} \; -exec sudo strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software' {} \; # -exec readelf -a {} \; -quit
