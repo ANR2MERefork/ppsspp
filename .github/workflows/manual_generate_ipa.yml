@@ -94,8 +94,8 @@ jobs:
 
       - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+          CC: clang -fuse-ld=lld --rtlib=compiler-rt # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: clang++ -fuse-ld=lld --rtlib=compiler-rt # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
           CPPFLAGS: -fno-pie -no-pie -static # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs alsa-lib-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
@@ -161,6 +161,8 @@ jobs:
           
           GENERAL="
              --target-os=linux \
+             --cc=clang \
+             --cxx=clang++ \
              --disable-shared \
              --enable-static"
           
@@ -333,8 +335,8 @@ jobs:
         if: ${{ github.event.inputs.runTest != 'false' }}
         #working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
-          CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+          CC: clang -fuse-ld=lld --rtlib=compiler-rt # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: clang++ -fuse-ld=lld --rtlib=compiler-rt # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
           CPPFLAGS: -fno-pie -no-pie -static # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
