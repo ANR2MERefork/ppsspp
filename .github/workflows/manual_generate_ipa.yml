@@ -109,6 +109,8 @@ jobs:
           apk upgrade --available
           apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs alsa-lib-dev pipewire-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
+          export CLANG_DEFAULT_CXX_STDLIB=libc++
+          export CLANG_DEFAULT_RTLIB=compiler-rt
           pwd
           gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
           gcc --version
