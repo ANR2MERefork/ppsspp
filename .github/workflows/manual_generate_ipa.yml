@@ -514,6 +514,9 @@ jobs:
           if [ ! -e /lib/x86_64-linux-musl/libGLX.so.0 ] ; then \
             ln -s /lib/x86_64-linux-gnu/libGLX.so.0 /lib/x86_64-linux-musl/libGLX.so.0 ; \
           fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libX11.so.6 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libX11.so.6 /lib/x86_64-linux-musl/libX11.so.6 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ] ; then \
             ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ; \
           fi ; \
