@@ -496,32 +496,32 @@ jobs:
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libgcc_s.*"
           ls /lib/x86_64-linux-musl
           ls /usr/lib/x86_64-linux-musl
-          sudo bash -c 'cd /usr/lib ;\
-          ln -s /usr/lib/x86_64-linux-gnu x86_64-linux-musl ;\
-          cd - ;\
+          sudo bash -c 'cd /usr/lib ; \
+          ln -s /usr/lib/x86_64-linux-gnu x86_64-linux-musl ; \
+          cd - ; \
           if [ ! -e /lib/x86_64-linux-musl ] ; then \
-            ln -s /lib/x86_64-linux-gnu /lib/x86_64-linux-musl \
-          fi ;\
+            ln -s /lib/x86_64-linux-gnu /lib/x86_64-linux-musl ; \
+          fi ; \
           if [ ! -e /lib/libc.musl-x86_64.so.1 ] ; then \
-            ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1 \
-          fi ;\
+            ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/libGL.so.1 ] ; then \
-            ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1 \
-          fi ;\
+            ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/libGLdispatch.so.0 ] ; then \
-            ln -s /lib/x86_64-linux-gnu/libGLdispatch.so.0 /lib/x86_64-linux-musl/libGLdispatch.so.0 \
-          fi ;\
+            ln -s /lib/x86_64-linux-gnu/libGLdispatch.so.0 /lib/x86_64-linux-musl/libGLdispatch.so.0 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/libGLX.so.0 ] ; then \
-            ln -s /lib/x86_64-linux-gnu/libGLX.so.0 /lib/x86_64-linux-musl/libGLX.so.0 \
-          fi ;\
+            ln -s /lib/x86_64-linux-gnu/libGLX.so.0 /lib/x86_64-linux-musl/libGLX.so.0 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ] ; then \
-            ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 \
-          fi ;\
+            ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/libstdc++.so.6 ] ; then \
-            ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6 \
-          fi ;\
+            ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/libgcc_s.so.1 ] ; then \
-            ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1 \
+            ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1 ; \
           fi ;'
           
           #cd test
