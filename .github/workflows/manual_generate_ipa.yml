@@ -529,6 +529,9 @@ jobs:
           if [ ! -e /lib/x86_64-linux-musl/libbsd.so.0 ] ; then \
             ln -s /lib/x86_64-linux-gnu/libbsd.so.0 /lib/x86_64-linux-musl/libbsd.so.0 ; \
           fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libmd.so.0 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libmd.so.0 /lib/x86_64-linux-musl/libmd.so.0 ; \
+          fi ; \
           if [ ! -e /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ] ; then \
             ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ; \
           fi ; \
