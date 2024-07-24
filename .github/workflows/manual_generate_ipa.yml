@@ -128,7 +128,10 @@ jobs:
           # Build SDL2 from source (Apline v3.17 (musl 1.2.3-r5) have SDL2 version 2.26.5-r0 but have directfb.h issue on some arch)
           export SDL_VERSION=2.30.5 # 2.0.22 (compatible with older Alpine)
           wget https://github.com/libsdl-org/SDL/archive/refs/tags/release-${SDL_VERSION}.tar.gz && \
-          tar -xf release-${SDL_VERSION}.tar.gz && cd SDL-release-${SDL_VERSION} && mkdir build && cd build && \
+          tar -xf release-${SDL_VERSION}.tar.gz
+          # Lets remove all shared library to make sure none gets linked
+          find . \( -name '*.so' ‑o -name '∗.so.*' \) -delete
+          cd SDL-release-${SDL_VERSION} && mkdir build && cd build && \
           cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 -DLIBCXXABI_USE_LLVM_UNWINDER=YES .. && \
           make -j$(getconf _NPROCESSORS_ONLN) clean && \
           make -j$(getconf _NPROCESSORS_ONLN) && \
@@ -262,6 +265,8 @@ jobs:
           #find . -name libavutil.a
           #find . -name libavcodec.a
 
+          # Lets remove all shared library to make sure none gets linked
+          find . \( -name '*.so' ‑o -name '∗.so.*' \) -delete
           #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
           ./b.sh --${{ github.event.inputs.buildVariant }} --no-png --no-sdl2
@@ -347,6 +352,8 @@ jobs:
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
+          # Lets remove all shared library to make sure none gets linked
+          find . \( -name '*.so' ‑o -name '∗.so.*' \) -delete
           # Build tests
           #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
           ./b.sh --headless --unittest --no-png --no-sdl2
