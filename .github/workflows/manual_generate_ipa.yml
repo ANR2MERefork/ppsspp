@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev ffmpeg # sdl2-dev sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           export CLANG_DEFAULT_CXX_STDLIB=libc++
           export CLANG_DEFAULT_RTLIB=compiler-rt
@@ -259,7 +259,7 @@ jobs:
               --arch=${ARCH} \
              
           make clean
-          make install
+          #make install
           cd ..
           # End of Build a minimal FFMPEG
           #find . -name libavutil.a
@@ -269,7 +269,16 @@ jobs:
           find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
           #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
           # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
-          ./b.sh --${{ github.event.inputs.buildVariant }} --no-png --no-sdl2
+          #./b.sh --${{ github.event.inputs.buildVariant }} --no-png --no-sdl2
+          mkdir -p build
+          cd build
+          BUILD_TYPE=Release
+          if [ "${{ github.event.inputs.buildVariant }}" = "debug" ]; then
+            BUILD_TYPE=Debug
+          fi
+          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          make -j$(nproc)
+          cd -
         shell: alpine-target.sh --root {0}
 
       - name: Run script on the Host system
@@ -356,7 +365,13 @@ jobs:
           find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
           # Build tests
           #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
-          ./b.sh --headless --unittest --no-png --no-sdl2
+          #./b.sh --headless --unittest --no-png --no-sdl2
+          mkdir -p build
+          cd build
+          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DHEADLESS=ON -DUNITTEST=ON
+          make -j$(nproc)
+          cd -
+          
           file ./ffmpeg/linux/x86/lib/libavcodec.a
           find . -name PPSSPPHeadless -exec file {} \;
           find . -name PPSSPPUnitTest -exec file {} \;
