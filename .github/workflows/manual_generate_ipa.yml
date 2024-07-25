@@ -444,6 +444,7 @@ jobs:
             sdl2
             libstdc++
             glu-dev
+            ffmpeg
             #gcompat
           shell-name: alpine-test.sh
 
@@ -511,7 +512,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
-          sudo apt-get install musl gcc-multilib libgl1-mesa-glx -y
+          sudo apt-get install musl gcc-multilib libgl1-mesa-glx ffmpeg -y
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libGL.*"
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libc.*"
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libstdc++.*"
