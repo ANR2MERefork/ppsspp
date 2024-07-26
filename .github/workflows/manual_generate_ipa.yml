@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev ffmpeg-dev sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           export CLANG_DEFAULT_CXX_STDLIB=libc++
           export CLANG_DEFAULT_RTLIB=compiler-rt
@@ -134,8 +134,8 @@ jobs:
           cd SDL-release-${SDL_VERSION} && mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 -DLIBCXXABI_USE_LLVM_UNWINDER=YES ..
           make -j$(getconf _NPROCESSORS_ONLN) clean
-          #make -j$(getconf _NPROCESSORS_ONLN)
-          #make -j$(getconf _NPROCESSORS_ONLN) install
+          make -j$(getconf _NPROCESSORS_ONLN)
+          make -j$(getconf _NPROCESSORS_ONLN) install
           cd .. && cd ..
           # End of Build SDL2 from source
 
