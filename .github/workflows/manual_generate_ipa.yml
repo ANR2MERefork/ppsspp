@@ -513,7 +513,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           uname -a
-          sudo apt-get install musl gcc-multilib libgl1-mesa-glx ffmpeg sdl2 -y
+          sudo apt-get install musl gcc-multilib libgl1-mesa-glx ffmpeg libsdl2-2.0-0 -y
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libGL.*"
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libc.*"
           find /usr /lib /lib64 /lib32 /libx32 -type f -name "libstdc++.*"
