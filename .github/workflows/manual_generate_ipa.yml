@@ -83,7 +83,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: edge # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.17' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Setup ccache
