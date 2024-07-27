@@ -83,7 +83,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.17' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: edge # "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.17' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Setup ccache
@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev # ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev audio audio-dev libaudio # ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           export CLANG_DEFAULT_CXX_STDLIB=libc++
           export CLANG_DEFAULT_RTLIB=compiler-rt
