@@ -83,7 +83,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.20' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.17' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Setup ccache
@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev ffmpeg-dev sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           export CLANG_DEFAULT_CXX_STDLIB=libc++
           export CLANG_DEFAULT_RTLIB=compiler-rt
@@ -134,8 +134,8 @@ jobs:
           cd SDL-release-${SDL_VERSION} && mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 -DLIBCXXABI_USE_LLVM_UNWINDER=YES ..
           make -j$(getconf _NPROCESSORS_ONLN) clean
-          #make -j$(getconf _NPROCESSORS_ONLN)
-          #make -j$(getconf _NPROCESSORS_ONLN) install
+          make -j$(getconf _NPROCESSORS_ONLN)
+          make -j$(getconf _NPROCESSORS_ONLN) install
           cd .. && cd ..
           # End of Build SDL2 from source
 
@@ -277,7 +277,7 @@ jobs:
           if [ "${{ github.event.inputs.buildVariant }}" = "debug" ]; then
             BUILD_TYPE=Debug
           fi
-          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=ON -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE
           make -j$(nproc)
           cd -
         shell: alpine-target.sh --root {0}
@@ -369,7 +369,7 @@ jobs:
           #./b.sh --headless --unittest --no-png --no-sdl2
           mkdir -p build
           cd build
-          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=ON -DHEADLESS=ON -DUNITTEST=ON
+          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DHEADLESS=ON -DUNITTEST=ON
           make -j$(nproc)
           cd -
           
@@ -506,7 +506,7 @@ jobs:
         shell: alpine-test.sh --root {0}
 
       - name: Testing Portability on Ubuntu 64-bit
-        if: ${{ github.event.inputs.cpuArch == 'x86_64' }}
+        if: ${{ github.event.inputs.cpuArch == 'x86_64' || github.event.inputs.cpuArch == 'x86' }}
         continue-on-error: true
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         env:
