@@ -83,7 +83,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.17' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          branch: "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.20' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
           shell-name: alpine-target.sh
 
       - name: Setup ccache
@@ -96,7 +96,7 @@ jobs:
         env:
           CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev # ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           export CLANG_DEFAULT_CXX_STDLIB=libc++
           export CLANG_DEFAULT_RTLIB=compiler-rt
@@ -260,7 +260,7 @@ jobs:
               --arch=${ARCH} \
              
           make clean
-          #make install
+          make install
           cd ..
           # End of Build a minimal FFMPEG
           #find . -name libavutil.a
@@ -277,7 +277,7 @@ jobs:
           if [ "${{ github.event.inputs.buildVariant }}" = "debug" ]; then
             BUILD_TYPE=Debug
           fi
-          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          cmake .. -DUSE_SYSTEM_FFMPEG=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE
           make -j$(nproc)
           cd -
         shell: alpine-target.sh --root {0}
@@ -327,7 +327,7 @@ jobs:
             ./../scripts/makeappimage_32-bit.sh # linuxdeploy-x86_64.AppImage might be missing some library or not support Alpine Linux?
           elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
             APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
-          	wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
+            wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
             # Patch the ELF header (magic bytes) of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
             sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i appimagetool-x86_64.AppImage
             chmod +x appimagetool-x86_64.AppImage
@@ -357,7 +357,7 @@ jobs:
         env:
           CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -369,7 +369,7 @@ jobs:
           #./b.sh --headless --unittest --no-png --no-sdl2
           mkdir -p build
           cd build
-          cmake .. -DUSE_SYSTEM_FFMPEG=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DHEADLESS=ON -DUNITTEST=ON
+          cmake .. -DUSE_SYSTEM_FFMPEG=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DHEADLESS=ON -DUNITTEST=ON
           make -j$(nproc)
           cd -
           
@@ -488,6 +488,7 @@ jobs:
           uname -a
           find . -name "PPSSPPUnitTest" -exec file {} \;
           if [ -e ./PPSSPPUnitTest ]; then
+            ldd ./PPSSPPUnitTest
             ./PPSSPPUnitTest ALL
           fi
         shell: alpine-test.sh --root {0}
@@ -501,6 +502,7 @@ jobs:
           uname -a
           find . -name PPSSPPHeadless -exec file {} \;
           if [ -e PPSSPPHeadless ]; then
+            ldd ./PPSSPPHeadless 
             python test.py -g --graphics=software
           fi
         shell: alpine-test.sh --root {0}
