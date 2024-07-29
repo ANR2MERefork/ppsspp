@@ -1,4 +1,4 @@
-name: Manual Generate iOS IPA
+name: Manual Generate Linux Binary/AppImage
 on:
   workflow_dispatch:
     inputs:
@@ -12,87 +12,576 @@ on:
         - release
         - debug
 
+      cpuArch:
+        type: choice
+        description: 'CPU Architecture'
+        required: true
+        default: 'x86_64'
+        options: 
+        - x86_64  # native performance
+        - x86     # native performance
+        - aarch64
+        - armhf   # Since this runs on QEMU: both "armhf" and
+        - armv7   #     "armv7" shows "armv7l" on "uname -m" but "cat /proc/cpuinfo" shows (v8l) with neon feature
+        - riscv64
+        - ppc64le
+        - s390x
+
+      createAppImage:
+        type: boolean
+        description: 'Create AppImage bundle'
+        required: true
+        default: true
+
+      runTest:
+        type: boolean
+        description: 'Run Tests'
+        required: true
+        default: false
+
 jobs:
 
-  ipa:
-    name: Generate ${{ github.event.inputs.buildVariant }} IPA
-    runs-on: macos-latest
+  build:
+    name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
-        
+
       - name: Check Valid Version Tags
         id: valid-tags
         shell: bash
         run: |
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
-      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
         if: ${{ steps.valid-tags.outputs.count == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
-      - name: Set Env Var(s)
+      - name: Supposedly a Workaround before running AppImage in a container without patching the magic bytes
         run: |
-          echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
-        
-      - name: Create macOS git-version.cpp & Version.txt
-        run: |
-          echo "const char *PPSSPP_GIT_VERSION = \"${GIT_VERSION}\";" > git-version.cpp
-          echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
-          # Create Version.txt file (should probably do this during building process)
-          mkdir build-ios
-          mkdir build-ios/PPSSPP.app
-          echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
-          # Testing values ...
-          echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
-          echo "count=${{steps.valid-tags.outputs.count}}"
-          echo $(echo $GIT_VERSION | cut -c 2-)
-          # Testing file location ...
-          find . -name "Version.txt"
-          
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@main
+          update-binfmts --display
+          # run this on the host, might affect the host permanently on the runner (even on the next runs) and can't be enabled again without reinstalling!
+          #sudo update-binfmts --disable appimage-type2
+
+          # to reenable, use:
+          #sudo add-apt-repository ppa:appimagelauncher-team/stable
+          #sudo apt update
+          #sudo apt install appimagelauncher -y
+          # automatic from appimagelauncher: update-binfmts --package appimage --install appimage-type1 /usr/bin/AppImageLauncher --magic 'AI\x01' --offset 8
+          # automatic from appimagelauncher: update-binfmts --package appimage --install appimage-type2 /usr/bin/AppImageLauncher --magic 'AI\x02' --offset 8
+          #sudo update-binfmts --enable appimage-type2
+      
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Target arch)
+        id: alpine-target
+        uses: jirutka/setup-alpine@v1
         with:
-          key: ios
+          arch: ${{ github.event.inputs.cpuArch }}
+          branch: edge # "${{ github.event.inputs.cpuArch == 'riscv64' && 'v3.20' || 'v3.17' }}" # "${{ github.event.inputs.cpuArch == 'armhf' && 'v3.18' || 'v3.20' }}" # riscv64 only supported on edge (or v3.20+ ?), but LFS64 interfaces (*64 syscall shims like fopen64) have been removed since musl 1.2.4 (Alpine v3.19 or v3.18 ?)
+          shell-name: alpine-target.sh
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
           create-symlink: true
-      
-      - name: Execute build
+
+      - name: Run script inside Alpine chroot (Build Target arch)
         env:
-          CC: clang
-          CXX: clang++
+          CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          LDFLAGS: -no-pie
           USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
+          uname -a
+          cat /proc/cpuinfo
+          apk list -i
+          #apk update
+          #apk add --upgrade apk-tools
+          #apk upgrade --available
+          apk --no-cache add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev sndio-dev jack-dev # pulseaudio-dev # ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk --no-cache add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
+          export CLANG_DEFAULT_CXX_STDLIB=libc++
+          export CLANG_DEFAULT_RTLIB=compiler-rt
+          pwd
+          gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+          gcc --version
+          g++ --version
+          ld -v
+          
+          # Fix dubious ownership issue when running git describe inside a container
+          git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+          find / -type f -name "*musl-gcc*"
+
+          # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_SLOPPINESS=pch_defines,clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-          export CCACHE_FILECLONE=true
-          export CCACHE_DEPEND=true
-          export CCACHE_COMPILERCHECK=content
-          ./b.sh --ios --${{ github.event.inputs.buildVariant }}
-      
-      - name: Package build
+          export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+        
+          # Build SDL2 from source (Apline v3.17 (musl 1.2.3-r5) have SDL2 version 2.26.5-r0 but have directfb.h issue on some arch)
+          export SDL_VERSION=2.28.5 # 2.30.5 # 2.0.22 (compatible with older Alpine)
+          wget https://github.com/libsdl-org/SDL/archive/refs/tags/release-${SDL_VERSION}.tar.gz && \
+          tar -xf release-${SDL_VERSION}.tar.gz
+          # Lets remove all shared library to make sure none gets linked
+          find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
+          cd SDL-release-${SDL_VERSION} && mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 -DLIBCXXABI_USE_LLVM_UNWINDER=YES ..
+          make -j$(getconf _NPROCESSORS_ONLN) clean
+          make -j$(getconf _NPROCESSORS_ONLN)
+          make -j$(getconf _NPROCESSORS_ONLN) install
+          cd .. && cd ..
+          # End of Build SDL2 from source
+
+          #rm -f ./ffmpeg/linux/armv7/lib/libavutil.a
+          #find . -name libavutil.a
+          #rm -f ./ffmpeg/linux/x86/lib/libavcodec.a
+          #find . -name libavcodec.a
+          # Build a minimal FFMPEG (without recompiling some arch may get 'fopen64' or 'fcntl64' issue during PPSSPP linking)
+          cd ffmpeg
+          rm -f config.h
+          set -e
+
+          # armhf can be detected as armv7l too! Since PPSSPP will search "^armv7" libraries at /armv7/ subdirecory, so here we go:
+          #ARCH="${{ github.event.inputs.cpuArch == 'armhf' && 'armv7' || github.event.inputs.cpuArch }}"
+          # PPSSPP will fallback to x86_64 search path with Unknown CMAKE_SYSTEM_PROCESSOR
+          ARCH="${{ github.event.inputs.cpuArch }}"
+          ARCHDIR=${ARCH}
+          if [ "${{ github.event.inputs.cpuArch }}" == "armhf" ]; then
+            ARCH="armv7"
+            ARCHDIR="armv7"
+          elif [ "${{ github.event.inputs.cpuArch }}" == "ppc64le" ]; then
+            ARCHDIR="x86_64"
+          fi
+          #   --enable-cross-compile \
+          #   --cc=mipsel-linux-gcc \
+          #   --cxx=mipsel-linux-g++ \
+          #   --extra-libs="-lgcc" \
+          
+          GENERAL="
+             --target-os=linux \
+             --cc=$CC \
+             --cxx=$CXX \
+             --disable-shared \
+             --enable-static"
+          
+          MODULES="\
+             --disable-avdevice \
+             --disable-filters \
+             --disable-programs \
+             --disable-network \
+             --disable-avfilter \
+             --disable-postproc \
+             --disable-encoders \
+             --disable-doc \
+             --disable-ffplay \
+             --disable-ffprobe \
+             --disable-ffserver \
+             --disable-ffmpeg"
+          
+          VIDEO_DECODERS="\
+             --enable-decoder=h264 \
+             --enable-decoder=h263 \
+             --enable-decoder=h263p \
+             --enable-decoder=mpeg2video"
+          
+          AUDIO_DECODERS="\
+              --enable-decoder=aac \
+              --enable-decoder=atrac3 \
+              --enable-decoder=atrac3p \
+              --enable-decoder=mp3 \
+              --enable-decoder=pcm_s16le \
+              --enable-decoder=pcm_s8"
+            
+          DEMUXERS="\
+              --enable-demuxer=h264 \
+              --enable-demuxer=h263 \
+              --enable-demuxer=mpegps \
+              --enable-demuxer=mpegvideo \
+              --enable-demuxer=avi \
+              --enable-demuxer=mp3 \
+              --enable-demuxer=aac \
+              --enable-demuxer=oma \
+              --enable-demuxer=pcm_s16le \
+              --enable-demuxer=pcm_s8 \
+              --enable-demuxer=wav"
+          
+          VIDEO_ENCODERS="\
+              --enable-encoder=huffyuv
+              --enable-encoder=ffv1
+              --enable-encoder=mjpeg"
+          
+          AUDIO_ENCODERS="\
+              --enable-encoder=pcm_s16le"
+          
+          MUXERS="\
+              --enable-muxer=avi"
+          
+          PARSERS="\
+              --enable-parser=h264 \
+              --enable-parser=mpeg4video \
+              --enable-parser=mpegvideo \
+              --enable-parser=aac \
+              --enable-parser=mpegaudio"
+
+          echo "VIDEO_ENCODERS="${VIDEO_ENCODERS}
+
+          # cflags: -static-pie
+          # ldflags when using --enable-pic: -Wl,-Bsymbolic # -pie --no-dynamic-linker
+          # extra-ldexeflags If your target platform requires position independent binaries: -pie # -no-pie
+          #--extra-cflags="-D__STDC_CONSTANT_MACROS -O3" \
+          #--extra-cxxflags="-D__STDC_CONSTANT_MACROS -O3" \
+          #--extra-ldflags="-Wl,-Bsymbolic" \
+          #--enable-pic \
+          ./configure \
+              --prefix=./linux/${ARCHDIR} \
+              ${GENERAL} \
+              --pkg-config-flags="--static" \
+              --extra-cflags="-fno-pie -no-pie -static -Wl,--no-undefined" \
+              --extra-cxxflags="-fno-pie -no-pie -static -Wl,--no-undefined" \
+              --extra-ldflags="-no-pie -static" \
+              --enable-zlib \
+              --disable-yasm \
+              --disable-everything \
+              ${MODULES} \
+              ${VIDEO_DECODERS} \
+              ${AUDIO_DECODERS} \
+              ${VIDEO_ENCODERS} \
+              ${AUDIO_ENCODERS} \
+              ${DEMUXERS} \
+              ${MUXERS} \
+              ${PARSERS} \
+              --arch=${ARCH} \
+             
+          make clean
+          if [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+            ./linux_x86-64.sh
+          else
+            make install
+          fi
+          cd ..
+          # End of Build a minimal FFMPEG
+          #find . -name libavutil.a
+          #find . -name libavcodec.a
+
+          # Lets remove all shared library to make sure none gets linked
+          find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
+          #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
+          # TODO: riscv64 might have '__riscv_flush_icache' issue, may be need to use a different toolchain?
+          #./b.sh --${{ github.event.inputs.buildVariant }} --no-png --no-sdl2
+          mkdir -p build
+          cd build
+          BUILD_TYPE=Release
+          if [ "${{ github.event.inputs.buildVariant }}" = "debug" ]; then
+            BUILD_TYPE=Debug
+          fi
+          cmake .. -DUSE_SYSTEM_FFMPEG=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          make -j$(nproc)
+          cd -
+        shell: alpine-target.sh --root {0}
+
+      - name: Run script on the Host system
         run: |
-          # Testing file location ...
-          find . -name "Version.txt"
-          find . -name "*.app"
+          uname -a
+          cat /proc/cpuinfo
+          apt list --installed
+          pwd
+          gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+        shell: bash
+      
+      - name: Package Standard Binary build
+        if: ${{ github.event.inputs.createAppImage == 'false' }}
+        run: |
+          find . -name "PPSSPPSDL"  file {} \;
           mkdir ppsspp
-          if [ -e build*/PPSSPP.app ]; then
-            mkdir ppsspp/Payload
-            cp -a build*/PPSSPP.app ppsspp/Payload
-            # GitHub Actions zipping kills symlinks and permissions.
-            cd ppsspp
-            zip -qry PPSSPP.ipa Payload
-            rm -rf Payload
-            cd -
+          if [ -e build*/PPSSPPSDL ]; then
+            cp -a build*/PPSSPPSDL ppsspp/
+            chmod +x ppsspp/PPSSPPSDL
+            cp -r assets ppsspp/assets
           fi
 
-      - name: Upload artifact
+      - name: Package AppImage build (on target arch)
+        if: ${{ github.event.inputs.createAppImage != 'false' }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          NO_STRIP: 'true'
+        run: |
+          pwd
+          echo $HOME
+          find . -name "PPSSPPSDL" -exec file {} \;
+          cd build
+          if [ "${{ github.event.inputs.cpuArch }}" == "x86" ]; then
+            APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*i686.*mage$')
+          	wget -q "$APPIMAGETOOL" -O ./appimagetool-i686.AppImage
+            # Patch the ELF header (magic bytes) of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
+            sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i appimagetool-i686.AppImage
+            chmod +x appimagetool-i686.AppImage
+
+            #wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-i386.AppImage
+            #sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i linuxdeploy-i386.AppImage
+            #chmod +x linuxdeploy-i386.AppImage
+    
+            chmod +x ./../scripts/makeappimage_32-bit.sh
+            ./../scripts/makeappimage_32-bit.sh # linuxdeploy-x86_64.AppImage might be missing some library or not support Alpine Linux?
+          elif [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+            APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
+            wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
+            # Patch the ELF header (magic bytes) of the AppImage to ensure it's always executable, even without AppImageLauncher (ie. Docker/chroot)
+            sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i appimagetool-x86_64.AppImage
+            chmod +x appimagetool-x86_64.AppImage
+
+            #wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+            #sed "0,/AI\x02/{s|AI\x02|\x00\x00\x00|}" -i linuxdeploy-x86_64.AppImage
+            #chmod +x linuxdeploy-x86_64.AppImage
+            
+            chmod +x ./../scripts/makeappimage_64-bit.sh
+            ./../scripts/makeappimage_64-bit.sh # linuxdeploy-x86_64.AppImage might be missing some library or not support Alpine Linux?
+          fi
+          cd -
+          mkdir ppsspp
+          find . -name "AppRun" -exec file {} \;
+          find ./build -type f -name "PPSSPP*.AppImage" -exec file {} \; -exec chmod +x {} \; -exec cp -a {} ppsspp/ \;
+        shell: alpine-target.sh --root {0}
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iOS-${{ github.event.inputs.buildVariant }} build
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
           path: ppsspp/
+
+      - name: Run script inside Alpine chroot (Build Tests)
+        if: ${{ github.event.inputs.runTest != 'false' }}
+        #working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          LDFLAGS: -no-pie
+          USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          # Lets remove all shared library to make sure none gets linked
+          find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
+          # Build tests
+          #export CPPFLAGS="-fPIC -fno-pie -fno-plt -no-pie -static -Wl,-Bdynamic -lGL -Wl,-Bstatic -D_XOPEN_SOURCE=700"
+          #./b.sh --headless --unittest --no-png --no-sdl2
+          mkdir -p build
+          cd build
+          cmake .. -DUSE_SYSTEM_FFMPEG=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF -DHEADLESS=ON -DUNITTEST=ON
+          make -j$(nproc)
+          cd -
+          
+          file ./ffmpeg/linux/x86/lib/libavcodec.a
+          find . -name PPSSPPHeadless -exec file {} \;
+          find . -name PPSSPPUnitTest -exec file {} \;
+        shell: alpine-target.sh --root {0}
+
+      - name: Package Test build
+        run: |
+          find . -name "PPSSPPHeadless" -exec file {} \;
+          mkdir test
+          if [ -e build*/PPSSPPHeadless ]; then
+            cp build*/PPSSPPHeadless test/
+            cp -r assets test/assets
+          fi
+          find . -name "PPSSPPUnitTest" -exec file {} \;
+          if [ -e build*/PPSSPPUnitTest ]; then
+            cp build*/PPSSPPUnitTest test/
+          fi
+
+      - name: Upload Test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} headless
+          path: test/
+
+  test:
+    name: Testing Headless & Unit tests
+    if: ${{ github.event.inputs.runTest != 'false' }}
+    #continue-on-error: true
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+    env:
+      CROSS_SYSROOT: /mnt/alpine-${{ github.event.inputs.cpuArch }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+  
+      - name: Fetch tests
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        # Doing this to avoid ffmpeg and other large submodules.
+        run: git submodule update --init pspautotests assets/lang
+
+      #- name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Build arch)
+      #  id: alpine-build
+      #  uses: jirutka/setup-alpine@v1
+      #  with:
+      #    arch: ${{ github.event.inputs.cpuArch }}
+      #    branch: edge
+      #    packages: >
+      #      build-base
+      #      wget
+      #      git
+      #      bash
+      #      cmake
+      #      python3
+      #      glu-dev
+      #    shell-name: alpine-build.sh
+
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (Test arch)
+        id: alpine-test
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ github.event.inputs.cpuArch }}
+          branch: edge
+          packages: >
+            sdl2
+            libstdc++
+            glu
+            ffmpeg
+            #gcompat
+          shell-name: alpine-test.sh
+
+      - name: Download Test build
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} headless
+          path: test/
+  
+      #- name: Run script inside Alpine chroot (Build Tests)
+      #  working-directory: ${{ env.GITHUB_WORKSPACE }}
+      #  run: |
+      #    uname -a
+      #    # Fix dubious ownership issue when running git describe inside a container
+      #    git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+      #    
+      #    # Build tests
+      #    ./b.sh --headless --unittest
+      #  shell: alpine-build.sh --root {0}
+        
+      - name: Fix test permissions
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          #cp `find . -name PPSSPPHeadless` .
+          find . -name PPSSPPHeadless
+          find . -name PPSSPPHeadless -exec cp "{}" . \;
+          chmod +x PPSSPPHeadless
+          #cp `find . -name PPSSPPUnitTest` .
+          find . -name PPSSPPUnitTest
+          find . -name PPSSPPUnitTest -exec cp "{}" . \;
+          chmod +x PPSSPPUnitTest
+        shell: alpine-test.sh --root {0}
+  
+      - name: Execute Unit tests
+        continue-on-error: true
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          uname -a
+          find . -name "PPSSPPUnitTest" -exec file {} \;
+          if [ -e ./PPSSPPUnitTest ]; then
+            ldd ./PPSSPPUnitTest
+            ./PPSSPPUnitTest ALL
+          fi
+        shell: alpine-test.sh --root {0}
+  
+      - name: Execute Headless tests
+        continue-on-error: true
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          uname -a
+          find . -name PPSSPPHeadless -exec file {} \;
+          if [ -e PPSSPPHeadless ]; then
+            ldd ./PPSSPPHeadless 
+            python test.py -g --graphics=software
+          fi
+        shell: alpine-test.sh --root {0}
+
+      - name: Testing Portability on Ubuntu 64-bit
+        if: ${{ github.event.inputs.cpuArch == 'x86_64' || github.event.inputs.cpuArch == 'x86' }}
+        continue-on-error: true
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          uname -a
+          sudo apt-get install musl gcc-multilib libgl1-mesa-glx ffmpeg libsdl2-2.0-0 -y
+          find /usr /lib /lib64 /lib32 /libx32 -type f -name "libGL.*"
+          find /usr /lib /lib64 /lib32 /libx32 -type f -name "libc.*"
+          find /usr /lib /lib64 /lib32 /libx32 -type f -name "libstdc++.*"
+          find /usr /lib /lib64 /lib32 /libx32 -type f -name "libgcc_s.*"
+          ls /lib/x86_64-linux-musl
+          ls /usr/lib/x86_64-linux-musl
+          sudo bash -c 'cd /usr/lib ; \
+          ln -s /usr/lib/x86_64-linux-gnu x86_64-linux-musl ; \
+          cd - ; \
+          if [ ! -e /lib/x86_64-linux-musl ] ; then \
+            ln -s /lib/x86_64-linux-gnu /lib/x86_64-linux-musl ; \
+          fi ; \
+          if [ ! -e /lib/libc.musl-x86_64.so.1 ] ; then \
+            ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libz.so.1 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libz.so.1 /lib/x86_64-linux-musl/libz.so.1 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libGL.so.1 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libGLdispatch.so.0 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libGLdispatch.so.0 /lib/x86_64-linux-musl/libGLdispatch.so.0 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libGLX.so.0 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libGLX.so.0 /lib/x86_64-linux-musl/libGLX.so.0 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libX11.so.6 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libX11.so.6 /lib/x86_64-linux-musl/libX11.so.6 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libxcb.so.1 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libxcb.so.1 /lib/x86_64-linux-musl/libxcb.so.1 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libXau.so.6 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libXau.so.6 /lib/x86_64-linux-musl/libXau.so.6 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libXdmcp.so.6 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libXdmcp.so.6 /lib/x86_64-linux-musl/libXdmcp.so.6 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libbsd.so.0 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libbsd.so.0 /lib/x86_64-linux-musl/libbsd.so.0 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libmd.so.0 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libmd.so.0 /lib/x86_64-linux-musl/libmd.so.0 ; \
+          fi ; \
+          if [ ! -e /lib/ld-musl-x86_64.so.1 ] ; then \
+            ln -s /lib64/ld-linux-x86-64.so.2 /lib/ld-musl-x86_64.so.1 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib/x86_64-linux-musl/ld-linux-x86-64.so.2 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libstdc++.so.6 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-musl/libstdc++.so.6 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libgcc_s.so.1 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-musl/libgcc_s.so.1 ; \
+          fi ;'
+          
+          #cd test
+          find . -name PPSSPPHeadless -exec file {} \; -exec ldd {} \; -exec readelf -d {} \; -exec sudo strace -f {} -g --graphics=software \; -exec bash -c 'LD_DEBUG=scopes "$0" -g --graphics=software' {} \; # -exec readelf -a {} \; -quit
+          if [ -e PPSSPPHeadless ]; then
+            python test.py -g --graphics=software
+          fi
+        #shell: bash
+        
