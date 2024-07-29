@@ -118,7 +118,7 @@ jobs:
           ld -v
           
           # Fix dubious ownership issue when running git describe inside a container
-          chown -R $(id -u):$(id -g) $PWD # git config --global --add safe.directory "$PWD" # alternatively, chown -R $(id -u):$(id -g) $PWD
+          git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
           find / -type f -name "*musl-gcc*"
 
           # Export ccache env var(s)
@@ -464,7 +464,7 @@ jobs:
       #  run: |
       #    uname -a
       #    # Fix dubious ownership issue when running git describe inside a container
-      #    chown -R $(id -u):$(id -g) $PWD # git config --global --add safe.directory "$PWD"
+      #    git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
       #    
       #    # Build tests
       #    ./b.sh --headless --unittest
