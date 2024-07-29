@@ -107,7 +107,7 @@ jobs:
           apk update
           apk add --upgrade apk-tools
           apk upgrade --available
-          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev pulseaudio-dev sndio-dev jack-dev # ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
+          apk add build-base musl-dev wget git bash zip cmake python3 glu-dev fuse fuse3 fuse3-libs libunwind-dev alsa-lib-dev pipewire-dev sndio-dev jack-dev # pulseaudio-dev # ffmpeg-dev # sdl2-dev # sdl2_ttf-dev fontconfig-dev glew-dev libpng-dev # su-exec # need to install sdl2 from source when using Alpine v3.18 or older?
           apk add clang lld compiler-rt && clang --version && clang++ --version # compiler-rt-static
           export CLANG_DEFAULT_CXX_STDLIB=libc++
           export CLANG_DEFAULT_RTLIB=compiler-rt
@@ -243,8 +243,8 @@ jobs:
               --prefix=./linux/${ARCHDIR} \
               ${GENERAL} \
               --pkg-config-flags="--static" \
-              --extra-cflags="-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti" \
-              --extra-cxxflags="-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti" \
+              --extra-cflags="-fno-pie -no-pie -static -Wl,--no-undefined" \
+              --extra-cxxflags="-fno-pie -no-pie -static -Wl,--no-undefined" \
               --extra-ldflags="-no-pie -static" \
               --enable-zlib \
               --disable-yasm \
@@ -260,11 +260,11 @@ jobs:
               --arch=${ARCH} \
              
           make clean
-          #if [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
-          #  ./linux_x86-64.sh # This will add libz.so.1 dependency
-          #else
+          if [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+            ./linux_x86-64.sh
+          else
             make install
-          #fi
+          fi
           cd ..
           # End of Build a minimal FFMPEG
           #find . -name libavutil.a
@@ -534,6 +534,9 @@ jobs:
           fi ; \
           if [ ! -e /lib/libc.musl-x86_64.so.1 ] ; then \
             ln -s /lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1 ; \
+          fi ; \
+          if [ ! -e /lib/x86_64-linux-musl/libz.so.1 ] ; then \
+            ln -s /lib/x86_64-linux-gnu/libz.so.1 /lib/x86_64-linux-musl/libz.so.1 ; \
           fi ; \
           if [ ! -e /lib/x86_64-linux-musl/libGL.so.1 ] ; then \
             ln -s /lib/x86_64-linux-gnu/libGL.so.1 /lib/x86_64-linux-musl/libGL.so.1 ; \
