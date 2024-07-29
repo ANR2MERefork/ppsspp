@@ -118,7 +118,7 @@ jobs:
           ld -v
           
           # Fix dubious ownership issue when running git describe inside a container
-          git config --global --add safe.directory "$PWD"
+          chown -R $(id -u):$(id -g) $PWD # git config --global --add safe.directory "$PWD" # alternatively, chown -R $(id -u):$(id -g) $PWD
           find / -type f -name "*musl-gcc*"
 
           # Export ccache env var(s)
@@ -126,7 +126,7 @@ jobs:
           export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
         
           # Build SDL2 from source (Apline v3.17 (musl 1.2.3-r5) have SDL2 version 2.26.5-r0 but have directfb.h issue on some arch)
-          export SDL_VERSION=2.30.5 # 2.0.22 (compatible with older Alpine)
+          export SDL_VERSION=2.28.5 # 2.30.5 # 2.0.22 (compatible with older Alpine)
           wget https://github.com/libsdl-org/SDL/archive/refs/tags/release-${SDL_VERSION}.tar.gz && \
           tar -xf release-${SDL_VERSION}.tar.gz
           # Lets remove all shared library to make sure none gets linked
@@ -260,7 +260,11 @@ jobs:
               --arch=${ARCH} \
              
           make clean
-          make install
+          if [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+            ./linux_x86-64.sh
+          else
+            make install
+          fi
           cd ..
           # End of Build a minimal FFMPEG
           #find . -name libavutil.a
@@ -460,7 +464,7 @@ jobs:
       #  run: |
       #    uname -a
       #    # Fix dubious ownership issue when running git describe inside a container
-      #    git config --global --add safe.directory "$PWD"
+      #    chown -R $(id -u):$(id -g) $PWD # git config --global --add safe.directory "$PWD"
       #    
       #    # Build tests
       #    ./b.sh --headless --unittest
