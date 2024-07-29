@@ -96,7 +96,7 @@ jobs:
         env:
           CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -260,11 +260,11 @@ jobs:
               --arch=${ARCH} \
              
           make clean
-          if [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
-            ./linux_x86-64.sh
-          else
+          #if [ "${{ github.event.inputs.cpuArch }}" == "x86_64" ]; then
+          #  ./linux_x86-64.sh # This will add libz.so.1 dependency
+          #else
             make install
-          fi
+          #fi
           cd ..
           # End of Build a minimal FFMPEG
           #find . -name libavutil.a
@@ -361,7 +361,7 @@ jobs:
         env:
           CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
           CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           LDFLAGS: -no-pie
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
