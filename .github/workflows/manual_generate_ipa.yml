@@ -448,7 +448,7 @@ jobs:
           packages: >
             sdl2
             libstdc++
-            glu-dev
+            glu
             ffmpeg
             #gcompat
           shell-name: alpine-test.sh
