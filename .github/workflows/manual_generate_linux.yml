@@ -1,0 +1,83 @@
+name: Manual Generate Linux Binary/AppImage
+on:
+  workflow_dispatch:
+    inputs:
+
+      buildVariant:
+        type: choice
+        description: 'Build Variant'
+        required: true
+        default: 'release'
+        options: 
+        - release
+        - debug
+
+      cpuArch:
+        type: choice
+        description: 'CPU Architecture'
+        required: true
+        default: 'x86_64'
+        options: 
+        - x86_64
+        - x86
+        - aarch64
+        - armhf
+        - armv7
+        - riscv64
+        - ppc64le
+        - s390x
+
+jobs:
+
+  apk:
+    name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check Valid Version Tags
+        id: valid-tags
+        shell: bash
+        run: |
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
+        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+      
+      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (target arch)
+        id: alpine-target
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ github.event.inputs.cpuArch }}
+          branch: edge
+          shell-name: alpine-target.sh
+
+      - name: Run script inside Alpine chroot
+        run: uname -m
+        shell: alpine-target.sh {0}
+
+      - name: Run script on the Host system
+        run: uname -m
+        shell: bash
+      
+      - name: Package build
+        run: |
+          find . -name "PPSSPPSDL"
+          mkdir ppsspp
+          if [ -e android/build/*/apk/*/*/*.apk ]; then
+            cp android/build/*/apk/*/*/*.apk ppsspp/
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
+          path: ppsspp/
