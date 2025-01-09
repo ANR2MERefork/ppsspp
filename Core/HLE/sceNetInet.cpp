@@ -583,7 +583,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	saddr.addr.sa_family = name->sa_family;
 	int len = std::min(namelen > 0 ? namelen : 0, static_cast<int>(sizeof(saddr)));
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
-	if (isLocalServer) {
+	if (isLocalServer && g_Config.bEnableAdhocServer) {
 		getLocalIp(&saddr.in);
 	}
 	// FIXME: On non-Windows broadcast to INADDR_BROADCAST(255.255.255.255) might not be received by the sender itself when binded to specific IP (ie. 192.168.0.2) or INADDR_BROADCAST.
