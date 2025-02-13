@@ -468,7 +468,7 @@ static int sceUtilitySavedataUpdate(int animSpeed) {
 	int result = hleLogDebug(Log::sceUtility, saveDialog->Update(animSpeed));
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);
-	else if (result == SCE_KERNEL_ERROR_UTILITY_INVALID_STATUS) {
+	else if (result == SCE_ERROR_UTILITY_INVALID_STATUS) {
 		int status = saveDialog->GetStatus();
 		DEBUG_LOG(Log::sceUtility, "sceUtilitySaveDialog status: %i -> %i", oldStatus, status);
 	}
