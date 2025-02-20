@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       refToBuild:
-        description: 'Branch, tag, or commit SHA1 to build'
+        description: 'commit SHA1 to build, or leave it empty'
         type: string
         default: ''
         
@@ -20,14 +20,15 @@ on:
         type: choice
         description: 'CPU Architecture'
         required: true
-        default: 'x86_64'
+        default: 'amd64'
         options: 
-        - x86_64
-        #- x86
-        - aarch64
-        - armv6 #armhf
-        - armv7
+        - amd64
+        - i386
+        - arm64v8
+        - arm32v7
+        - arm32v5
         - riscv64
+        - mips64le
         - ppc64le
         - s390x
 
@@ -61,8 +62,9 @@ jobs:
         id: alpine-target
         uses: uraimo/run-on-arch-action@v2
         with:
-          arch: ${{ github.event.inputs.cpuArch }}
-          distro: alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
+          arch: none # ${{ github.event.inputs.cpuArch }}
+          distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
+          base_image: ${{ github.event.inputs.cpuArch }}/debian:latest # --platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
           
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
@@ -80,7 +82,7 @@ jobs:
             artifact_name: git-${{ matrix.distro }}_${{ matrix.arch }}
 
           # The shell to run commands with in the container
-          shell: /bin/sh
+          shell: /bin/bash
 
           # Install some dependencies in the container. This speeds up builds if
           # you are also using githubToken. Any dependencies installed here will
