@@ -2,7 +2,11 @@ name: Manual Generate Linux Binary/AppImage
 on:
   workflow_dispatch:
     inputs:
-
+      refToBuild:
+        description: 'Branch, tag, or commit SHA1 to build'
+        type: string
+        default: ''
+        
       buildVariant:
         type: choice
         description: 'Build Variant'
@@ -34,10 +38,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
         with:
           fetch-depth: 0
           submodules: recursive
+          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
 
       - name: Check Valid Version Tags
         id: valid-tags
