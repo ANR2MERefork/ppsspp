@@ -59,7 +59,7 @@ jobs:
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
       
       - name: Set up Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
-        id: alpine-target
+        id: debian-target
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
@@ -79,7 +79,7 @@ jobs:
 
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
-            artifact_name: git-${{ matrix.distro }}_${{ matrix.arch }}
+            artifact_name: git-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
 
           # The shell to run commands with in the container
           shell: /bin/bash
@@ -91,10 +91,10 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            apk update
-            apk add git
+            apt-get update -q -y
+            apt-get install -q -y git
             
-          shell-name: alpine-target.sh
+          shell-name: debian-target.sh
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -104,7 +104,7 @@ jobs:
 
       - name: Run script inside Guest Container chroot
         run: uname -m
-        shell: alpine-target.sh {0}
+        shell: debian-target.sh {0}
 
       - name: Run script on the Host system
         run: uname -m
