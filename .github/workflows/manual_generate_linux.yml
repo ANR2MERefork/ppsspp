@@ -23,9 +23,9 @@ on:
         default: 'x86_64'
         options: 
         - x86_64
-        - x86
+        #- x86
         - aarch64
-        - armhf
+        - armv6 #armhf
         - armv7
         - riscv64
         - ppc64le
@@ -57,15 +57,50 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
       
-      - name: Set up Alpine Linux for ${{ github.event.inputs.cpuArch }} (target arch)
+      - name: Set up Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
         id: alpine-target
-        uses: jirutka/setup-alpine@v1
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: ${{ github.event.inputs.cpuArch }}
-          branch: edge
+          distro: alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
+          
+          # Not required, but speeds up builds
+          githubToken: ${{ github.token }}
+          
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+
+          # Pass some environment variables to the container
+          env: | # YAML, but pipe character is necessary
+            artifact_name: git-${{ matrix.distro }}_${{ matrix.arch }}
+
+          # The shell to run commands with in the container
+          shell: /bin/sh
+
+          # Install some dependencies in the container. This speeds up builds if
+          # you are also using githubToken. Any dependencies installed here will
+          # be part of the container image that gets cached, so subsequent
+          # builds don't have to re-install them. The image layer is cached
+          # publicly in your project's package repository, so it is vital that
+          # no secrets are present in the container state or logs.
+          install: |
+            apk update
+            apk add git
+            
           shell-name: alpine-target.sh
 
-      - name: Run script inside Alpine chroot
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+          create-symlink: true
+
+      - name: Run script inside Guest Container chroot
         run: uname -m
         shell: alpine-target.sh {0}
 
