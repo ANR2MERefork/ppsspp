@@ -1,8 +1,12 @@
-name: Manual Generate iOS IPA
+name: Manual Generate Linux Package
 on:
   workflow_dispatch:
     inputs:
-
+      refToBuild:
+        description: 'commit SHA1 to build (optional)'
+        type: string
+        default: ''
+        
       buildVariant:
         type: choice
         description: 'Build Variant'
@@ -12,87 +16,124 @@ on:
         - release
         - debug
 
+      cpuArch:
+        type: choice
+        description: 'CPU Architecture'
+        required: true
+        default: 'amd64'
+        options: 
+        - amd64
+        - i386
+        - arm64v8
+        - arm32v7
+        - arm32v5
+        - riscv64
+        - mips64le
+        - ppc64le
+        - s390x
+
 jobs:
 
-  ipa:
-    name: Generate ${{ github.event.inputs.buildVariant }} IPA
-    runs-on: macos-latest
+  apk:
+    name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
         with:
           fetch-depth: 0
           submodules: recursive
-        
+          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
+
       - name: Check Valid Version Tags
         id: valid-tags
         shell: bash
         run: |
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
-      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
         if: ${{ steps.valid-tags.outputs.count == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
-
-      - name: Set Env Var(s)
-        run: |
-          echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
-        
-      - name: Create macOS git-version.cpp & Version.txt
-        run: |
-          echo "const char *PPSSPP_GIT_VERSION = \"${GIT_VERSION}\";" > git-version.cpp
-          echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
-          # Create Version.txt file (should probably do this during building process)
-          mkdir build-ios
-          mkdir build-ios/PPSSPP.app
-          echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
-          # Testing values ...
-          echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
-          echo "count=${{steps.valid-tags.outputs.count}}"
-          echo $(echo $GIT_VERSION | cut -c 2-)
-          # Testing file location ...
-          find . -name "Version.txt"
-          
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@main
-        with:
-          key: ios
-          create-symlink: true
       
-      - name: Execute build
+      - name: Set up Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
+        id: debian-target
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: none # ${{ github.event.inputs.cpuArch }}
+          distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
+          base_image: ${{ github.event.inputs.cpuArch }}/debian:latest # --platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          
+          # Not required, but speeds up builds
+          githubToken: ${{ github.token }}
+          
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+
+          # Pass some environment variables to the container
+          env: | # YAML, but pipe character is necessary
+            artifact_name: git-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+
+          # The shell to run commands with in the container
+          shell: /bin/bash
+
+          # Install some dependencies in the container. This speeds up builds if
+          # you are also using githubToken. Any dependencies installed here will
+          # be part of the container image that gets cached, so subsequent
+          # builds don't have to re-install them. The image layer is cached
+          # publicly in your project's package repository, so it is vital that
+          # no secrets are present in the container state or logs.
+          install: |
+            apt-get update -q -y
+            apt-get install -q -y git
+            
+          shell-name: debian-target.sh
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+          create-symlink: true
+
+      - name: Run script inside Guest Container chroot
         env:
-          CC: clang
-          CXX: clang++
+          CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+          CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          LDFLAGS: -no-pie
           USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
+          uname -m
+          # Fix dubious ownership issue when running git describe inside a container
+          git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+          
+          # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_SLOPPINESS=pch_defines,clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-          export CCACHE_FILECLONE=true
-          export CCACHE_DEPEND=true
-          export CCACHE_COMPILERCHECK=content
-          ./b.sh --ios --${{ github.event.inputs.buildVariant }}
+          export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+        shell: debian-target.sh {0}
+
+      - name: Run script on the Host system
+        run: uname -m
+        shell: bash
       
       - name: Package build
         run: |
-          # Testing file location ...
-          find . -name "Version.txt"
-          find . -name "*.app"
+          find . -name "PPSSPPSDL"
           mkdir ppsspp
-          if [ -e build*/PPSSPP.app ]; then
-            mkdir ppsspp/Payload
-            cp -a build*/PPSSPP.app ppsspp/Payload
-            # GitHub Actions zipping kills symlinks and permissions.
-            cd ppsspp
-            zip -qry PPSSPP.ipa Payload
-            rm -rf Payload
-            cd -
+          if [ -e android/build/*/apk/*/*/*.apk ]; then
+            cp android/build/*/apk/*/*/*.apk ppsspp/
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iOS-${{ github.event.inputs.buildVariant }} build
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
           path: ppsspp/
