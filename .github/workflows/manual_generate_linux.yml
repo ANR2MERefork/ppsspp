@@ -1,0 +1,125 @@
+name: Manual Generate Linux Binary/AppImage
+on:
+  workflow_dispatch:
+    inputs:
+      refToBuild:
+        description: 'commit SHA1 to build, or leave it empty'
+        type: string
+        default: ''
+        
+      buildVariant:
+        type: choice
+        description: 'Build Variant'
+        required: true
+        default: 'release'
+        options: 
+        - release
+        - debug
+
+      cpuArch:
+        type: choice
+        description: 'CPU Architecture'
+        required: true
+        default: 'amd64'
+        options: 
+        - amd64
+        - i386
+        - arm64v8
+        - arm32v7
+        - arm32v5
+        - riscv64
+        - mips64le
+        - ppc64le
+        - s390x
+
+jobs:
+
+  apk:
+    name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
+
+      - name: Check Valid Version Tags
+        id: valid-tags
+        shell: bash
+        run: |
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
+        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+      
+      - name: Set up Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
+        id: debian-target
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: none # ${{ github.event.inputs.cpuArch }}
+          distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
+          base_image: ${{ github.event.inputs.cpuArch }}/debian:latest # --platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          
+          # Not required, but speeds up builds
+          githubToken: ${{ github.token }}
+          
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+
+          # Pass some environment variables to the container
+          env: | # YAML, but pipe character is necessary
+            artifact_name: git-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+
+          # The shell to run commands with in the container
+          shell: /bin/bash
+
+          # Install some dependencies in the container. This speeds up builds if
+          # you are also using githubToken. Any dependencies installed here will
+          # be part of the container image that gets cached, so subsequent
+          # builds don't have to re-install them. The image layer is cached
+          # publicly in your project's package repository, so it is vital that
+          # no secrets are present in the container state or logs.
+          install: |
+            apt-get update -q -y
+            apt-get install -q -y git
+            
+          shell-name: debian-target.sh
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+          create-symlink: true
+
+      - name: Run script inside Guest Container chroot
+        run: uname -m
+        shell: debian-target.sh {0}
+
+      - name: Run script on the Host system
+        run: uname -m
+        shell: bash
+      
+      - name: Package build
+        run: |
+          find . -name "PPSSPPSDL"
+          mkdir ppsspp
+          if [ -e android/build/*/apk/*/*/*.apk ]; then
+            cp android/build/*/apk/*/*/*.apk ppsspp/
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
+          path: ppsspp/
