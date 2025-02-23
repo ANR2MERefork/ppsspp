@@ -104,7 +104,7 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             apt-get update -q -y
-            #apt-get install -q -y git
+            apt-get install -q -y git
             
           run: |
             uname -m
