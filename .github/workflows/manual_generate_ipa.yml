@@ -57,8 +57,14 @@ jobs:
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+          create-symlink: true
       
-      - name: Set up Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
+      - name: Setup and Run Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
         id: debian-target
         uses: uraimo/run-on-arch-action@v2
         with:
@@ -80,6 +86,12 @@ jobs:
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: git-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+            CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+            LDFLAGS: -no-pie
+            USE_CCACHE: 1
+            APPIMAGE_EXTRACT_AND_RUN: 1
 
           # The shell to run commands with in the container
           shell: /bin/bash
@@ -92,33 +104,16 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             apt-get update -q -y
-            apt-get install -q -y git
+            #apt-get install -q -y git
             
-          shell-name: debian-target.sh
-
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
-          create-symlink: true
-
-      - name: Run script inside Guest Container chroot
-        env:
-          CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-          CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-          CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-          LDFLAGS: -no-pie
-          USE_CCACHE: 1
-          APPIMAGE_EXTRACT_AND_RUN: 1
-        run: |
-          uname -m
-          # Fix dubious ownership issue when running git describe inside a container
-          git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
-          
-          # Export ccache env var(s)
-          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-        shell: debian-target.sh {0}
+          run: |
+            uname -m
+            # Fix dubious ownership issue when running git describe inside a container
+            git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+            
+            # Export ccache env var(s)
+            export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+            export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
 
       - name: Run script on the Host system
         run: uname -m
