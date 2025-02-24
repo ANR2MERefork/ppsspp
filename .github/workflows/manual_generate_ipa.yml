@@ -35,17 +35,17 @@ on:
 env:
   PLATFORM_ARCH: >-
     ${{ fromJSON('{
-      "amd64" : "amd64",
-      "i386" : "386",
-      "arm64v8" : "arm64",
-      "arm32v7" : "arm/v7",
-      "arm32v6" : "arm/v6",
-      "arm32v5" : "arm/v5",
-      "riscv64" : "riscv64",
-      "mips64" : "mips64",
-      "mips64le" : "mips64le",
-      "ppc64le" : "ppc64le",
-      "s390x" : "s390x"
+      "amd64" : "amd64 debian",
+      "i386" : "386 debian",
+      "arm64v8" : "arm64 debian",
+      "arm32v7" : "arm/v7 debian",
+      "arm32v6" : "arm/v6 debian",
+      "arm32v5" : "arm/v5 debian",
+      "riscv64" : "riscv64 debian:trixie",
+      "mips64" : "mips64 debian",
+      "mips64le" : "mips64le debian",
+      "ppc64le" : "ppc64le debian",
+      "s390x" : "s390x debian"
     }')[inputs.cpuArch] }}
 
 jobs:
@@ -86,7 +86,7 @@ jobs:
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
           distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
-          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} debian # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
           
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
