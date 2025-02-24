@@ -32,26 +32,27 @@ on:
         - ppc64le
         - s390x
 
+env:
+  PLATFORM_ARCH: |
+    ${{ fromJSON('
+      "amd64" : "amd64",
+      "i386" : "386",
+      "arm64v8" : "arm64",
+      "arm32v7" : "arm/v7",
+      "arm32v6" : "arm/v6",
+      "arm32v5" : "arm/v5",
+      "riscv64" : "riscv64",
+      "mips64" : "mips64",
+      "mips64le" : "mips64le",
+      "ppc64le" : "ppc64le",
+      "s390x" : "s390x"
+    ')[inputs.cpuArch] }}
+
 jobs:
 
   build:
     name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
     runs-on: ubuntu-latest
-    env:
-      PLATFORM_ARCH: |
-        ${{ fromJson('
-          "amd64" : "amd64",
-          "i386" : "386",
-          "arm64v8" : "arm64",
-          "arm32v7" : "arm/v7",
-          "arm32v6" : "arm/v6",
-          "arm32v5" : "arm/v5",
-          "riscv64" : "riscv64",
-          "mips64" : "mips64",
-          "mips64le" : "mips64le",
-          "ppc64le" : "ppc64le",
-          "s390x" : "s390x"
-        ')[inputs.cpuArch] }}
       
     steps:
       - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
