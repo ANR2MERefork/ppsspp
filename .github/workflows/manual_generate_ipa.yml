@@ -37,7 +37,22 @@ jobs:
   apk:
     name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
     runs-on: ubuntu-latest
-
+    outputs:
+      platform: |
+        ${{ fromJSON('
+          "amd64" : "amd64",
+          "i386" : "386",
+          "arm64v8" : "arm64",
+          "arm32v7" : "arm/v7",
+          "arm32v6" : "arm/v6",
+          "arm32v5" : "arm/v5",
+          "riscv64" : "riscv64",
+          "mips64" : "mips64",
+          "mips64le" : "mips64le",
+          "ppc64le" : "ppc64le",
+          "s390x" : "s390x"
+        ')[github.event.inputs.cpuArch] }}
+      
     steps:
       - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
         with:
@@ -70,7 +85,7 @@ jobs:
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
           distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
-          base_image: --platform=linux/${{ github.event.inputs.cpuArch }} debian #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          base_image: --platform=linux/${{ outputs.platform }} ${{ github.event.inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
           
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
