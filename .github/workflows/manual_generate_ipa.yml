@@ -86,7 +86,7 @@ jobs:
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
           distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
-          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} debian # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
           
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
@@ -123,6 +123,7 @@ jobs:
             apt-get install -q -y git
             
           run: |
+            echo "Running inside container!"
             uname -m
             # Fix dubious ownership issue when running git describe inside a container
             git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
@@ -138,7 +139,7 @@ jobs:
       - name: Package build
         run: |
           find . -name "PPSSPPSDL"
-          mkdir artifacts
+          #mkdir artifacts
           if [ -e android/build/*/apk/*/*/*.apk ]; then
             cp android/build/*/apk/*/*/*.apk artifacts/
           fi
