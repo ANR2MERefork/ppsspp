@@ -41,7 +41,7 @@ env:
       "arm32v7" : "arm/v7 debian",
       "arm32v6" : "arm/v6 debian",
       "arm32v5" : "arm/v5 debian",
-      "riscv64" : "riscv64 ubuntu", # "riscv64 debian:trixie",
+      "riscv64" : "riscv64 ubuntu",
       "mips64" : "mips64 debian",
       "mips64le" : "mips64le debian",
       "ppc64le" : "ppc64le debian",
@@ -86,7 +86,7 @@ jobs:
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
           distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
-          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:trixie
           
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
