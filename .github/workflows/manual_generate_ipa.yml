@@ -34,12 +34,12 @@ on:
 
 jobs:
 
-  apk:
+  build:
     name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
     runs-on: ubuntu-latest
-    outputs:
-      platform: |
-        ${{ fromJSON('
+    env:
+      PLATFORM_ARCH: |
+        ${{ fromJson('
           "amd64" : "amd64",
           "i386" : "386",
           "arm64v8" : "arm64",
@@ -51,7 +51,7 @@ jobs:
           "mips64le" : "mips64le",
           "ppc64le" : "ppc64le",
           "s390x" : "s390x"
-        ')[github.event.inputs.cpuArch] }}
+        ')[inputs.cpuArch] }}
       
     steps:
       - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
@@ -76,16 +76,16 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
+          key: linux-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
           create-symlink: true
       
-      - name: Setup and Run Guest Container for ${{ github.event.inputs.cpuArch }} (target arch)
+      - name: Setup and Run Guest Container for ${{ inputs.cpuArch }} (target arch)
         id: debian-target
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
           distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
-          base_image: --platform=linux/${{ outputs.platform }} ${{ github.event.inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
+          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:latest
           
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
@@ -100,9 +100,9 @@ jobs:
 
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
-            artifact_name: git-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }}
-            CC: clang # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-            CXX: clang++ # /usr/bin/${{ github.event.inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
+            CC: clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
             CPPFLAGS: -fno-pie -no-pie -static -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
             LDFLAGS: -no-pie
             USE_CCACHE: 1
@@ -137,13 +137,13 @@ jobs:
       - name: Package build
         run: |
           find . -name "PPSSPPSDL"
-          mkdir ppsspp
+          mkdir artifacts
           if [ -e android/build/*/apk/*/*/*.apk ]; then
-            cp android/build/*/apk/*/*/*.apk ppsspp/
+            cp android/build/*/apk/*/*/*.apk artifacts/
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
-          path: ppsspp/
+          path: artifacts/
