@@ -34,7 +34,7 @@ on:
 
 env:
   PLATFORM_ARCH: |
-    ${{ fromJSON('
+    ${{ fromJSON('{
       "amd64" : "amd64",
       "i386" : "386",
       "arm64v8" : "arm64",
@@ -46,7 +46,7 @@ env:
       "mips64le" : "mips64le",
       "ppc64le" : "ppc64le",
       "s390x" : "s390x"
-    ')[inputs.cpuArch] }}
+    }')[inputs.cpuArch] }}
 
 jobs:
 
