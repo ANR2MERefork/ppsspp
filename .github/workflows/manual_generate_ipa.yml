@@ -41,7 +41,7 @@ env:
       "arm32v7" : "arm/v7 debian",
       "arm32v6" : "arm/v6 debian",
       "arm32v5" : "arm/v5 debian",
-      "riscv64" : "riscv64 debian:trixie",
+      "riscv64" : "riscv64 ubuntu", # "riscv64 debian:trixie",
       "mips64" : "mips64 debian",
       "mips64le" : "mips64le debian",
       "ppc64le" : "ppc64le debian",
