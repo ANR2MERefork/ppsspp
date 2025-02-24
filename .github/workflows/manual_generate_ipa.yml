@@ -33,7 +33,7 @@ on:
         - s390x
 
 env:
-  PLATFORM_ARCH: |
+  PLATFORM_ARCH: >-
     ${{ fromJSON('{
       "amd64" : "amd64",
       "i386" : "386",
