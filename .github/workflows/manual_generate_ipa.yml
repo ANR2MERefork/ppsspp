@@ -26,6 +26,7 @@ on:
         - i386
         - arm64v8
         - arm32v7
+        - arm32v6
         - arm32v5
         - riscv64
         - mips64le
@@ -39,7 +40,7 @@ env:
       "i386" : "386 debian",
       "arm64v8" : "arm64 debian",
       "arm32v7" : "arm/v7 debian",
-      "arm32v6" : "arm/v6 debian",
+      "arm32v6" : "arm/v6 balenalib/rpi-raspbian",
       "arm32v5" : "arm/v5 debian",
       "riscv64" : "riscv64 ubuntu",
       "mips64" : "mips64 debian",
