@@ -152,7 +152,7 @@ jobs:
 
             ./bootstrap
             make -j$(nproc)
-            sudo make install
+            make install
             cmake --version
 
             # Build ppsspp
