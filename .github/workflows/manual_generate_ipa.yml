@@ -36,17 +36,17 @@ on:
 env:
   PLATFORM_ARCH: >-
     ${{ fromJSON('{
-      "amd64" : "amd64 debian",
-      "i386" : "386 debian",
-      "arm64v8" : "arm64 debian",
-      "arm32v7" : "arm/v7 debian",
-      "arm32v6" : "arm/v6 balenalib/rpi-raspbian",
-      "arm32v5" : "arm/v5 debian",
-      "riscv64" : "riscv64 ubuntu",
-      "mips64" : "mips64 debian",
-      "mips64le" : "mips64le debian",
-      "ppc64le" : "ppc64le debian",
-      "s390x" : "s390x debian"
+      "amd64" : "amd64 debian:oldoldstable",
+      "i386" : "386 debian:oldoldstable",
+      "arm64v8" : "arm64 debian:oldoldstable",
+      "arm32v7" : "arm/v7 debian:oldoldstable",
+      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
+      "arm32v5" : "arm/v5 debian:oldoldstable",
+      "riscv64" : "riscv64 ubuntu:focal",
+      "mips64" : "mips64 debian:oldoldstable",
+      "mips64le" : "mips64le debian:oldoldstable",
+      "ppc64le" : "ppc64le debian:oldoldstable",
+      "s390x" : "s390x debian:oldoldstable"
     }')[inputs.cpuArch] }}
 
 jobs:
@@ -137,7 +137,7 @@ jobs:
             export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
 
             # Build ppsspp
-            ./b.sh --${{ inputs.buildVariant }}
+            ./b.sh --${{ inputs.buildVariant }} --headless --unittest
 
             # Checking binaries arch
             find . -name "PPSSPPSDL" -exec file {} \;
