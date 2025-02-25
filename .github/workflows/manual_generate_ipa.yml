@@ -103,8 +103,8 @@ jobs:
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
-            CC: clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-            CXX: clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            CC: gcc # clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: g++ # clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
             CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
             LDFLAGS: -no-pie
             USE_CCACHE: 1
@@ -146,6 +146,9 @@ jobs:
             echo "Running inside container!"
             uname -m
             gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+            gcc --version
+            g++ --version
+            ld -v
             
             # Fix dubious ownership issue when running git describe inside a container
             git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
