@@ -154,6 +154,7 @@ jobs:
 
             ls
             find . -name "b.sh" -exec file {} \;
+            
             # Build ppsspp
             ./b.sh --${{ inputs.buildVariant }} --headless --unittest
 
@@ -164,9 +165,16 @@ jobs:
             find . -name PPSSPPUnitTest -exec file {} \;
 
             # Copy artifacts
+            if [ -e build*/PPSSPPSDL ]; then
+              #mkdir artifacts/ppsspp
+              cp -a build*/PPSSPPSDL artifacts/
+              chmod +x artifacts/PPSSPPSDL
+              cp -r assets artifacts/assets
+            fi
+            
             if [ -e build*/PPSSPPHeadless ]; then
               cp build*/PPSSPPHeadless artifacts/
-              cp -r assets test/assets
+              cp -r assets artifacts/assets
             fi
             
             if [ -e build*/PPSSPPUnitTest ]; then
