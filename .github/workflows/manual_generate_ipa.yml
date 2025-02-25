@@ -130,6 +130,8 @@ jobs:
             apt install -q -y libtool autoconf unzip wget libssl-dev
 
             # Build and Install a newer CMake
+            CC=clang
+            CXX=clang++
             cmake_version=3.31.6
             mkdir ~/temp
             cd ~/temp
