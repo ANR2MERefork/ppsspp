@@ -128,20 +128,7 @@ jobs:
 
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev
-            
-          run: |
-            echo "Running inside container!"
-            uname -m
-            # Fix dubious ownership issue when running git describe inside a container
-            git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
-            
-            # Export ccache env var(s)
-            export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-            export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
 
-            # Remove old CMake
-            apt purge --auto-remove cmake
-            
             # Build and Install a newer CMake
             cmake_version=3.31.6
             mkdir ~/temp
@@ -154,7 +141,19 @@ jobs:
             make -j$(nproc)
             make install
             cmake --version
+            
+          run: |
+            echo "Running inside container!"
+            uname -m
+            # Fix dubious ownership issue when running git describe inside a container
+            git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+            
+            # Export ccache env var(s)
+            export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+            export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
 
+            ls
+            find . -name "b.sh" -exec file {} \;
             # Build ppsspp
             ./b.sh --${{ inputs.buildVariant }} --headless --unittest
 
