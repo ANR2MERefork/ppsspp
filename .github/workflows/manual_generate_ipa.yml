@@ -122,6 +122,9 @@ jobs:
           install: |
             apt-get update -q -y
             apt-get install -q -y git
+
+            # install ppsspp prerequisites
+            apt install build-essential cmake libgl1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
             
           run: |
             echo "Running inside container!"
@@ -132,6 +135,15 @@ jobs:
             # Export ccache env var(s)
             export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
             export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+
+            # Build ppsspp
+            ./b.sh --${{ inputs.buildVariant }}
+
+            # Checking binaries arch
+            find . -name "PPSSPPSDL" -exec file {} \;
+            file ./ffmpeg/linux/x86/lib/libavcodec.a
+            find . -name PPSSPPHeadless -exec file {} \;
+            find . -name PPSSPPUnitTest -exec file {} \;
 
       - name: Run script on the Host system
         run: uname -m
