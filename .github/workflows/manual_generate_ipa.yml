@@ -174,7 +174,7 @@ jobs:
             
             if [ -e build*/PPSSPPHeadless ]; then
               cp build*/PPSSPPHeadless artifacts/
-              cp -r assets artifacts/assets
+              #cp -r assets artifacts/assets
             fi
             
             if [ -e build*/PPSSPPUnitTest ]; then
