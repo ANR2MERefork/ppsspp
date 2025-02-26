@@ -127,7 +127,7 @@ jobs:
             apt install -q -y build-essential clang gcc libgl1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
 
             # Prerequisites to build CMake
-            apt install -q -y libtool autoconf unzip wget libssl-dev
+            apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
 
             # Remove old CMake
             #apt purge cmake -y
@@ -143,32 +143,32 @@ jobs:
             # Compare versions
             if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
                 echo "CMake version is lower than $required_cmake_version. Installing a newer version..."
-                # Install a newer version of CMake
+                # Install a newer version of CMake (need v3.16+)
+                #export CC=clang
+                #export CXX=clang++
+                cmake_version=3.31.6
+                wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
+                tar -xzf cmake-$cmake_version.tar.gz
+                cd cmake-$cmake_version/
+                ./configure #./bootstrap
+                make -j$(nproc)
+                make install
+                cd -
+                
                 #apt-get install --reinstall ca-certificates
-                apt install -y software-properties-common
-                add-apt-repository ppa:kitware/test-1
-                apt update
-                apt install -y cmake
+                #apt install -y software-properties-common
+                #add-apt-repository ppa:kitware/ppa
+                #wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc | sudo apt-key add -
+                #apt-add-repository 'deb https://apt.kitware.com/ubuntu/ focal main'
+                #apt update
+                #apt install -y cmake
+
+                # Install CMake using pip
+                #apt install -q -y python3-pip
+                #pip3 install cmake --upgrade
             else
                 echo "CMake version is $installed_cmake_version, which is sufficient."
             fi
-
-            # Build and Install a newer CMake (need v3.16+)
-            #export CC=clang
-            #export CXX=clang++
-            #cmake_version=3.31.6
-            #mkdir ~/temp
-            #cd ~/temp
-            #wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
-            #tar -xzf cmake-$cmake_version.tar.gz
-            #cd cmake-$cmake_version/
-            #./bootstrap
-            #make -j$(nproc)
-            #make install
-
-            # Install CMake using pip
-            #apt install -q -y python3-pip
-            #pip3 install cmake --upgrade
             
             cmake --version
             
