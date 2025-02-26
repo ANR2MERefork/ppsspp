@@ -120,9 +120,9 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            #apt-get install --reinstall ca-certificates
-            apt install -y software-properties-common
             apt-get update -y -qq
+            apt-get install --reinstall ca-certificates
+            apt-get install -q -y software-properties-common
             apt-get install -q -y git file 
 
             # Prerequisites to build PPSSPP
