@@ -132,9 +132,26 @@ jobs:
             # Remove old CMake
             #apt purge cmake -y
 
+            # Get the installed version of CMake
+            installed_cmake_version=$(cmake --version | grep -oP '\d+\.\d+\.\d+')
+            required_cmake_version="3.16"
+            
+            # Compare versions
+            if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
+                echo "CMake version is lower than $required_cmake_version. Installing a newer version..."
+                # Install a newer version of CMake
+                apt update
+                apt install -y software-properties-common
+                add-apt-repository ppa:kitware/release
+                apt update
+                apt install -y cmake
+            else
+                echo "CMake version is $installed_cmake_version, which is sufficient."
+            fi
+
             # Build and Install a newer CMake (need v3.16+)
-            #CC=clang
-            #CXX=clang++
+            #export CC=clang
+            #export CXX=clang++
             #cmake_version=3.31.6
             #mkdir ~/temp
             #cd ~/temp
@@ -146,8 +163,8 @@ jobs:
             #make install
 
             # Install CMake using pip
-            apt install -q -y python3-pip
-            pip3 install cmake --upgrade
+            #apt install -q -y python3-pip
+            #pip3 install cmake --upgrade
             
             cmake --version
             
