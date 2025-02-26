@@ -147,13 +147,19 @@ jobs:
                 #export CC=clang
                 #export CXX=clang++
                 cmake_version=3.31.6
-                wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
-                tar -xzf cmake-$cmake_version.tar.gz
-                cd cmake-$cmake_version/
-                ./configure #./bootstrap
-                make -j$(nproc)
-                make install
-                cd -
+                if "${{ inputs.cpuArch }}" == "arm64v8"; then
+                  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version-linux-aarch64.sh -O cmake.sh
+                  chmod +x cmake.sh
+                  ./cmake.sh --skip-license --exclude-subdir --prefix=/usr/local
+                else
+                  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
+                  tar -xzf cmake-$cmake_version.tar.gz
+                  cd cmake-$cmake_version/
+                  ./configure #./bootstrap
+                  make -j$(nproc)
+                  make install
+                  cd -
+                fi
                 
                 #apt-get install --reinstall ca-certificates
                 #apt install -y software-properties-common
