@@ -120,17 +120,21 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            apt-get update -q -y
+            apt-get install --reinstall ca-certificates
+            apt install -y software-properties-common
+            apt-get update -y -qq
             apt-get install -q -y git file 
 
             # Prerequisites to build PPSSPP
-            apt install -q -y build-essential clang gcc libgl1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
+            apt install -q -y build-essential libgl1-mesa-dev libglu1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
 
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
 
-            # Remove old CMake
-            #apt purge cmake -y
+            # TODO: Install gcc-9 or newer, since building using gcc-8 on arm64v8 could get Segmentation fault
+            add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse" # deb http://deb.debian.org/debian testing main
+            apt update -y -q
+            apt install -y -q gcc g++ clang lldb lld
 
             # Check if CMake is installed
             required_cmake_version="3.16"
@@ -143,10 +147,12 @@ jobs:
             # Compare versions
             if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
                 echo "CMake version is lower than $required_cmake_version. Installing a newer version..."
+                # Remove old CMake
+                apt purge cmake -y
                 # Install a newer version of CMake (need v3.16+)
                 #export CC=clang
                 #export CXX=clang++
-                cmake_version=3.31.6
+                cmake_version=3.26.6 #3.31.6
                 if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
                   wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version-linux-aarch64.sh -O cmake.sh
                   chmod +x cmake.sh
@@ -160,18 +166,6 @@ jobs:
                   make install
                   cd -
                 fi
-                
-                #apt-get install --reinstall ca-certificates
-                #apt install -y software-properties-common
-                #add-apt-repository ppa:kitware/ppa
-                #wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc | sudo apt-key add -
-                #apt-add-repository 'deb https://apt.kitware.com/ubuntu/ focal main'
-                #apt update
-                #apt install -y cmake
-
-                # Install CMake using pip
-                #apt install -q -y python3-pip
-                #pip3 install cmake --upgrade
             else
                 echo "CMake version is $installed_cmake_version, which is sufficient."
             fi
