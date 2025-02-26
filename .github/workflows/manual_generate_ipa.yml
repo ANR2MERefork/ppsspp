@@ -144,9 +144,9 @@ jobs:
             if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
                 echo "CMake version is lower than $required_cmake_version. Installing a newer version..."
                 # Install a newer version of CMake
-                apt-get install --reinstall ca-certificates
+                #apt-get install --reinstall ca-certificates
                 apt install -y software-properties-common
-                add-apt-repository ppa:kitware/release
+                add-apt-repository ppa:kitware/ppa
                 apt update
                 apt install -y cmake
             else
