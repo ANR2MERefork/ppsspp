@@ -124,7 +124,7 @@ jobs:
             apt-get install -q -y git file 
 
             # Prerequisites to build PPSSPP
-            apt install -q -y build-essential clang libgl1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
+            apt install -q -y build-essential clang gcc cmake libgl1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
 
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev
@@ -132,16 +132,16 @@ jobs:
             # Build and Install a newer CMake
             #CC=clang
             #CXX=clang++
-            cmake_version=3.29.9
-            mkdir ~/temp
-            cd ~/temp
-            wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
-            tar -xzf cmake-$cmake_version.tar.gz
-            cd cmake-$cmake_version/
+            #cmake_version=3.29.9
+            #mkdir ~/temp
+            #cd ~/temp
+            #wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
+            #tar -xzf cmake-$cmake_version.tar.gz
+            #cd cmake-$cmake_version/
 
-            ./bootstrap
-            make -j$(nproc)
-            make install
+            #./bootstrap
+            #make -j$(nproc)
+            #make install
             cmake --version
             
           run: |
