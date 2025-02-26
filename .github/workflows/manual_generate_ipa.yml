@@ -129,19 +129,26 @@ jobs:
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev
 
+            # Remove old CMake
+            #apt purge cmake -y
+
             # Build and Install a newer CMake (need v3.16+)
             #CC=clang
             #CXX=clang++
-            cmake_version=3.19.8
-            mkdir ~/temp
-            cd ~/temp
-            wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
-            tar -xzf cmake-$cmake_version.tar.gz
-            cd cmake-$cmake_version/
+            #cmake_version=3.31.6
+            #mkdir ~/temp
+            #cd ~/temp
+            #wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
+            #tar -xzf cmake-$cmake_version.tar.gz
+            #cd cmake-$cmake_version/
+            #./bootstrap
+            #make -j$(nproc)
+            #make install
 
-            ./bootstrap
-            make -j$(nproc)
-            make install
+            # Install CMake using pip
+            apt install -q -y python3-pip
+            pip install cmake --upgrade
+            
             cmake --version
             
           run: |
