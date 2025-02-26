@@ -146,7 +146,7 @@ jobs:
                 # Install a newer version of CMake
                 #apt-get install --reinstall ca-certificates
                 apt install -y software-properties-common
-                add-apt-repository ppa:kitware/ppa
+                add-apt-repository ppa:kitware/cmake
                 apt update
                 apt install -y cmake
             else
