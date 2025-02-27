@@ -38,7 +38,7 @@ env:
     ${{ fromJSON('{
       "amd64" : "amd64 debian:oldoldstable",
       "i386" : "386 debian:oldoldstable",
-      "arm64v8" : "arm64 debian:oldoldstable",
+      "arm64v8" : "arm64 debian:oldstable",
       "arm32v7" : "arm/v7 debian:oldoldstable",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
       "arm32v5" : "arm/v5 debian:oldoldstable",
@@ -131,20 +131,20 @@ jobs:
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
 
-            # Install gcc-9 or newer, since building using gcc-8 on arm64v8 could get Segmentation fault
+            # TODO: Install gcc-9 or newer, because building using gcc-8 (Debian 10) on arm64v8 could get Segmentation fault (works good on arm32v tho)
             if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
               # Install gcc/g++ debs from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
-              echo "Installing GCC-10"
-              wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
-              wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/g++-10_10.2.1-6_arm64.deb -O g++_arm64.deb
-              apt install -y -f ./gcc_arm64.deb ./g++_arm64.deb
+              #echo "Installing GCC-10"
+              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
+              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/g++-10_10.2.1-6_arm64.deb -O g++_arm64.deb
+              #apt install -y -f ./gcc_arm64.deb ./g++_arm64.deb # need more dependencies tho
               
-              #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
-              #apt update -y -q
-              #apt install -y -q gcc g++ clang lldb lld
+              add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
+              apt update -y -q
+              apt install -y -q gcc g++ clang lldb lld
 
-              #export CC=gcc-10
-              #export CXX=g++-10
+              #export CC=clang
+              #export CXX=clang++
             fi
 
             # Check if CMake is installed
