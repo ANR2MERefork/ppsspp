@@ -121,7 +121,7 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             apt-get update -y -qq
-            apt-get install --reinstall ca-certificates
+            apt-get install -q -y --reinstall ca-certificates
             apt-get install -q -y software-properties-common
             apt-get install -q -y git file 
 
