@@ -61,6 +61,9 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       
       - name: Setup and Run Guest Container for ${{ inputs.cpuArch }} (target arch)
         id: debian-target
