@@ -38,7 +38,7 @@ env:
     ${{ fromJSON('{
       "amd64" : "amd64 debian:oldoldstable",
       "i386" : "386 debian:oldoldstable",
-      "arm64v8" : "arm64 debian:stable",
+      "arm64v8" : "arm64 ubuntu:focal",
       "arm32v7" : "arm/v7 debian:oldoldstable",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
       "arm32v5" : "arm/v5 debian:oldoldstable",
@@ -141,7 +141,8 @@ jobs:
 
               apt-get install -y -q --reinstall lsb-release
               apt-get install -y -q software-properties-common
-              add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
+              #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free"
+              add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
               apt update -y -q
               apt install -y -q gcc g++ clang lldb lld
 
@@ -166,11 +167,11 @@ jobs:
                 #export CC=clang
                 #export CXX=clang++
                 cmake_version=3.31.6 # 3.26.6
-                if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
-                  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version-linux-aarch64.sh -O cmake.sh
-                  chmod +x cmake.sh
-                  ./cmake.sh --skip-license --exclude-subdir --prefix=/usr/local
-                else
+                #if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
+                #  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version-linux-aarch64.sh -O cmake.sh
+                #  chmod +x cmake.sh
+                #  ./cmake.sh --skip-license --exclude-subdir --prefix=/usr/local
+                #else
                   wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
                   tar -xzf cmake-$cmake_version.tar.gz
                   cd cmake-$cmake_version/
@@ -178,7 +179,7 @@ jobs:
                   make -j$(nproc)
                   make install
                   cd -
-                fi
+                #fi
             else
                 echo "CMake version is $installed_cmake_version, which is sufficient."
             fi
