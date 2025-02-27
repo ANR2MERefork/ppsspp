@@ -52,8 +52,8 @@ env:
 jobs:
 
   build:
-    name: Generate ${{ github.event.inputs.buildVariant }} ${{ github.event.inputs.cpuArch }} build
-    runs-on: ubuntu-latest
+    name: Generate ${{ inputs.buildVariant }} ${{ inputs.cpuArch }} build
+    runs-on: ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-latest' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
       
     steps:
       - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
