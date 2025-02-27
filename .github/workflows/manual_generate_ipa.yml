@@ -38,7 +38,7 @@ env:
     ${{ fromJSON('{
       "amd64" : "amd64 debian:oldoldstable",
       "i386" : "386 debian:oldoldstable",
-      "arm64v8" : "arm64 debian:oldstable",
+      "arm64v8" : "arm64 debian:stable",
       "arm32v7" : "arm/v7 debian:oldoldstable",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
       "arm32v5" : "arm/v5 debian:oldoldstable",
