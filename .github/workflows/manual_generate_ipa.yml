@@ -121,8 +121,8 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             apt-get update -y -qq
-            apt-get install -q -y --reinstall ca-certificates
-            apt-get install -q -y software-properties-common
+            #apt-get install -q -y --reinstall ca-certificates
+            #apt-get install -q -y software-properties-common
             apt-get install -q -y git file 
 
             # Prerequisites to build PPSSPP
@@ -133,7 +133,8 @@ jobs:
 
             # Install gcc-9 or newer, since building using gcc-8 on arm64v8 could get Segmentation fault
             if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
-              # Install gcc  g++ deb from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
+              # Install gcc/g++ debs from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
+              echo "Installing GCC-10"
               wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
               wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/g++-10_10.2.1-6_arm64.deb -O g++_arm64.deb
               apt install -y -f ./gcc_arm64.deb ./g++_arm64.deb
@@ -141,6 +142,9 @@ jobs:
               #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
               #apt update -y -q
               #apt install -y -q gcc g++ clang lldb lld
+
+              #export CC=gcc-10
+              #export CXX=g++-10
             fi
 
             # Check if CMake is installed
