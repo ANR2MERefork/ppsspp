@@ -134,9 +134,11 @@ jobs:
             # TODO: Install gcc-9 or newer, since building using gcc-8 on arm64v8 could get Segmentation fault
             if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
               # TODO: Install gcc  g++ deb from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
-              add-apt-repository -y "deb http://deb.debian.org/debian oldstable main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
+              add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
               apt update -y -q
               apt install -y -q gcc g++ clang lldb lld
+              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
+              #apt install -y -f ./gcc_arm64.deb
             fi
 
             # Check if CMake is installed
