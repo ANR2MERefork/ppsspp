@@ -132,9 +132,12 @@ jobs:
             apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
 
             # TODO: Install gcc-9 or newer, since building using gcc-8 on arm64v8 could get Segmentation fault
-            add-apt-repository -y "deb http://deb.debian.org/debian testing main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
-            apt update -y -q
-            apt install -y -q gcc g++ clang lldb lld
+            #add-apt-repository -y "deb http://deb.debian.org/debian testing main contrib non-free" # `lsb_release -sc` main universe restricted multiverse
+            #apt update -y -q
+            #apt install -y -q gcc g++ clang lldb lld
+            apt install -y -q gcc-10 g++-10
+            export CC=gcc-10
+            export CXX=g++-10
 
             # Check if CMake is installed
             required_cmake_version="3.16"
