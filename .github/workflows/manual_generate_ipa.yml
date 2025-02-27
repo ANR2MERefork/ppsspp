@@ -36,17 +36,17 @@ on:
 env:
   PLATFORM_ARCH: >-
     ${{ fromJSON('{
-      "amd64" : "amd64 debian:oldoldstable",
-      "i386" : "386 debian:oldoldstable",
-      "arm64v8" : "arm64 ubuntu:latest",
-      "arm32v7" : "arm/v7 debian:oldoldstable",
+      "amd64" : "amd64 amd64/debian:buster",
+      "i386" : "386 i386/debian:buster",
+      "arm64v8" : "arm64 arm64v8/ubuntu:latest",
+      "arm32v7" : "arm/v7 arm32v7/debian:buster",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
-      "arm32v5" : "arm/v5 debian:oldoldstable",
-      "riscv64" : "riscv64 ubuntu:focal",
-      "mips64" : "mips64 debian:oldoldstable",
-      "mips64le" : "mips64le debian:oldoldstable",
-      "ppc64le" : "ppc64le debian:oldoldstable",
-      "s390x" : "s390x debian:oldoldstable"
+      "arm32v5" : "arm/v5 arm32v5/debian:buster",
+      "riscv64" : "riscv64 riscv64/ubuntu:focal",
+      "mips64" : "mips64 mips64/debian:buster",
+      "mips64le" : "mips64le mips64le/debian:buster",
+      "ppc64le" : "ppc64le ppc64le/debian:buster",
+      "s390x" : "s390x s390x/debian:buster"
     }')[inputs.cpuArch] }}
 
 jobs:
