@@ -139,11 +139,11 @@ jobs:
               #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/g++-10_10.2.1-6_arm64.deb -O g++_arm64.deb
               #apt install -y -f ./gcc_arm64.deb ./g++_arm64.deb # need more dependencies tho
 
-              apt-get install -y -q --reinstall lsb-release
-              apt-get install -y -q software-properties-common
+              #apt-get install -y -q --reinstall lsb-release
+              #apt-get install -y -q software-properties-common
               #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free"
-              add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
-              apt update -y -q
+              #add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+              #apt update -y -q
               apt install -y -q gcc g++ clang lldb lld
 
               #export CC=clang
