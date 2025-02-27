@@ -1,81 +1,127 @@
-name: Manual Generate Android APK
+name: Manual Generate Linux Package
 on:
   workflow_dispatch:
     inputs:
-
+      refToBuild:
+        description: 'Commit SHA1 to build (optional)'
+        type: string
+        default: ''
+        
       buildVariant:
         type: choice
         description: 'Build Variant'
         required: true
-        default: 'NormalOptimized'
+        default: 'release'
         options: 
-        - NormalOptimized
-        - NormalDebug
-        - VROptimized
-        - VRDebug
-        - LegacyOptimized
+        - release
+        - debug
+
+      cpuArch:
+        type: choice
+        description: 'CPU Architecture'
+        required: true
+        default: 'amd64'
+        options: 
+        - amd64
+        - i386
+        - arm64v8
+        - arm32v7
+        - arm32v6
+        - arm32v5
+        - riscv64
+        - mips64le
+        - ppc64le
+        - s390x
+
+env:
+  PLATFORM_ARCH: >-
+    ${{ fromJSON('{
+      "amd64" : "amd64 amd64/debian:buster",
+      "i386" : "386 i386/debian:buster",
+      "arm64v8" : "arm64 arm64v8/ubuntu:latest",
+      "arm32v7" : "arm/v7 arm32v7/debian:buster",
+      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
+      "arm32v5" : "arm/v5 arm32v5/debian:buster",
+      "riscv64" : "riscv64 riscv64/ubuntu:focal",
+      "mips64" : "mips64 mips64/debian:buster",
+      "mips64le" : "mips64le mips64le/debian:buster",
+      "ppc64le" : "ppc64le ppc64le/debian:buster",
+      "s390x" : "s390x s390x/debian:buster"
+    }')[inputs.cpuArch] }}
 
 jobs:
 
-  apk:
-    name: Generate ${{ github.event.inputs.buildVariant }} APK
-    runs-on: ubuntu-latest
-
+  build:
+    name: Generate ${{ inputs.buildVariant }} ${{ inputs.cpuArch }} build
+    runs-on: ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-latest' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
+      
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v1 # v2 or newer no longer support short SHA ref
         with:
           fetch-depth: 0
           submodules: recursive
-
-      - name: Check Valid Version Tags
-        id: valid-tags
-        shell: bash
-        run: |
-          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
-
-      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
-        if: ${{ steps.valid-tags.outputs.count == '0' }}
-        run: |
-          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
-          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
-          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
-        
-      - name: Setup JDK
-        uses: actions/setup-java@v4
+          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
+      
+      - name: Setup and Run Guest Container for ${{ inputs.cpuArch }} (target arch)
+        id: debian-target
+        uses: uraimo/run-on-arch-action@v2
         with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-        
-      #- name: Setup SDK # gradlew will install SDK automatically, thus this step not needed
-      #  uses: android-actions/setup-android@v3
+          arch: none
+          distro: none
+          base_image: --platform=linux/${{ env.PLATFORM_ARCH }}
           
-      #- name: Setup NDK # gradle will install NDK (side by side) automatically, thus explictly seting up NDK here will cause not enough storage issue when building debug variant
-      #  uses: nttld/setup-ndk@v1
-      #  with:
-      #    ndk-version: r21e
+          githubToken: ${{ github.token }}
+          
+          setup: |
+            mkdir -p "${PWD}/artifacts"
 
-      - name: Test androidGitVersion
-        run: |
-          echo "count=${{steps.valid-tags.outputs.count}}"
-          gradle --quiet androidGitVersion
-      
-      - name: Assemble APK
-        run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
-      
-      #- name: Gradle Test
-      #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
-      
-      - name: Package build
-        run: |
-          find . -name "*.apk"
-          mkdir ppsspp
-          if [ -e android/build/*/apk/*/*/*.apk ]; then
-            cp android/build/*/apk/*/*/*.apk ppsspp/
-          fi
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-${{ github.event.inputs.buildVariant }} build
-          path: ppsspp/
+          env: |
+            artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
+
+          shell: /bin/bash
+          
+          install: |
+            apt-get update -y -qq
+            apt-get install -q -y git file build-essential
+
+            # Prerequisites to build CMake
+            apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
+
+            # Check if CMake is installed
+            required_cmake_version="3.16"
+            installed_cmake_version="0.00"
+            if command -v cmake &> /dev/null; then
+                # Get the installed version of CMake
+                installed_cmake_version=$(cmake --version | grep -oP '\d+\.\d+\.\d+')
+            fi
+
+            # Compare versions
+            if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
+                echo "CMake version is lower than $required_cmake_version, or not installed. Installing a newer version..."
+                # Remove old CMake
+                apt purge cmake -y
+                # Install a newer version of CMake (need v3.16+)
+                cmake_version=3.31.6 # 3.26.6
+                wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
+                tar -xzf cmake-$cmake_version.tar.gz
+                cd cmake-$cmake_version/
+                ./bootstrap #./configure
+                make -j$(nproc)
+                make install
+                cd -
+            else
+                echo "CMake version is $installed_cmake_version, which is sufficient."
+            fi
+            
+          run: |
+            echo "Running inside container!"
+            uname -m
+            gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+            gcc --version
+            g++ --version
+            ld -v
+            cmake --version
+   
