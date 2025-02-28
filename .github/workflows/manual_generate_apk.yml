@@ -67,7 +67,7 @@ jobs:
       
       - name: Setup and Run Guest System for ${{ inputs.cpuArch }} (target arch)
         id: debian-target
-        uses: uraimo/run-on-arch-action@v2
+        uses: uraimo/run-on-arch-action@v3
         with:
           arch: none
           distro: none
