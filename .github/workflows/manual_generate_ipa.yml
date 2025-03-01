@@ -132,7 +132,7 @@ jobs:
             apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
 
             # TODO: Install gcc-9 or newer, because building using gcc-8 (Debian 10) on arm64v8 could get Segmentation fault (works good on arm32v tho)
-            if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
+            #if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
               # Install gcc/g++ debs from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
               #echo "Installing GCC-10"
               #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
@@ -148,7 +148,7 @@ jobs:
 
               #export CC=clang
               #export CXX=clang++
-            fi
+            #fi
 
             # Check if CMake is installed
             required_cmake_version="3.16"
