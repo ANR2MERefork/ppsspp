@@ -38,7 +38,7 @@ env:
     ${{ fromJSON('{
       "amd64" : "amd64 amd64/debian:buster",
       "i386" : "386 i386/debian:buster",
-      "arm64v8" : "arm64 arm64v8/ubuntu:latest",
+      "arm64v8" : "arm64 arm64v8/debian:buster",
       "arm32v7" : "arm/v7 arm32v7/debian:buster",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:jessie",
       "arm32v5" : "arm/v5 arm32v5/debian:buster",
@@ -83,7 +83,7 @@ jobs:
       
       - name: Setup and Run Guest Container for ${{ inputs.cpuArch }} (target arch)
         id: debian-target
-        uses: uraimo/run-on-arch-action@v2
+        uses: uraimo/run-on-arch-action@v3
         with:
           arch: none # ${{ github.event.inputs.cpuArch }}
           distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
@@ -184,8 +184,6 @@ jobs:
                 echo "CMake version is $installed_cmake_version, which is sufficient."
             fi
             
-            cmake --version
-            
           run: |
             echo "Running inside container!"
             uname -m
@@ -193,6 +191,7 @@ jobs:
             gcc --version
             g++ --version
             ld -v
+            cmake --version
             
             # Fix dubious ownership issue when running git describe inside a container
             git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
