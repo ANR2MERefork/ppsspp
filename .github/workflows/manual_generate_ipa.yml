@@ -144,7 +144,7 @@ jobs:
               #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free"
               #add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
               #apt update -y -q
-              apt install -y -q gcc g++ clang lldb lld
+              apt install -y -q gcc g++ clang # lldb lld
 
               #export CC=clang
               #export CXX=clang++
