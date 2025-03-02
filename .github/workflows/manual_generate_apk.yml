@@ -97,7 +97,7 @@ jobs:
             
 
             # Prerequisites to build CMake
-            apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
+            apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev libatomic1
 
             # Check if CMake is installed
             required_cmake_version="3.16"
