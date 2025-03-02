@@ -45,7 +45,7 @@ env:
       "riscv64" : "riscv64 riscv64/ubuntu:focal",
       "mips64" : "mips64 mips64/debian:buster",
       "mips64le" : "mips64le mips64le/debian:buster",
-      "ppc64le" : "ppc64le ppc64le/debian:buster",
+      "ppc64le" : "ppc64le ppc64le/debian:bullseye",
       "s390x" : "s390x s390x/debian:buster"
     }')[inputs.cpuArch] }}
 
