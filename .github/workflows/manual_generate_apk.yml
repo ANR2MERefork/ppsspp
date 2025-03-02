@@ -83,8 +83,8 @@ jobs:
 
           env: |
             artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
-            CC: clang #gcc
-            CXX: clang++ #g++
+            #CC: clang #gcc
+            #CXX: clang++ #g++
 
           shell: /bin/bash
           
