@@ -93,7 +93,7 @@ jobs:
             apt-get install -q -y git file build-essential
 
             # Try with clang
-            apt install -y -q clang lldb lld
+            apt install -y -q clang lld
             
 
             # Prerequisites to build CMake
