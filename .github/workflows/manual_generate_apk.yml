@@ -102,8 +102,8 @@ jobs:
               echo "RISCV64 need explicit -latomic !"
               apt install -q -y libatomic1
               set +u
-              #export CMAKE_C_STANDARD_LIBRARIES="$CMAKE_C_STANDARD_LIBRARIES -latomic"
-              #export CMAKE_CXX_STANDARD_LIBRARIES="$CMAKE_CXX_STANDARD_LIBRARIES -latomic"
+              export CMAKE_C_STANDARD_LIBRARIES="$CMAKE_C_STANDARD_LIBRARIES -latomic"
+              export CMAKE_CXX_STANDARD_LIBRARIES="$CMAKE_CXX_STANDARD_LIBRARIES -latomic"
               export CPPFLAGS="$CPPFLAGS -latomic"
               export LDFLAGS="$LDFLAGS -latomic"
             fi
