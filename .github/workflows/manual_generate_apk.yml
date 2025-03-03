@@ -95,9 +95,17 @@ jobs:
             # Try with clang
             apt install -y -q clang
             
-
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
+
+            if [ "${{ inputs.cpuArch }}" == "riscv64" ]; then
+              echo "RISCV64 need explicit -latomic !"
+              apt install -q -y libatomic1
+              #export CMAKE_C_STANDARD_LIBRARIES="$CMAKE_C_STANDARD_LIBRARIES -latomic"
+              #export CMAKE_CXX_STANDARD_LIBRARIES="$CMAKE_CXX_STANDARD_LIBRARIES -latomic"
+              export CPPFLAGS="$CPPFLAGS -latomic"
+              export LDFLAGS="$LDFLAGS -latomic"
+            fi
 
             # Check if CMake is installed
             required_cmake_version="3.16"
