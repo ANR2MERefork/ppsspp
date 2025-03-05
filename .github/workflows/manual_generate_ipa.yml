@@ -42,7 +42,7 @@ env:
       "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:bullseye",
       "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
-      "riscv64" : "riscv64 riscv64/ubuntu:focal",
+      "riscv64" : "riscv64 riscv64/debian:trixie",
       "mips64" : "mips64 mips64/debian:bullseye",
       "mips64le" : "mips64le mips64le/debian:bullseye",
       "ppc64le" : "ppc64le ppc64le/debian:bullseye",
@@ -103,8 +103,8 @@ jobs:
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
-            CC: clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-            CXX: clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            CC: gcc #clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: g++ #clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
             CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
             LDFLAGS: -no-pie
             USE_CCACHE: 1
