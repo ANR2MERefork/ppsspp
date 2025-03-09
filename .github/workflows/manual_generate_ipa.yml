@@ -27,11 +27,12 @@ on:
         - arm64v8
         - arm32v7
         - arm32v6
-        - arm32v5
+        - arm32v5 # doesn't support "ssat" assembly instruction
         - riscv64
-        - mips64le
+        - loong64
+        - mips64le # gcc issue?
         - ppc64le
-        - s390x
+        - s390x # gcc issue?
 
 env:
   PLATFORM_ARCH: >-
@@ -40,13 +41,13 @@ env:
       "i386" : "386 i386/debian:bullseye",
       "arm64v8" : "arm64 arm64v8/debian:bullseye",
       "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
-      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:bullseye",
+      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:latest",
       "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
       "riscv64" : "riscv64 riscv64/ubuntu:focal",
-      "mips64" : "mips64 mips64/debian:bullseye",
-      "mips64le" : "mips64le mips64le/debian:bullseye",
+      "loong64" : "loong64 loong64/debian:trixie",
+      "mips64le" : "mips64le mips64le/debian:latest",
       "ppc64le" : "ppc64le ppc64le/debian:bullseye",
-      "s390x" : "s390x s390x/debian:bullseye"
+      "s390x" : "s390x s390x/debian:latest"
     }')[inputs.cpuArch] }}
 
 jobs:
@@ -187,7 +188,7 @@ jobs:
           run: |
             echo "Running inside container!"
             uname -m
-            gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+            #gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags, might not works on raspbian
             gcc --version
             g++ --version
             ld -v
