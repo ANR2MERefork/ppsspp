@@ -42,7 +42,7 @@ env:
       "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:bullseye",
       "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
-      "riscv64" : "riscv64 riscv64/debian:trixie",
+      "riscv64" : "riscv64 riscv64/ubuntu:focal",
       "mips64" : "mips64 mips64/debian:bullseye",
       "mips64le" : "mips64le mips64le/debian:bullseye",
       "ppc64le" : "ppc64le ppc64le/debian:bullseye",
