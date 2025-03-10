@@ -41,7 +41,7 @@ env:
       "i386" : "386 i386/debian:bullseye",
       "arm64v8" : "arm64 arm64v8/debian:bullseye",
       "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
-      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:latest",
+      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:bullseye",
       "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
       "riscv64" : "riscv64 riscv64/ubuntu:focal",
       "loong64" : "loong64 ghcr.io/loong64/debian:trixie",
