@@ -26,13 +26,13 @@ on:
         - i386
         - arm64v8
         - arm32v7
-        - arm32v6
+        - arm32v6 # missing ffmpeg?
         - arm32v5 # doesn't support "ssat" assembly instruction
         - riscv64
         - loong64
         - mips64le # gcc issue?
         - ppc64le
-        - s390x # gcc issue?
+        - s390x # gcc issue? wrong ffmpeg arch too
 
 env:
   PLATFORM_ARCH: >-
