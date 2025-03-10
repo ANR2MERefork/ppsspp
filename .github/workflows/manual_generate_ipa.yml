@@ -30,12 +30,13 @@ on:
         - arm32v5 # doesn't support "ssat" assembly instruction
         - riscv64
         - loong64
-        - mips64le # gcc issue? wrong ffmpeg arch too (mips32)
+        - mips32
+        - mips64le # type conversion issue? wrong ffmpeg arch too (mips32)
         - ppc64le
-        - s390x # gcc issue? wrong ffmpeg arch too (x64)
+        - s390x # type conversion issue? wrong ffmpeg arch too (x64)
 
 env:
-  PLATFORM_ARCH: >-
+  PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
     ${{ fromJSON('{
       "amd64" : "amd64 amd64/debian:bullseye",
       "i386" : "386 i386/debian:bullseye",
@@ -45,9 +46,10 @@ env:
       "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
       "riscv64" : "riscv64 riscv64/ubuntu:focal",
       "loong64" : "loong64 ghcr.io/loong64/debian:trixie",
-      "mips64le" : "mips64le mips64le/debian:latest",
+      "mips32" : "mips lpenz/debian-buster-mips:latest",
+      "mips64le" : "mips64le mips64le/debian:bullseye",
       "ppc64le" : "ppc64le ppc64le/debian:bullseye",
-      "s390x" : "s390x s390x/debian:latest"
+      "s390x" : "s390x s390x/debian:bullseye"
     }')[inputs.cpuArch] }}
 
 jobs:
@@ -104,8 +106,8 @@ jobs:
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
-            CC: clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-            CXX: clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            CC: gcc #clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: g++ #clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
             CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
             LDFLAGS: -no-pie
             USE_CCACHE: 1
@@ -157,6 +159,7 @@ jobs:
             if command -v cmake &> /dev/null; then
                 # Get the installed version of CMake
                 installed_cmake_version=$(cmake --version | grep -oP '\d+\.\d+\.\d+')
+                echo "Installed CMake version is $installed_cmake_version"
             fi
 
             # Compare versions
@@ -181,8 +184,6 @@ jobs:
                   make install
                   cd -
                 #fi
-            else
-                echo "CMake version is $installed_cmake_version, which is sufficient."
             fi
             
           run: |
@@ -200,9 +201,6 @@ jobs:
             # Export ccache env var(s)
             export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
             export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-
-            ls
-            find . -name "b.sh" -exec file {} \;
             
             # Build ppsspp
             ./b.sh --${{ inputs.buildVariant }} --headless --unittest
