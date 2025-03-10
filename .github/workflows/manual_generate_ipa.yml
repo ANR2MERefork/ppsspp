@@ -30,7 +30,7 @@ on:
         - arm32v5 # doesn't support "ssat" assembly instruction
         - riscv64
         - loong64
-        - mips32
+        #- mips32
         - mips64le # type conversion issue? wrong ffmpeg arch too (mips32)
         - ppc64le
         - s390x # type conversion issue? wrong ffmpeg arch too (x64)
