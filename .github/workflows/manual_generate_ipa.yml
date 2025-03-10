@@ -44,7 +44,7 @@ env:
       "arm32v6" : "arm/v6 balenalib/rpi-raspbian:latest",
       "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
       "riscv64" : "riscv64 riscv64/ubuntu:focal",
-      "loong64" : "loong64 loong64/debian:trixie",
+      "loong64" : "loong64 ghcr.io/loong64/debian:trixie",
       "mips64le" : "mips64le mips64le/debian:latest",
       "ppc64le" : "ppc64le ppc64le/debian:bullseye",
       "s390x" : "s390x s390x/debian:latest"
