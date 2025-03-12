@@ -25,7 +25,7 @@ on:
         - amd64
         - i386
         - arm64v8
-        - arm32v7
+        - arm32v7 # SDL2/EGL issue?
         - arm32v6 # missing ffmpeg?
         - arm32v5 # doesn't support "ssat" assembly instruction
         - riscv64
