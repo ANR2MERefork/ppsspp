@@ -106,10 +106,10 @@ jobs:
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
-            CC: clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-            CXX: clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            CC: gcc #clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: g++ #clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
             CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-            LDFLAGS: -no-pie
+            LDFLAGS: -no-pie -static
             USE_CCACHE: 1
             APPIMAGE_EXTRACT_AND_RUN: 1
 
@@ -205,13 +205,6 @@ jobs:
             # Build ppsspp
             ./b.sh --${{ inputs.buildVariant }} --headless --unittest
 
-            # Checking binaries arch
-            find . -name "PPSSPPSDL" -exec file {} \;
-            file ./ffmpeg/linux/x86/lib/libavcodec.a
-            find . -name PPSSPPHeadless -exec file {} \;
-            find . -name PPSSPPUnitTest -exec file {} \;
-            find . -name "PPSSPPSDL" -exec ldd {} \;
-
             # Copy artifacts
             if [ -e build*/PPSSPPSDL ]; then
               #mkdir artifacts/ppsspp
@@ -230,7 +223,13 @@ jobs:
             fi
 
       - name: Run script on the Host system
-        run: uname -m
+        run: |
+          uname -m
+          # Checking binaries arch
+          find . -name "PPSSPPSDL" -exec file {} \;
+          find . -name PPSSPPHeadless -exec file {} \;
+          find . -name PPSSPPUnitTest -exec file {} \;
+          find . -name "PPSSPPSDL" -exec ldd {} \;
         shell: bash
       
       - name: Package build
