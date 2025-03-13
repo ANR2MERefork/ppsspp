@@ -210,6 +210,7 @@ jobs:
             file ./ffmpeg/linux/x86/lib/libavcodec.a
             find . -name PPSSPPHeadless -exec file {} \;
             find . -name PPSSPPUnitTest -exec file {} \;
+            find . -name "PPSSPPSDL" -exec ldd {} \;
 
             # Copy artifacts
             if [ -e build*/PPSSPPSDL ]; then
