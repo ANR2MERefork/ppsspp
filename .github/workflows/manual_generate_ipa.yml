@@ -109,7 +109,7 @@ jobs:
             CC: gcc #clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
             CXX: g++ #clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
             CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-            LDFLAGS: -no-pie -static
+            LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-static
             USE_CCACHE: 1
             APPIMAGE_EXTRACT_AND_RUN: 1
 
