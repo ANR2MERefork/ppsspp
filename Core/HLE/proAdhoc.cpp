@@ -424,7 +424,7 @@ void deleteAllAdhocSockets() {
 
 			if (fd > 0) {
 				// Close Socket
-				shutdown(fd, SD_RECEIVE);
+				shutdown(fd, SD_BOTH);
 				closesocket(fd);
 			}
 			// Free Memory
