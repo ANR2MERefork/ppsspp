@@ -2175,7 +2175,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 			// Valid Socket
 			if (sock != NULL && sock->type == SOCK_PDP) {
 				// Close Connection
-				shutdown(sock->data.pdp.id, SD_RECEIVE);
+				shutdown(sock->data.pdp.id, SD_BOTH);
 				closesocket(sock->data.pdp.id);
 
 				// Remove Port Forward from Router
@@ -3869,7 +3869,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 			// Valid Socket
 			if (socket != NULL && socket->type == SOCK_PTP) {
 				// Close Connection
-				shutdown(socket->data.ptp.id, SD_RECEIVE);
+				shutdown(socket->data.ptp.id, SD_BOTH);
 				closesocket(socket->data.ptp.id);
 
 				// Remove Port Forward from Router
