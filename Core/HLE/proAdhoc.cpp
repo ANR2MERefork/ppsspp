@@ -1681,6 +1681,11 @@ int friendFinder() {
 
 							// Copy Group Name
 							group->group_name = packet->group;
+							
+							// Print received group name
+							char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+							memcpy(grpName, group->group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+							DEBUG_LOG(Log::sceNet, "Group Name: [%s]", grpName);
 
 							// Set Group Host
 							group->bssid.mac_addr = packet->mac;
