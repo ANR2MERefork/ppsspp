@@ -2359,6 +2359,11 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 						// Increase Discovery Counter
 						discovered++;
+
+						// Print discovered group info
+						char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+						memcpy(grpName, group->group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+						DEBUG_LOG(Log::sceNet, "Discovered Group %i: [%s] (%i)", discovered, grpName, group->mode);
 					}
 
 					// Link List
