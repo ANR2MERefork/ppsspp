@@ -7,7 +7,7 @@ do
 	case "$1" in
 		--qt) echo "Qt enabled"
 			QT=1
-			CMAKE_ARGS="-DUSING_QT_UI=ON ${CMAKE_ARGS}"
+			CMAKE_ARGS="-DUSING_QT_UI=ON -DCMAKE_PREFIX_PATH=${QT_ROOT_DIR} ${CMAKE_ARGS}"
 			;;
 		--qtbrew) echo "Qt enabled (homebrew)"
 			QT=1
