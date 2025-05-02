@@ -141,6 +141,7 @@ int PSPDialog::FinishInit() {
 int PSPDialog::FinishShutdown() {
 	if (ReadStatus() != SCE_UTILITY_STATUS_SHUTDOWN)
 		return -1;
+	INFO_LOG(Log::sceUtility, "sceUtility StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_NONE, 0);
 	ChangeStatus(SCE_UTILITY_STATUS_NONE, 0);
 	return 0;
 }
@@ -158,13 +159,16 @@ void PSPDialog::ChangeStatusInit(int delayUs) {
 void PSPDialog::ChangeStatusShutdown(int delayUs) {
 	// If we're doing shutdown right away and skipped start, we don't run the dialog thread.
 	bool skipDialogShutdown = status == SCE_UTILITY_STATUS_NONE && pendingStatus == SCE_UTILITY_STATUS_NONE;
+	INFO_LOG(Log::sceUtility, "sceUtility StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_SHUTDOWN, 0);
 	ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
 
 	auto params = GetCommonParam();
 	if (params && !skipDialogShutdown)
 		UtilityDialogShutdown(DialogType(), delayUs, params->accessThread);
-	else
+	else {
+		INFO_LOG(Log::sceUtility, "sceUtility StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_NONE, 0);
 		ChangeStatus(SCE_UTILITY_STATUS_NONE, delayUs);
+	}
 }
 
 void PSPDialog::StartDraw()
@@ -181,8 +185,10 @@ void PSPDialog::EndDraw()
 int PSPDialog::Shutdown(bool force)
 {
 	if (force) {
+		INFO_LOG(Log::sceUtility, "sceUtility StatusChanged(Forced): %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_NONE, 0);
 		ChangeStatus(SCE_UTILITY_STATUS_NONE, 0);
 	} else {
+		INFO_LOG(Log::sceUtility, "sceUtility StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_SHUTDOWN, 0);
 		ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
 	}
 	return 0;
@@ -214,6 +220,7 @@ void PSPDialog::UpdateFade(int animSpeed) {
 }
 
 void PSPDialog::FinishFadeOut() {
+	INFO_LOG(Log::sceUtility, "sceUtility StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_FINISHED, 0);
 	ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 }
 

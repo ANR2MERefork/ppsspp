@@ -1056,12 +1056,14 @@ int PSPSaveDialog::Update(int animSpeed)
 					break;
 				}
 				JoinIOThread();
+				INFO_LOG(Log::sceUtility, "sceUtilitySavedata StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_FINISHED, 0);
 				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 			}
 		break;
 
 		default:
+			INFO_LOG(Log::sceUtility, "sceUtilitySavedata StatusChanged: %i -> %i (within %i)", ReadStatus(), SCE_UTILITY_STATUS_FINISHED, 0);
 			ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 		break;
 	}
