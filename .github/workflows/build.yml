@@ -413,6 +413,9 @@ jobs:
 
     - name: Build
       run: |
+        # Fix dubious ownership issue when running git describe inside a container
+        git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+
         mkdir -p build-switch
         cd build-switch
         cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake \
