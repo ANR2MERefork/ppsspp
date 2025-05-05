@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// NOTE: See note in header file. scePsmf/scePsmf are now unmaintained legacy.
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -592,7 +594,7 @@ bool Psmf::setStreamNum(u32 psmfStruct, int num, bool updateCached) {
 }
 
 bool Psmf::setStreamWithType(u32 psmfStruct, int type, int channel) {
-	for (auto iter : streamMap) {
+	for (const auto &iter : streamMap) {
 		// Note: this does NOT support PSMF_AUDIO_STREAM.
 		if (iter.second->type_ == type && iter.second->channel_ == channel) {
 			return setStreamNum(psmfStruct, iter.first);
@@ -602,7 +604,7 @@ bool Psmf::setStreamWithType(u32 psmfStruct, int type, int channel) {
 }
 
 bool Psmf::setStreamWithTypeNumber(u32 psmfStruct, int type, int n) {
-	for (auto iter : streamMap) {
+	for (const auto &iter : streamMap) {
 		if (iter.second->matchesType(type)) {
 			if (n != 0) {
 				// Keep counting...
@@ -795,7 +797,7 @@ static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 	}
 
 	int streamNum = 0;
-	for (auto it : psmf->streamMap) {
+	for (const auto &it : psmf->streamMap) {
 		if (it.second->matchesType(streamType)) {
 			streamNum++;
 		}

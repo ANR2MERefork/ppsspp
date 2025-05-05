@@ -2175,10 +2175,6 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 			// Valid Socket
 			if (sock != NULL && sock->type == SOCK_PDP) {
 				// Close Connection
-				struct linger sl {};
-				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
-				sl.l_linger = 0;	// timeout interval in seconds
-				setsockopt(sock->data.pdp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 				shutdown(sock->data.pdp.id, SD_RECEIVE);
 				closesocket(sock->data.pdp.id);
 
@@ -2425,7 +2421,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 			return retval;
 		}
 		adhocctlHandlers[retval] = handler;
-		WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
+		INFO_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	} else if(foundHandler) {
 		ERROR_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
 		retval = 0; //Faking success
@@ -2756,7 +2752,7 @@ int NetAdhocctl_Create(const char *groupName) {
 
 				// Set Network Name
 				if (groupName) {
-					truncate_cpy((char *)parameter.group_name.data, sizeof(parameter.group_name.data), groupName);
+					strncpy((char *)parameter.group_name.data, groupName, sizeof(parameter.group_name.data));
 				} else {
 					memset(&parameter.group_name, 0, sizeof(parameter.group_name));
 				}
@@ -3873,10 +3869,6 @@ int NetAdhocPtp_Close(int id, int unknown) {
 			// Valid Socket
 			if (socket != NULL && socket->type == SOCK_PTP) {
 				// Close Connection
-				struct linger sl {};
-				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
-				sl.l_linger = 0;	// timeout interval in seconds
-				setsockopt(socket->data.ptp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 				shutdown(socket->data.ptp.id, SD_RECEIVE);
 				closesocket(socket->data.ptp.id);
 

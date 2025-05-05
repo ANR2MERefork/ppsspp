@@ -532,7 +532,7 @@ u32 GPUCommon::Continue(bool *runList) {
 	else
 	{
 		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
-			return 0x80000004;
+			return 0x80000004;  // matches SCE_KERNEL_ERROR_BAD_ARGUMENT but doesn't really seem like it. Maybe that error code is more general.
 		return -1;
 	}
 
@@ -2117,11 +2117,6 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
-
-		if (coreState == CORE_POWERDOWN) {
-			breakNext_ = BreakNext::NONE;
-			return process ? NotifyResult::Execute : NotifyResult::Skip;
-		}
 
 		u32 op = Memory::Read_U32(pc);
 		auto info = DisassembleOp(pc, op);

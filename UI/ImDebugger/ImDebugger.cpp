@@ -27,6 +27,7 @@
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetApctl.h"
@@ -43,6 +44,7 @@
 #include "Core/HLE/AtracCtx.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HW/SasAudio.h"
+#include "Core/HW/Display.h"
 
 #include "Core/CoreTiming.h"
 // Threads window
@@ -147,6 +149,33 @@ void ImClickableValueFloat(const char *id, float value) {
 	}
 	ImGui::PopStyleColor();
 	ImGui::PopID();
+}
+
+void DrawTimeView(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Time", &cfg.timeOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	// Display timing
+	if (ImGui::CollapsingHeader("Display Timing", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Text("Num VBlanks: %d", __DisplayGetNumVblanks());
+		ImGui::Text("FlipCount: %d", __DisplayGetFlipCount());
+		ImGui::Text("VCount: %d", __DisplayGetVCount());
+		ImGui::Text("HCount cur: %d accum: %d", __DisplayGetCurrentHcount(), __DisplayGetAccumulatedHcount());
+		ImGui::Text("IsVblank: %d", DisplayIsVblank());
+	}
+
+	// RTC
+	if (ImGui::CollapsingHeader("RTC", ImGuiTreeNodeFlags_DefaultOpen)) {
+		PSPTimeval tv;
+		__RtcTimeOfDay(&tv);
+		ImGui::Text("RtcTimeOfDay: %d.%06d", tv.tv_sec, tv.tv_usec);
+		ImGui::Text("RtcGetCurrentTick: %lld", (long long)__RtcGetCurrentTick());
+	}
+
+	ImGui::End();
 }
 
 void DrawSchedulerView(ImConfig &cfg) {
@@ -595,21 +624,24 @@ static void DrawApctl(ImConfig &cfg) {
 	}
 
 	if (g_Config.bInfrastructureAutoDNS) {
-		if (g_infraDNSConfig.loaded) {
-			if (!g_infraDNSConfig.gameName.empty()) {
-				ImGui::Text("Known game: %s", g_infraDNSConfig.gameName.c_str());
+		const InfraDNSConfig &dnsConfig = GetInfraDNSConfig();
+		if (dnsConfig.loaded) {
+			if (!dnsConfig.gameName.empty()) {
+				ImGui::Text("Known game: %s", dnsConfig.gameName.c_str());
 			}
-			ImGui::Text("connectAdhocForGrouping: %s", BoolStr(g_infraDNSConfig.connectAdHocForGrouping));
-			ImGui::Text("DNS: %s", g_infraDNSConfig.dns.c_str());
-			if (!g_infraDNSConfig.dyn_dns.empty()) {
-				ImGui::Text("DynDNS: %s", g_infraDNSConfig.dyn_dns.c_str());
+			ImGui::Text("connectAdhocForGrouping: %s", BoolStr(dnsConfig.connectAdHocForGrouping));
+			ImGui::Text("DNS: %s", dnsConfig.dns.c_str());
+			if (!dnsConfig.dyn_dns.empty()) {
+				ImGui::Text("DynDNS: %s", dnsConfig.dyn_dns.c_str());
 			}
-			if (!g_infraDNSConfig.fixedDNS.empty()) {
+			if (!dnsConfig.fixedDNS.empty()) {
 				ImGui::TextUnformatted("Fixed DNS");
-				for (auto iter : g_infraDNSConfig.fixedDNS) {
+				for (auto iter : dnsConfig.fixedDNS) {
 					ImGui::Text("%s -> %s", iter.first.c_str(), iter.second.c_str());
 				}
 			}
+		} else {
+			ImGui::TextUnformatted("(InfraDNSConfig not loaded)");
 		}
 	}
 
@@ -649,10 +681,26 @@ static void DrawInternals(ImConfig &cfg) {
 		{DIRECTORY_CUSTOM_THEMES, "CUSTOM_THEMES"},
 	};
 
-	if (ImGui::CollapsingHeader("Directories", ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeader("GetSysDirectory")) {
 		for (auto &dir : dirs) {
 			ImGui::Text("%s: %s", dir.name, GetSysDirectory(dir.dir).c_str());
 		}
+	}
+
+	if (ImGui::CollapsingHeader("Memory")) {
+		ImGui::Text("Base pointer: %p", Memory::base);
+		ImGui::Text("Main memory size: %08x", Memory::g_MemorySize);
+		if (ImGui::Button("Copy to clipboard")) {
+			System_CopyStringToClipboard(StringFromFormat("0x%p", Memory::base));
+		}
+	}
+
+	if (ImGui::CollapsingHeader("ImGui state")) {
+		const auto &io = ImGui::GetIO();
+		ImGui::Text("WantCaptureMouse: %s", BoolStr(io.WantCaptureMouse));
+		ImGui::Text("WantCaptureKeyboard: %s", BoolStr(io.WantCaptureKeyboard));
+		ImGui::Text("WantCaptureMouseUnlessPopupClose: %s", BoolStr(io.WantCaptureMouseUnlessPopupClose));
+		ImGui::Text("WantTextInput: %s", BoolStr(io.WantTextInput));
 	}
 
 	ImGui::End();
@@ -671,15 +719,6 @@ static void DrawAdhoc(ImConfig &cfg) {
 	case 2: discoverStatusStr = "COMPLETED"; break;
 	default: break;
 	}
-
-	auto &io = ImGui::GetIO();
-
-	/*
-	ImGui::Text("WantCaptureMouse: %s", BoolStr(io.WantCaptureMouse));
-	ImGui::Text("WantCaptureKeyboard: %s", BoolStr(io.WantCaptureKeyboard));
-	ImGui::Text("WantCaptureMouseUnlessPopupClose: %s", BoolStr(io.WantCaptureMouseUnlessPopupClose));
-	ImGui::Text("WantTextInput: %s", BoolStr(io.WantTextInput));
-	*/
 
 	ImGui::Text("sceNetAdhoc inited: %s", BoolStr(netAdhocInited));
 	ImGui::Text("sceNetAdhocctl inited: %s", BoolStr(netAdhocctlInited));
@@ -780,12 +819,13 @@ static void DrawSockets(ImConfig &cfg) {
 }
 
 static const char *MemCheckConditionToString(MemCheckCondition cond) {
-	switch (cond) {
-	case MEMCHECK_READ: return "Read";
-	case MEMCHECK_WRITE: return "Write";
-	case MEMCHECK_READWRITE: return "Read/Write";
-	case MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE: return "Write Change";
-	case MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE: return "Read/Write Change";
+	// (int) casting to avoid "case not in enum" warnings
+	switch ((int)cond) {
+	case (int)MEMCHECK_READ: return "Read";
+	case (int)MEMCHECK_WRITE: return "Write";
+	case (int)MEMCHECK_READWRITE: return "Read/Write";
+	case (int)(MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE): return "Write Change";
+	case (int)(MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE): return "Read/Write Change";
 	default:
 		return "(bad!)";
 	}
@@ -841,8 +881,9 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
-				// TODO: This clashes with the checkbox!
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns) && !bp.temporary) {
+				// DONE: This clashes with the checkbox!
+				// TODO: Test to make sure this works properly
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap) && !bp.temporary) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
 				}
@@ -879,7 +920,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i + 10000);
-				if (ImGui::Selectable("", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				if (ImGui::Selectable("##memcheck", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = -1;
 					cfg.selectedMemCheck = i;
 				}
@@ -925,8 +966,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
 				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
-				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start);
-				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end);
+				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
 				}
@@ -939,49 +980,119 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
-	if (!ImGui::Begin("Audio decoding contexts", &cfg.audioDecodersOpen)) {
+void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
+	if (!ImGui::Begin("Media decoding contexts", &cfg.mediaDecodersOpen)) {
 		ImGui::End();
 		return;
 	}
 
-	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
-		if (ImGui::BeginTable("atracs", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	const std::map<u32, MpegContext *> &mpegCtxs = __MpegGetContexts();
+	if (ImGui::CollapsingHeaderWithCount("sceMpeg", (int)mpegCtxs.size())) {
+		if (ImGui::BeginTable("mpegs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Addr", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("VFrames", ImGuiTableColumnFlags_WidthFixed);
+
+			ImGui::TableHeadersRow();
+			for (auto iter : mpegCtxs) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(iter.first);
+				ImGui::SetNextItemAllowOverlap();
+				char temp[16];
+				snprintf(temp, sizeof(temp), "%08x", iter.first);
+				if (ImGui::Selectable(temp, iter.first == cfg.selectedMpegCtx, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedMpegCtx = iter.first;
+				}
+				ImGui::TableNextColumn();
+				const MpegContext *ctx = iter.second;
+				if (!ctx) {
+					ImGui::TextUnformatted("N/A");
+					ImGui::PopID();
+					continue;
+				}
+				ImGui::Text("%d", ctx->videoFrameCount);
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+
+		auto iter = mpegCtxs.find(cfg.selectedMpegCtx);
+		if (iter != mpegCtxs.end()) {
+			const MpegContext *ctx = iter->second;
+			char temp[16];
+			snprintf(temp, sizeof(temp), "sceMpeg context at %08x", iter->first);
+			if (ctx && ImGui::CollapsingHeader(temp, ImGuiTreeNodeFlags_DefaultOpen)) {
+				// ImGui::ProgressBar((float)sas->CurPos() / (float)info.fileDataEnd, ImVec2(200.0f, 0.0f));
+				ImGui::Text("Mpeg version: %d raw: %08x", ctx->mpegVersion, ctx->mpegRawVersion);
+				ImGui::Text("Frame counts: Audio %d, video %d", ctx->audioFrameCount, ctx->videoFrameCount);
+				ImGui::Text("Video pixel mode: %d", ctx->videoPixelMode);
+				ImGui::Text("AVC status=%d width=%d height=%d result=%d", ctx->avc.avcFrameStatus, ctx->avc.avcDetailFrameWidth, ctx->avc.avcDetailFrameHeight, ctx->avc.avcDecodeResult);
+				ImGui::Text("Stream size: %d", ctx->mpegStreamSize);
+			}
+		}
+	}
+
+	// Count the active atrac contexts so we can display it.
+	const int maxAtracContexts = __AtracMaxContexts();
+	int atracCount = 0;
+	for (int i = 0; i < maxAtracContexts; i++) {
+		u32 type;
+		if (__AtracGetCtx(i, &type)) {
+			atracCount++;
+		}
+	}
+
+	if (ImGui::CollapsingHeaderWithCount("sceAtrac", atracCount, ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Checkbox("Force FFMPEG", &g_Config.bForceFfmpegForAudioDec);
+		if (ImGui::BeginTable("atracs", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("CurSample", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("RemFrames", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Impl", ImGuiTableColumnFlags_WidthFixed);
 
 			ImGui::TableHeadersRow();
-
-			for (int i = 0; i < PSP_MAX_ATRAC_IDS; i++) {
-				u32 type = 0;
-				const AtracBase *ctx = __AtracGetCtx(i, &type);
-				if (!ctx) {
-					continue;
-				}
+			for (int i = 0; i < maxAtracContexts; i++) {
+				u32 codecType = 0;
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
+				ImGui::PushID(i);
+				ImGui::SetNextItemAllowOverlap();
 				char temp[16];
 				snprintf(temp, sizeof(temp), "%d", i);
 				if (ImGui::Selectable(temp, i == cfg.selectedAtracCtx, ImGuiSelectableFlags_SpanAllColumns)) {
 					cfg.selectedAtracCtx = i;
 				}
 				ImGui::TableNextColumn();
-				switch (type) {
-				case PSP_MODE_AT_3_PLUS:
+				bool *mutePtr = __AtracMuteFlag(i);
+				if (mutePtr) {
+					ImGui::Checkbox("", mutePtr);
+				}
+				ImGui::TableNextColumn();
+				switch (codecType) {
+				case 0:
+					ImGui::TextUnformatted("-");  // Uninitialized
+					break;
+				case PSP_CODEC_AT3PLUS:
 					ImGui::TextUnformatted("Atrac3+");
 					break;
-				case PSP_MODE_AT_3:
+				case PSP_CODEC_AT3:
 					ImGui::TextUnformatted("Atrac3");
 					break;
 				default:
-					ImGui::Text("%04x", type);
+					ImGui::Text("%04x", codecType);
 					break;
+				}
+
+				const AtracBase *ctx = __AtracGetCtx(i, &codecType);
+				if (!ctx) {
+					// Nothing more we can display about uninitialized contexts.
+					ImGui::PopID();
+					continue;
 				}
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(AtracStatusToString(ctx->BufferState()));
@@ -1003,6 +1114,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				}
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(ctx->GetContextVersion() >= 2 ? "NewImpl" : "Legacy");
+				ImGui::PopID();
 			}
 
 			ImGui::EndTable();
@@ -1090,7 +1202,48 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("sceAudiocodec", ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeaderWithCount("sceMp3", (int)mp3Map.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("ReadPos", ImGuiTableColumnFlags_WidthFixed);
+
+			for (auto &iter : mp3Map) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(iter.first);
+				ImGui::SetNextItemAllowOverlap();
+				char temp[16];
+				snprintf(temp, sizeof(temp), "%d", iter.first);
+				if (ImGui::Selectable(temp, iter.first == cfg.selectedMp3Ctx, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedMp3Ctx = iter.first;
+				}
+				if (!iter.second) {
+					continue;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->Channels);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", (int)iter.second->ReadPos());
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+
+		auto iter = mp3Map.find(cfg.selectedMp3Ctx);
+		if (iter != mp3Map.end() && ImGui::CollapsingHeader("MP3 %d", iter->first)) {
+			ImGui::Text("MP3 Context %d", iter->first);
+			if (iter->second) {
+				AuCtx *ctx = iter->second;
+				ImGui::Text("%d Hz, %d channels", ctx->SamplingRate, ctx->Channels);
+				ImGui::Text("AUBuf: %08x AUSize: %08x", ctx->AuBuf, ctx->AuBufSize);
+				ImGui::Text("PCMBuf: %08x PCMSize: %08x", ctx->PCMBuf, ctx->PCMBufSize);
+				ImGui::Text("Pos: %d (%d -> %d)", ctx->ReadPos(), (int)ctx->startPos, (int)ctx->endPos);
+			}
+		}
+	}
+
+	if (ImGui::CollapsingHeaderWithCount("sceAudiocodec", (int)g_audioDecoderContexts.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
 		if (ImGui::BeginTable("codecs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("CtxAddr", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
@@ -1112,29 +1265,6 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("sceMp3", ImGuiTreeNodeFlags_DefaultOpen)) {
-		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("StartPos", ImGuiTableColumnFlags_WidthFixed);
-			// TODO: more..
-
-			for (auto &iter : mp3Map) {
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", iter.first);
-				if (!iter.second) {
-					continue;
-				}
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", iter.second->Channels);
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", (int)iter.second->startPos);
-			}
-			ImGui::EndTable();
-		}
-	}
-
 	ImGui::End();
 }
 
@@ -1144,8 +1274,9 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	if (ImGui::BeginTable("audios", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("audios", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("SampleAddr", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("SampleCount", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Volume", ImGuiTableColumnFlags_WidthFixed);
@@ -1156,26 +1287,29 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 
 		// vaudio / output2 uses channel 8.
 		for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-			if (!chans[i].reserved) {
+			if (!g_audioChans[i].reserved) {
 				continue;
 			}
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
+			ImGui::PushID(i);
 			if (i == 8) {
 				ImGui::TextUnformatted("audio2");
 			} else {
 				ImGui::Text("%d", i);
 			}
 			ImGui::TableNextColumn();
+			ImGui::Checkbox("", &g_audioChans[i].mute);
+			ImGui::TableNextColumn();
 			char id[2]{};
 			id[0] = i + 1;
-			ImClickableValue(id, chans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			ImClickableValue(id, g_audioChans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", chans[i].sampleCount);
+			ImGui::Text("%08x", g_audioChans[i].sampleCount);
 			ImGui::TableNextColumn();
-			ImGui::Text("%d | %d", chans[i].leftVolume, chans[i].rightVolume);
+			ImGui::Text("%d | %d", g_audioChans[i].leftVolume, g_audioChans[i].rightVolume);
 			ImGui::TableNextColumn();
-			switch (chans[i].format) {
+			switch (g_audioChans[i].format) {
 			case PSP_AUDIO_FORMAT_STEREO:
 				ImGui::TextUnformatted("Stereo");
 				break;
@@ -1187,12 +1321,13 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 				break;
 			}
 			ImGui::TableNextColumn();
-			for (auto t : chans[i].waitingThreads) {
+			for (auto t : g_audioChans[i].waitingThreads) {
 				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t.threadID);
 				if (thread) {
 					ImGui::Text("%s: %d", thread->GetName(), t.numSamples);
 				}
 			}
+			ImGui::PopID();
 		}
 
 		ImGui::EndTable();
@@ -1280,6 +1415,8 @@ void DrawSasAudio(ImConfig &cfg) {
 		return;
 	}
 
+	ImGui::Checkbox("Mute", __SasGetGlobalMuteFlag());
+	ImGui::SameLine();
 	ImGui::Checkbox("Show all voices", &cfg.sasShowAllVoices);
 
 	if (ImGui::BeginTable("saschannels", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
@@ -1473,7 +1610,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::TableHeadersRow();
 
 			// TODO: Add context menu and clickability
-			kernelObjects.Iterate<PSPModule>([&cfg, &control](int id, PSPModule *module) -> bool {
+			kernelObjects.Iterate<PSPModule>([&cfg](int id, PSPModule *module) -> bool {
 				ImGui::PushID(id);
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
@@ -1613,6 +1750,8 @@ void ImAtracToolWindow::Load() {
 	if (File::ReadBinaryFileToString(Path(atracPath_), &data_)) {
 		track_.reset(new Track());
 		AnalyzeAtracTrack((const u8 *)data_.data(), (u32)data_.size(), track_.get(), &error_);
+	} else {
+		error_ = "Failed to read file from disk. Bad path?";
 	}
 }
 
@@ -1642,6 +1781,7 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 		ImGui::Text("Bitrate: %d kbps Channels: %d", track_->Bitrate(), track_->channels);
 		ImGui::Text("Frame size in bytes: %d (%04x) Output frame in samples: %d", track_->BytesPerFrame(), track_->BytesPerFrame(), track_->SamplesPerFrame());
 		ImGui::Text("First valid sample: %08x", track_->FirstSampleOffsetFull());
+		ImGui::Text("EndSample: %08x", track_->endSample);
 	}
 
 	if (data_.size()) {
@@ -1710,6 +1850,9 @@ void DrawHLEModules(ImConfig &config) {
 						case 'I': amask[i] = 'd'; break;
 						case 'f':
 						case 'F': amask[i] = 'x'; break;
+						default:
+							// others go straight through (p)
+							break;
 						}
 					}
 					w.F("%s 0x%08x %d %s", func.name, func.ID, strlen(func.argmask), amask.c_str()).endl();
@@ -1820,10 +1963,15 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 					System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 				}
 			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Close")) {
+				g_Config.bShowImDebugger = false;
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Core")) {
 			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
+			ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("CPU")) {
@@ -1903,6 +2051,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Graphics")) {
 			ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
 			ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
+			ImGui::MenuItem("GE Vertices", nullptr, &cfg_.geVertsOpen);
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
@@ -1913,7 +2062,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Audio/Video")) {
 			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
 			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
-			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
+			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Network")) {
@@ -1937,11 +2086,22 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::EndMenu();
 		}
-
-		// Let's have this at the top level, to help anyone confused.
-		if (ImGui::BeginMenu("Close Debugger")) {
+		if (ImGui::MenuItem("Close")) {
 			g_Config.bShowImDebugger = false;
-			ImGui::EndMenu();
+		}
+		switch (coreState) {
+		case CoreState::CORE_STEPPING_CPU:
+			if (ImGui::MenuItem(">> Run")) {
+				Core_Resume();
+			}
+			break;
+		case CoreState::CORE_RUNNING_CPU:
+			if (ImGui::MenuItem("|| Break")) {
+				Core_Break(BreakReason::DebugBreak);
+			}
+			break;
+		default:
+			break;
 		}
 		ImGui::EndMainMenuBar();
 	}
@@ -2010,8 +2170,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawUtilityModules(cfg_, control);
 	}
 
-	if (cfg_.audioDecodersOpen) {
-		DrawAudioDecodersView(cfg_, control);
+	if (cfg_.mediaDecodersOpen) {
+		DrawMediaDecodersView(cfg_, control);
 	}
 
 	if (cfg_.hleModulesOpen) {
@@ -2054,8 +2214,16 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		geStateWindow_.Draw(cfg_, control, gpuDebug);
 	}
 
+	if (cfg_.geVertsOpen) {
+		DrawImGeVertsWindow(cfg_, control, gpuDebug);
+	}
+
 	if (cfg_.schedulerOpen) {
 		DrawSchedulerView(cfg_);
+	}
+
+	if (cfg_.timeOpen) {
+		DrawTimeView(cfg_);
 	}
 
 	if (cfg_.pixelViewerOpen) {
@@ -2153,273 +2321,9 @@ void ImDebugger::SnapshotGPU(GPUDebugInterface *gpuDebug) {
 	pixelViewer_.Snapshot();
 }
 
-void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
-	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(Title(index), &cfg.memViewOpen[index])) {
-		ImGui::End();
-		return;
-	}
-
-	// Toolbars
-
-	ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X");
-	if (ImGui::IsItemDeactivatedAfterEdit()) {
-		memView_.gotoAddr(gotoAddr_);
-	}
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Go")) {
-		memView_.gotoAddr(gotoAddr_);
-	}
-
-	ImVec2 size(0, -ImGui::GetFrameHeightWithSpacing());
-
-	auto node = [&](const char *title, uint32_t start, uint32_t len) {
-		if (ImGui::TreeNode(title)) {
-			if (ImGui::Selectable("(start)", cfg.selectedMemoryBlock == start)) {
-				cfg.selectedMemoryBlock = start;
-				GotoAddr(start);
-			}
-			const std::vector<MemBlockInfo> info = FindMemInfo(start, len);
-			for (auto &iter : info) {
-				ImGui::PushID(iter.start);
-				if (ImGui::Selectable(iter.tag.c_str(), cfg.selectedMemoryBlock == iter.start)) {
-					cfg.selectedMemoryBlock = iter.start;
-					GotoAddr(iter.start);
-				}
-				ImGui::PopID();
-			}
-			const u32 end = start + len;
-			if (ImGui::Selectable("(end)", cfg.selectedMemoryBlock == end)) {
-				cfg.selectedMemoryBlock = end;
-				GotoAddr(end);
-			}
-			ImGui::TreePop();
-		}
-	};
-
-	// Main views - list of interesting addresses to the left, memory view to the right.
-	if (ImGui::BeginChild("addr_list", ImVec2(200.0f, size.y), ImGuiChildFlags_ResizeX)) {
-		node("Scratch",    0x00010000, 0x00004000);
-		node("Kernel RAM", 0x08000000, 0x00800000);
-		node("User RAM"  , 0x08800000, 0x01800000);
-		node("VRAM",       0x04000000, 0x00200000);
-	}
-
-	ImGui::EndChild();
-
-	ImGui::SameLine();
-	if (ImGui::BeginChild("memview", size)) {
-		memView_.Draw(ImGui::GetWindowDrawList());
-	}
-	ImGui::EndChild();
-
-	StatusBar(memView_.StatusMessage());
-
-	ImGui::End();
-}
-
-const char *ImMemWindow::Title(int index) {
-	static const char *const titles[4] = { "Memory 1", "Memory 2", "Memory 3", "Memory 4" };
-	return titles[index];
-}
-
-void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState) {
-	disasmView_.setDebugger(mipsDebug);
-
-	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(Title(), &cfg.disasmOpen)) {
-		ImGui::End();
-		return;
-	}
-
-	if (ImGui::IsWindowFocused()) {
-		// Process stepping keyboard shortcuts.
-		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestCPUStep(CPUStepType::Over, stepSize);
-		}
-		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestCPUStep(CPUStepType::Into, stepSize);
-		}
-	}
-
-	if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
-		ImGui::Text("!!! Currently stepping the GE");
-		ImGui::SameLine();
-		if (ImGui::SmallButton("Open Ge Debugger")) {
-			cfg.geDebuggerOpen = true;
-			ImGui::SetWindowFocus("GE Debugger");
-		}
-	}
-
-	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
-	if (ImGui::SmallButton("Run")) {
-		Core_Resume();
-	}
-	ImGui::EndDisabled();
-
-	ImGui::SameLine();
-	ImGui::BeginDisabled(coreState != CORE_RUNNING_CPU);
-	if (ImGui::SmallButton("Pause")) {
-		Core_Break(BreakReason::DebugBreak);
-	}
-	ImGui::EndDisabled();
-
-	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
-
-	ImGui::SameLine();
-	ImGui::Text("Step: ");
-	ImGui::SameLine();
-
-	if (ImGui::SmallButton("Into")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Into, stepSize);
-	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("F11");
-	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Over")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Over, stepSize);
-	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("F10");
-	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Out")) {
-		Core_RequestCPUStep(CPUStepType::Out, 0);
-	}
-
-	/*
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Frame")) {
-		Core_RequestCPUStep(CPUStepType::Frame, 0);
-	}*/
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Syscall")) {
-		hleDebugBreak();
-		Core_Resume();
-	}
-
-	ImGui::SameLine();
-	ImGui::SmallButton("Skim");
-	if (ImGui::IsItemActive()) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Into, stepSize);
-	}
-
-	ImGui::EndDisabled();
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Goto PC")) {
-		disasmView_.GotoPC();
-	}
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Goto RA")) {
-		disasmView_.GotoRA();
-	}
-
-	if (ImGui::BeginPopup("disSearch")) {
-		if (ImGui::IsWindowAppearing()) {
-			ImGui::SetKeyboardFocusHere();
-		}
-		if (ImGui::InputText("Search", searchTerm_, sizeof(searchTerm_), ImGuiInputTextFlags_EnterReturnsTrue)) {
-			disasmView_.Search(searchTerm_);
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Search")) {
-		// Open a small popup
-		ImGui::OpenPopup("disSearch");
-		ImGui::Shortcut(ImGuiKey_F | ImGuiMod_Ctrl);
-	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Next")) {
-		disasmView_.SearchNext(true);
-	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Settings")) {
-		ImGui::OpenPopup("disSettings");
-	}
-
-	if (ImGui::BeginPopup("disSettings")) {
-		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
-		ImGui::EndPopup();
-	}
-
-	ImGui::SetNextItemWidth(100);
-	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X")) {
-		disasmView_.setCurAddress(gotoAddr_);
-		disasmView_.scrollAddressIntoView();
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Go")) {
-		disasmView_.setCurAddress(gotoAddr_);
-		disasmView_.scrollAddressIntoView();
-	}
-
-	BreakReason breakReason = Core_BreakReason();
-	ImGui::SameLine();
-	ImGui::TextUnformatted(BreakReasonToString(breakReason));
-
-	ImVec2 avail = ImGui::GetContentRegionAvail();
-	avail.y -= ImGui::GetTextLineHeightWithSpacing();
-
-	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
-		if (symCache_.empty() || symsDirty_) {
-			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
-			symsDirty_ = false;
-		}
-
-		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
-			auto &sym = symCache_[selectedSymbol_];
-			if (ImGui::TreeNode("Edit Symbol", "Edit %s", sym.name.c_str())) {
-				if (ImGui::InputText("Name", selectedSymbolName_, sizeof(selectedSymbolName_), ImGuiInputTextFlags_EnterReturnsTrue)) {
-					g_symbolMap->SetLabelName(selectedSymbolName_, sym.address);
-					symsDirty_ = true;
-				}
-				ImGui::Text("%08x (size: %0d)", sym.address, sym.size);
-				ImGui::TreePop();
-			}
-		}
-
-		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
-			ImGuiListClipper clipper;
-			clipper.Begin((int)symCache_.size(), -1);
-			while (clipper.Step()) {
-				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
-					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
-						disasmView_.gotoAddr(symCache_[i].address);
-						disasmView_.scrollAddressIntoView();
-						truncate_cpy(selectedSymbolName_, symCache_[i].name.c_str());
-						selectedSymbol_ = i;
-					}
-				}
-			}
-			clipper.End();
-			ImGui::EndListBox();
-		}
-	}
-	ImGui::EndChild();
-
-	ImGui::SameLine();
-	if (ImGui::BeginChild("right", ImVec2(0.0f, avail.y))) {
-		disasmView_.Draw(ImGui::GetWindowDrawList(), control);
-	}
-	ImGui::EndChild();
-
-	StatusBar(disasmView_.StatusBarText());
-	ImGui::End();
+void ImDebugger::DeviceLost() {
+	pixelViewer_.DeviceLost();
+	geDebugger_.DeviceLost();
 }
 
 Path ImDebugger::ConfigPath() {
@@ -2475,7 +2379,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("symbolsOpen", &symbolsOpen, false);
 	sync.Sync("modulesOpen", &modulesOpen, false);
 	sync.Sync("hleModulesOpen", &hleModulesOpen, false);
-	sync.Sync("audioDecodersOpen", &audioDecodersOpen, false);
+	sync.Sync("mediaDecodersOpen", &mediaDecodersOpen, false);
 	sync.Sync("structViewerOpen", &structViewerOpen, false);
 	sync.Sync("framebuffersOpen", &framebuffersOpen, false);
 	sync.Sync("displayOpen", &displayOpen, true);
@@ -2487,7 +2391,9 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("debugStatsOpen", &debugStatsOpen, false);
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
 	sync.Sync("geStateOpen", &geStateOpen, false);
+	sync.Sync("geVertsOpen", &geVertsOpen, false);
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
+	sync.Sync("timeOpen", &timeOpen, false);
 	sync.Sync("socketsOpen", &socketsOpen, false);
 	sync.Sync("npOpen", &npOpen, false);
 	sync.Sync("adhocOpen", &adhocOpen, false);

@@ -31,6 +31,7 @@
 #include "UI/MainScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/SavedataScreen.h"
+#include "UI/EmuScreen.h"
 
 InstallZipScreen::InstallZipScreen(const Path &zipPath) : zipPath_(zipPath) {
 	g_GameManager.ResetInstallError();
@@ -59,20 +60,20 @@ void InstallZipScreen::CreateViews() {
 	std::string shortFilename = zipPath_.GetFilename();
 	
 	// TODO: Do in the background?
-	struct zip *z = ZipOpenPath(zipPath_);
+	struct zip *zipFile = ZipOpenPath(zipPath_);
 
 	bool showDeleteCheckbox = false;
 	returnToHomebrew_ = false;
 	installChoice_ = nullptr;
+	playChoice_ = nullptr;
 	doneView_ = nullptr;
-	installChoice_ = nullptr;
 	existingSaveView_ = nullptr;
 	destFolders_.clear();
 
 	std::vector<Path> destOptions;
 
-	if (z) {
-		DetectZipFileContents(z, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+	if (zipFile) {
+		DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
 		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE || zipFileInfo_.contents == ZipFileContents::PSP_GAME_DIR) {
 			std::string_view question = iz->T("Install game from ZIP file?");
 
@@ -101,6 +102,9 @@ void InstallZipScreen::CreateViews() {
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
+			playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
+			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
+
 			returnToHomebrew_ = true;
 			showDeleteCheckbox = true;
 		} else if (zipFileInfo_.contents == ZipFileContents::TEXTURE_PACK) {
@@ -120,7 +124,7 @@ void InstallZipScreen::CreateViews() {
 			leftColumn->Add(new TextView(zipFileInfo_.gameTitle + ": " + zipFileInfo_.savedataDir));
 
 			Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
-			bool overwrite = !CanExtractWithoutOverwrite(z, savedataDir, 50);
+			bool overwrite = !CanExtractWithoutOverwrite(zipFile, savedataDir, 50);
 
 			destFolders_.push_back(savedataDir);
 
@@ -148,7 +152,7 @@ void InstallZipScreen::CreateViews() {
 				compareColumns->Add(rightCompare);
 				existingSaveView_ = rightCompare->Add(new SavedataView(*screenManager()->getUIContext(), ginfo.get(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
 				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-					rightCompare->Add(new Button(ga->T("Show In Folder")))->OnClick.Add([=](UI::EventParams &) {
+					rightCompare->Add(new Button(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
 						System_ShowFileInFolder(savedataToOverwrite_);
 						return UI::EVENT_DONE;
 					});
@@ -160,9 +164,15 @@ void InstallZipScreen::CreateViews() {
 
 			doneView_ = leftColumn->Add(new TextView(""));
 			showDeleteCheckbox = true;
+		} else if (zipFileInfo_.contents == ZipFileContents::FRAME_DUMP) {
+			leftColumn->Add(new TextView(zipFileInfo_.contentName));
+			// It's a frame dump, add a play button!
+			playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
+			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
 		} else {
 			leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		}
+		ZipClose(zipFile);
 	} else {
 		leftColumn->Add(new TextView(er->T("The file is not a valid zip file"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 	}
@@ -208,6 +218,11 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 			installChoice_->SetEnabled(false);
 		}
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn InstallZipScreen::OnPlay(UI::EventParams &params) {
+	screenManager()->switchScreen(new EmuScreen(zipPath_));
 	return UI::EVENT_DONE;
 }
 

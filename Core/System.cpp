@@ -43,7 +43,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/GraphicsContext.h"
-#include "Core/RetroAchievements.h"
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
@@ -100,6 +99,10 @@ static BootState g_bootState = BootState::Off;
 
 BootState PSP_GetBootState() {
 	return g_bootState;
+}
+
+FileLoader *PSP_LoadedFile() {
+	return g_loadedFile;
 }
 
 void ResetUIState() {
@@ -277,6 +280,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		// Doesn't seem to take ownership of fileLoader?
 		if (!MountGameISO(fileLoader)) {
 			*errorString = "Failed to mount ISO file - invalid format?";
 			return false;
@@ -437,7 +441,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	default:
 		GetBootError(type, errorString);
-		coreState = CORE_BOOT_ERROR;
 		g_CoreParameter.fileToStart.clear();
 		return false;
 	}
@@ -511,11 +514,9 @@ void PSP_ForceDebugStats(bool enable) {
 
 bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_bootState != BootState::Off) {
-		ERROR_LOG(Log::System, "Can't start loader thread - already on.");
+		ERROR_LOG(Log::Loader, "Can't start loader thread - already on.");
 		return false;
 	}
-
-	coreState = CORE_POWERUP;
 
 	g_bootState = BootState::Booting;
 
@@ -528,9 +529,9 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	std::string *error_string = &g_CoreParameter.errorString;
 
-	INFO_LOG(Log::System, "Starting loader thread...");
+	INFO_LOG(Log::Loader, "Starting loader thread...");
 
-	_dbg_assert_(!g_loadingThread.joinable());
+	_assert_msg_(!g_loadingThread.joinable(), "%s", coreParam.fileToStart.c_str());
 
 	g_loadingThread = std::thread([error_string]() {
 		SetCurrentThreadName("ExecLoader");
@@ -555,22 +556,16 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 					loadedFile = new RamCachingFileLoader(loadedFile);
 					break;
 				default:
-					INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
+					INFO_LOG(Log::Loader, "RAM caching is on, but file is not an ISO, so ignoring");
 					break;
 				}
 			}
-		}
-
-		if (g_Config.bAchievementsEnable) {
-			std::string errorString;
-			Achievements::SetGame(filename, type, loadedFile);
 		}
 
 		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
 		// it gets written to from the loader thread that gets spawned.
 		if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
 			CPU_Shutdown(false);
-			coreState = CORE_BOOT_ERROR;
 			g_CoreParameter.fileToStart.clear();
 			*error_string = g_CoreParameter.errorString;
 			if (error_string->empty()) {
@@ -578,13 +573,6 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			}
 			g_bootState = BootState::Failed;
 			return;
-		}
-
-		if (PSP_CoreParameter().startBreak) {
-			coreState = CORE_STEPPING_CPU;
-			System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
-		} else {
-			coreState = CORE_RUNNING_CPU;
 		}
 
 		g_bootState = BootState::Complete;
@@ -595,14 +583,14 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 BootState PSP_InitUpdate(std::string *error_string) {
 	if (g_bootState == BootState::Booting || g_bootState == BootState::Off) {
-		// We're done already.
+		// Nothing to do right now.
 		return g_bootState;
 	}
 
 	_dbg_assert_(g_bootState == BootState::Complete || g_bootState == BootState::Failed);
 
 	// Since we load on a background thread, wait for startup to complete.
-	_dbg_assert_(g_loadingThread.joinable());
+	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)g_bootState);
 	g_loadingThread.join();
 
 	if (g_bootState == BootState::Failed) {
@@ -613,9 +601,8 @@ BootState PSP_InitUpdate(std::string *error_string) {
 	}
 
 	// Ok, async boot completed, let's finish up things on the main thread.
-
 	if (!gpu) {  // should be!
-		INFO_LOG(Log::System, "Starting graphics...");
+		INFO_LOG(Log::Loader, "Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
 		// This set the `gpu` global.
 		bool success = GPU_Init(g_CoreParameter.graphicsContext, draw);
@@ -658,15 +645,12 @@ void PSP_Shutdown(bool success) {
 	// Reduce the risk for weird races with the Windows GE debugger.
 	gpuDebug = nullptr;
 
-	Achievements::UnloadGame();
-
 	// Do nothing if we never inited.
 	if (g_bootState == BootState::Off) {
 		return;
 	}
 
-	if (coreState == CORE_RUNNING_CPU)
-		Core_Stop();
+	Core_Stop();
 
 	if (g_Config.bFuncHashMap) {
 		MIPSAnalyst::StoreHashMap();
@@ -837,21 +821,6 @@ bool CreateSysDirectories() {
 	return true;
 }
 
-const char *CoreStateToString(CoreState state) {
-	switch (state) {
-	case CORE_RUNNING_CPU: return "RUNNING_CPU";
-	case CORE_NEXTFRAME: return "NEXTFRAME";
-	case CORE_STEPPING_CPU: return "STEPPING_CPU";
-	case CORE_POWERUP: return "POWERUP";
-	case CORE_POWERDOWN: return "POWERDOWN";
-	case CORE_BOOT_ERROR: return "BOOT_ERROR";
-	case CORE_RUNTIME_ERROR: return "RUNTIME_ERROR";
-	case CORE_STEPPING_GE: return "STEPPING_GE";
-	case CORE_RUNNING_GE: return "RUNNING_GE";
-	default: return "N/A";
-	}
-}
-
 const char *DumpFileTypeToString(DumpFileType type) {
 	switch (type) {
 	case DumpFileType::EBOOT: return "EBOOT";
@@ -875,11 +844,11 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 		return;
 	}
 	if (!dataPtr) {
-		ERROR_LOG(Log::System, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
+		ERROR_LOG(Log::Loader, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
 		return;
 	}
 	if (length == 0) {
-		ERROR_LOG(Log::System, "Error dumping %s: invalid length", DumpFileTypeToString(DumpFileType::EBOOT));
+		ERROR_LOG(Log::Loader, "Error dumping %s: invalid length", DumpFileTypeToString(DumpFileType::EBOOT));
 		return;
 	}
 
@@ -950,9 +919,8 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 			char *path = (char *)userdata;
 			if (clicked) {
 				System_ShowFileInFolder(Path(path));
-			} else {
-				delete[] path;
 			}
+			delete[] path;
 		}, path);
 	}
 }

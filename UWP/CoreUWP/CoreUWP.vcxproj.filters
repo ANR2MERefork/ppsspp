@@ -312,6 +312,9 @@
     <ClCompile Include="..\..\Core\FileLoaders\RetryingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\FileLoaders\ZipFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HLE\__sceAudio.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
@@ -1267,7 +1270,6 @@
     <ClInclude Include="..\..\Core\SaveState.h" />
     <ClInclude Include="..\..\Core\Screenshot.h" />
     <ClInclude Include="..\..\Core\System.h" />
-    <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h">
       <Filter>MIPS\ARM</Filter>
@@ -1405,6 +1407,9 @@
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\FileLoaders\RetryingFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\FileLoaders\ZipFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\__sceAudio.h">

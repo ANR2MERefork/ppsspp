@@ -230,6 +230,7 @@ EXT_FILES := \
   $(SRC)/ext/imgui/imgui.cpp \
   $(SRC)/ext/imgui/imgui_demo.cpp \
   $(SRC)/ext/imgui/imgui_draw.cpp \
+  $(SRC)/ext/imgui/imgui_extras.cpp \
   $(SRC)/ext/imgui/imgui_impl_thin3d.cpp \
   $(SRC)/ext/imgui/imgui_impl_platform.cpp \
   $(SRC)/ext/imgui/imgui_tables.cpp \
@@ -610,6 +611,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RamCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/ZipFileLoader.cpp \
   $(SRC)/Core/MemFault.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
@@ -919,6 +921,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
+  $(SRC)/UI/DeveloperToolsScreen.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \

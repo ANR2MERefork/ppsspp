@@ -819,7 +819,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	SceAtracIdInfo &info = context_->info;
 
-	if (track.codecType != PSP_MODE_AT_3 && track.codecType != PSP_MODE_AT_3_PLUS) {
+	if (track.codecType != PSP_CODEC_AT3 && track.codecType != PSP_CODEC_AT3PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track.codecType);
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
@@ -832,7 +832,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	if (readSize >= track.fileSize) {
 		INFO_LOG(Log::ME, "The full file was set directly - we can dump it.");
 		char filename[512];
-		snprintf(filename, sizeof(filename), "%s_%d%s", track.codecType == PSP_MODE_AT_3 ? "at3" : "at3plus", track.endSample, track.channels == 1 ? "_mono" : "");
+		snprintf(filename, sizeof(filename), "%s_%d%s", track.codecType == PSP_CODEC_AT3 ? "at3" : "at3plus", track.endSample, track.channels == 1 ? "_mono" : "");
 		DumpFileIfEnabled(Memory::GetPointer(bufferAddr), readSize, filename, DumpFileType::Atrac3);
 	}
 
@@ -875,7 +875,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		}
 	}
 
-	INFO_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
+	DEBUG_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
 
 	// Copy parameters into state struct.
 	info.codec = track.codecType;
@@ -931,7 +931,7 @@ void Atrac2::WrapLastPacket() {
 			const int copyStart = info.streamOff + distanceToEnd;
 			const int copyLen = info.bufferByte - copyStart;
 			// Then, let's copy it.
-			INFO_LOG(Log::ME, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
+			DEBUG_LOG(Log::ME, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
 				copyLen, info.sampleSize - copyLen, info.sampleSize);
 			Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
 		}
@@ -1004,7 +1004,7 @@ int Atrac2::Bitrate() const {
 	const SceAtracIdInfo &info = context_->info;
 
 	int bitrate = (info.sampleSize * 352800) / 1000;
-	if (info.codec == PSP_MODE_AT_3_PLUS)
+	if (info.codec == PSP_CODEC_AT3PLUS)
 		bitrate = ((bitrate >> 11) + 8) & 0xFFFFFFF0;
 	else
 		bitrate = (bitrate + 511) >> 10;

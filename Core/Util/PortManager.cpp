@@ -469,13 +469,12 @@ bool PortManager::RefreshPortList() {
 #endif // WITH_UPNP
 }
 
-int upnpService(const unsigned int timeout)
-{
+int upnpService(const unsigned int timeout) {
 	SetCurrentThreadName("UPnPService");
 	INFO_LOG(Log::sceNet, "UPnPService: Begin of UPnPService Thread");
 
 	// Service Loop
-	while (upnpServiceRunning && coreState != CORE_POWERDOWN) {
+	while (upnpServiceRunning) {
 		// Sleep for 1ms for faster response if active, otherwise sleep longer (TODO: Improve on this).
 		sleep_ms(g_Config.bEnableUPnP ? 1 : 100, "upnp-poll");
 
@@ -524,10 +523,10 @@ int upnpService(const unsigned int timeout)
 	return 0;
 }
 
-void __UPnPInit(const unsigned int timeout) {
+void __UPnPInit(const int timeout_ms) {
 	if (!upnpServiceRunning) {
 		upnpServiceRunning = true;
-		upnpServiceThread = std::thread(upnpService, timeout);
+		upnpServiceThread = std::thread(upnpService, timeout_ms);
 	}
 }
 

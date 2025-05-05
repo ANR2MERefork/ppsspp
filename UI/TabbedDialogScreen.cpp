@@ -9,7 +9,7 @@
 void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch) {
 	using namespace UI;
 
-	tabHolder_->AddTabDeferred(title, [this, createCallback = std::move(createCallback), tag, title, isSearch]() -> UI::ViewGroup * {
+	tabHolder_->AddTabDeferred(title, [createCallback = std::move(createCallback), tag]() -> UI::ViewGroup * {
 		ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scroll->SetTag(tag);
 		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
@@ -91,10 +91,10 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
 					return UI::EVENT_DONE;
 				});
+				clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
 
 				noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
 			}, true);
-
 		}
 	}
 }
@@ -116,6 +116,7 @@ void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
 }
 
 void TabbedUIDialogScreenWithGameBackground::EnsureTabs() {
+	_assert_(tabHolder_);
 	tabHolder_->EnsureAllCreated();
 }
 
@@ -123,7 +124,7 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 
-	tabHolder_->EnsureAllCreated();
+	EnsureTabs();
 
 	// Show an indicator that a filter is applied.
 	filterNotice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
@@ -143,6 +144,8 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 			View *v = tabContents->GetViewByIndex(0);
 			if (v->IsViewGroup()) {
 				tabContents = (ViewGroup *)v;
+			} else {
+				break;
 			}
 		}
 

@@ -25,6 +25,7 @@ using namespace std::placeholders;
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Log/LogManager.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Context.h"
@@ -201,10 +202,7 @@ EmuScreen::EmuScreen(const Path &filename)
 		&SetPSPAnalog,
 		nullptr);
 
-	// Make sure we don't leave it at powerdown after the last game.
-	// TODO: This really should be handled elsewhere if it isn't.
-	if (coreState == CORE_POWERDOWN)
-		coreState = CORE_STEPPING_CPU;
+	_dbg_assert_(coreState == CORE_POWERDOWN);
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
@@ -245,8 +243,18 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::ProcessGameBoot(const Path &filename) {
+	if (!bootPending_) {
+		// Nothing to do.
+		return;
+	}
+
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
+		return;
+	}
+
+	// Check permission status first, in case we came from a shortcut.
+	if (!bootAllowStorage(filename)) {
 		return;
 	}
 
@@ -271,7 +279,16 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		g_BackgroundAudio.SetGame(Path());
 		bootPending_ = false;
 		errorMessage_.clear();
+
+		if (PSP_CoreParameter().startBreak) {
+			coreState = CORE_STEPPING_CPU;
+			System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+		} else {
+			coreState = CORE_RUNNING_CPU;
+		}
+
 		bootComplete();
+
 		// Reset views in case controls are in a different place.
 		RecreateViews();
 		return;
@@ -279,10 +296,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		// Gotta start the boot process! Continue below.
 		break;
 	}
-
-	// Check permission status first, in case we came from a shortcut.
-	if (!bootAllowStorage(filename))
-		return;
 
 	SetAssertCancelCallback(&AssertCancelCallback, this);
 
@@ -338,18 +351,27 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		return;
 	}
 
-	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
-	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
+	_dbg_assert_(loadingViewVisible_);
+	_dbg_assert_(loadingViewColor_);
+
+	if (loadingViewColor_)
+		loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
+	if (loadingViewVisible_)
+		loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 
 	screenManager()->getDrawContext()->ResetStats();
 
-	if (bootPending_) {
-		System_PostUIMessage(UIMessage::GAME_SELECTED, filename.c_str());
-	}
+	System_PostUIMessage(UIMessage::GAME_SELECTED, filename.c_str());
 }
 
 // Only call this on successful boot.
 void EmuScreen::bootComplete() {
+	// Initialize retroachievements, now that we're on the right thread.
+	if (g_Config.bAchievementsEnable) {
+		std::string errorString;
+		Achievements::SetGame(PSP_CoreParameter().fileToStart, PSP_CoreParameter().fileType, PSP_LoadedFile());
+	}
+
 	// We don't want to boot with the wrong game specific config, so wait until info is ready.
 	// TODO: Actually, we read this info again during bootup, so this is not really necessary.
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
@@ -375,7 +397,7 @@ void EmuScreen::bootComplete() {
 	NOTICE_LOG(Log::Boot, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
 	if (!Achievements::HardcoreModeActive()) {
 		// Don't auto-load savestates in hardcore mode.
-		autoLoad();
+		AutoLoadSaveState();
 	}
 
 #ifndef MOBILE_DEVICE
@@ -434,9 +456,14 @@ EmuScreen::~EmuScreen() {
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
+	// Should not be able to quit during boot, as boot can't be cancelled.
+	_dbg_assert_(!bootPending_);
 	if (!bootPending_) {
 		PSP_Shutdown(true);
+		Achievements::UnloadGame();
 	}
+
+	_dbg_assert_(coreState == CORE_POWERDOWN);
 
 	System_PostUIMessage(UIMessage::GAME_SELECTED, "");
 
@@ -444,6 +471,8 @@ EmuScreen::~EmuScreen() {
 
 	SetExtraAssertInfo(nullptr);
 	SetAssertCancelCallback(nullptr, nullptr);
+
+	g_logManager.EnableOutput(LogOutput::RingBuffer);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && startDumping)
@@ -469,7 +498,8 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
-	if (result == DR_OK || quit_) {
+	if ((result == DR_OK || quit_) && !bootPending_) {
+		_dbg_assert_(!bootPending_);
 		screenManager()->switchScreen(new MainScreen());
 		quit_ = false;
 	}
@@ -516,8 +546,9 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 
 void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
+	// This happens on the main thread.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		if (bootPending_) {
@@ -525,6 +556,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			return;
 		}
 		PSP_Shutdown(true);
+		Achievements::UnloadGame();
 		bootPending_ = false;
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
@@ -533,6 +565,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			return;
 		}
 		PSP_Shutdown(true);
+		Achievements::UnloadGame();
 		bootPending_ = true;
 		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
@@ -555,10 +588,9 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			SaveState::Load(Path(value), -1, &AfterStateBoot);
 		} else {
 			PSP_Shutdown(true);
+			Achievements::UnloadGame();
 			bootPending_ = true;
 			gamePath_ = Path(value);
-			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
-			Core_UpdateState(CORE_POWERUP);
 		}
 	} else if (message == UIMessage::CONFIG_LOADED) {
 		// In case we need to position touch controls differently.
@@ -610,8 +642,10 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
 				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
 				// use this as the fallback way to get into the menu.
-
-				screenManager()->push(new GamePauseScreen(gamePath_));
+				// Don't do it on the first resume though, in case we launch directly into emuscreen, like from a frontend - see #18926
+				if (!equals(value, "first")) {
+					screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
+				}
 			}
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
@@ -689,7 +723,7 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_FASTFORWARD:
-		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
+		if (down && !NetworkWarnUserIfOnlineAndCantSpeed() && !bootPending_) {
 			/*
 			// This seems like strange behavior. Commented it out.
 			if (coreState == CORE_STEPPING_CPU) {
@@ -804,7 +838,7 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 #endif
 
 	case VIRTKEY_REWIND:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			if (SaveState::CanRewind()) {
 				SaveState::Rewind(&AfterSaveStateAction);
 			} else {
@@ -813,12 +847,12 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		}
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		}
 		break;
@@ -930,7 +964,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			g_Config.bEnableWlan = !g_Config.bEnableWlan;
 			// Try to avoid adding more strings so we piece together a message from existing ones.
 			g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
-				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
+				"%s: %s", n->T_cstr("Enable networking"), g_Config.bEnableWlan ? di->T_cstr("Enabled") : di->T_cstr("Disabled")), 2.0, "toggle_wlan");
 		}
 		break;
 
@@ -1275,6 +1309,9 @@ void EmuScreen::deviceLost() {
 	UIScreen::deviceLost();
 
 	if (imguiInited_) {
+		if (imDebugger_) {
+			imDebugger_->DeviceLost();
+		}
 		ImGui_ImplThin3d_DestroyDeviceObjects();
 	}
 }
@@ -1380,7 +1417,7 @@ void EmuScreen::update() {
 
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
 	}
 
 	if (!PSP_IsInited())
@@ -1427,6 +1464,7 @@ bool EmuScreen::checkPowerDown() {
 		bool shutdown = false;
 		if (PSP_IsInited()) {
 			PSP_Shutdown(true);
+			Achievements::UnloadGame();
 			shutdown = true;
 		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
@@ -1477,11 +1515,9 @@ void EmuScreen::darken() {
 ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	// Moved from update, because we want it to be possible for booting to happen even when the screen
 	// is in the background, like when choosing Reset from the pause menu.
-	if (bootPending_) {
-		// Keep trying the boot until bootPending_ is lifted.
-		// It may be delayed due to RetroAchievements or any other cause.
-		ProcessGameBoot(gamePath_);
-	}
+
+	// If a boot is in progress, update it.
+	ProcessGameBoot(gamePath_);
 
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
 	Draw::Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
@@ -1631,6 +1667,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
 			coreState = CORE_RUNNING_CPU;
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
+			Achievements::FrameUpdate();
 			break;
 		case CORE_STEPPING_CPU:
 		case CORE_STEPPING_GE:
@@ -1664,13 +1701,11 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 			// However, let's not cause a UI sleep in the mainloop.
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
+			Achievements::FrameUpdate();
 			break;
 		}
 
 		PSP_EndHostFrame();
-
-		// This place rougly matches how libretro handles it (after retro_frame).
-		Achievements::FrameUpdate();
 	}
 
 	if (gpu && gpu->PresentedThisFrame()) {
@@ -1741,8 +1776,6 @@ void EmuScreen::runImDebugger() {
 	if (g_Config.bShowImDebugger) {
 		Draw::DrawContext *draw = screenManager()->getDrawContext();
 		if (!imguiInited_) {
-			imguiInited_ = true;
-
 			// TODO: Do this only on demand.
 			IMGUI_CHECKVERSION();
 			ctx_ = ImGui::CreateContext();
@@ -1756,6 +1789,7 @@ void EmuScreen::runImDebugger() {
 			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
 			// This takes ownership of the font array.
 			ImGui_ImplThin3d_Init(draw, fontData, size);
+			imguiInited_ = true;
 		}
 
 		if (PSP_IsInited()) {
@@ -1908,7 +1942,7 @@ void EmuScreen::renderUI() {
 	ctx->Flush();
 }
 
-void EmuScreen::autoLoad() {
+void EmuScreen::AutoLoadSaveState() {
 	int autoSlot = -1;
 
 	//check if save state has save, if so, load

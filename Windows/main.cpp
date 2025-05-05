@@ -379,6 +379,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 	case SYSPROP_CAN_CREATE_SHORTCUT:
 	case SYSPROP_CAN_SHOW_FILE:
+	case SYSPROP_HAS_TRASH_BIN:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
@@ -717,6 +718,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		auto func = reinterpret_cast<void (*)(void *window, void *userdata)>((uintptr_t)param3);
 		void *userdata = reinterpret_cast<void *>((uintptr_t)param4);
 		MainWindow::RunCallbackInWndProc(func, userdata);
+		return true;
+	}
+	case SystemRequestType::MOVE_TO_TRASH:
+	{
+		W32Util::MoveToTrash(Path(param1));
 		return true;
 	}
 	default:

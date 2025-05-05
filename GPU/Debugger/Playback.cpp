@@ -63,6 +63,18 @@ enum class OpType {
 	Done,
 };
 
+static const char *OpTypeToString(OpType type) {
+	switch (type) {
+	case OpType::None: return "None";
+	case OpType::UpdateStallAddr: return "UpdateStallAddr";
+	case OpType::EnqueueList: return "EnqueueList";
+	case OpType::ListSync: return "ListSync";
+	case OpType::ReapplyGfxState: return "ReapplyGfxState";
+	case OpType::Done: return "Done";
+	default: return "N/A";
+	}
+}
+
 struct Operation {
 	OpType type;
 	u32 listID;  // also listPC in EnqueueList
@@ -79,7 +91,7 @@ static std::vector<u8> lastExecPushbuf;
 static std::thread replayThread;
 
 static std::mutex opStartLock;
-static std::condition_variable opStartWait;
+static std::condition_variable g_condOpStartWait;
 
 static std::mutex opFinishLock;
 static std::condition_variable opFinishWait;
@@ -87,6 +99,7 @@ static std::condition_variable opFinishWait;
 static Operation g_opToExec;
 static u32 g_retVal;
 static bool g_opDone = true;
+static bool g_cancelled = false;
 
 // Runs on operation thread
 u32 ExecuteOnMain(Operation opToExec) {
@@ -95,14 +108,14 @@ u32 ExecuteOnMain(Operation opToExec) {
 		g_opToExec = opToExec;
 		g_retVal = 0;
 		g_opDone = false;
-		opStartWait.notify_one();
+		g_condOpStartWait.notify_one();
 	}
 
 	// now wait for completion. At that point, noone cares about g_opToExec anymore, and we can safely
 	// overwrite it next time.
 	{
 		std::unique_lock<std::mutex> lock(opFinishLock);
-		opFinishWait.wait(lock, []() { return g_opDone; });
+		opFinishWait.wait(lock, []() { return g_opDone || g_cancelled; });
 	}
 	return g_retVal;
 }
@@ -488,7 +501,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::SubmitListEnd() {
-	if (execListPos == 0) {
+	if (execListPos == 0 || g_cancelled) {
 		return;
 	}
 
@@ -723,6 +736,10 @@ ReplayResult DumpExecute::Run() {
 
 	int start = resumeIndex_ >= 0 ? resumeIndex_ : 0;
 	for (size_t i = start; i < commands_.size(); i++) {
+		if (g_cancelled) {
+			break;
+		}
+
 		const Command &cmd = commands_[i];
 		switch (cmd.type) {
 		case CommandType::INIT:
@@ -832,6 +849,8 @@ static u32 LoadReplay(const std::string &filename) {
 
 	NOTICE_LOG(Log::GeDebugger, "LoadReplay %s", filename.c_str());
 
+	g_cancelled = false;
+
 	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 	Header header;
 	pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
@@ -888,6 +907,18 @@ static u32 LoadReplay(const std::string &filename) {
 }
 
 void Replay_Unload() {
+	// We might be paused inside a replay - in this case, the thread is still running and we need to tell it to stop.
+	if (replayThread.joinable()) {
+		{
+			// We just finish processing the commands until done.
+			g_cancelled = true;
+
+			std::unique_lock<std::mutex> lock(opFinishLock);
+			opFinishWait.notify_one();
+		}
+		replayThread.join();
+	}
+
 	_dbg_assert_(!replayThread.joinable());
 
 	lastExecFilename.clear();
@@ -928,7 +959,9 @@ void WriteRunDumpCode(u32 codeStart) {
 	}
 }
 
-// This is called by the syscall.
+// This is called by the syscall. It spawns a "replayThread" which parses the file and sends the commands.
+// A long term goal is inversion of control here, but it's tricky for a number of reasons that you'll find
+// out if you try.
 ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!gpuDebug->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
 
@@ -967,7 +1000,7 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	// OK, now wait for and perform the desired action.
 	{
 		std::unique_lock<std::mutex> lock(opStartLock);
-		opStartWait.wait(lock, []() { return g_opToExec.type != OpType::None; });
+		g_condOpStartWait.wait(lock, []() { return g_opToExec.type != OpType::None; });
 	}
 
 	switch (g_opToExec.type) {

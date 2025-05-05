@@ -198,7 +198,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				glAttachShader(program->program, step.create_program.shaders[j]->shader);
 			}
 
-			for (auto iter : program->semantics_) {
+			for (const auto &iter : program->semantics_) {
 				glBindAttribLocation(program->program, iter.location, iter.attrib);
 			}
 
@@ -304,7 +304,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 					LineNumberString(code).c_str());
 				std::vector<std::string_view> lines;
 				SplitString(errorString, '\n', lines);
-				for (auto line : lines) {
+				for (const auto &line : lines) {
 					ERROR_LOG(Log::G3D, "%.*s", (int)line.size(), line.data());
 				}
 				if (errorCallback_) {
@@ -430,7 +430,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 		// Calling glGetError() isn't great, but at the end of init, only after creating textures, shouldn't be too bad...
 		GLenum err = glGetError();
 		if (err == GL_OUT_OF_MEMORY) {
-			WARN_LOG_REPORT(Log::G3D, "GL ran out of GPU memory; switching to low memory mode");
+			WARN_LOG(Log::G3D, "GL ran out of GPU memory; switching to low memory mode");
 			sawOutOfMemory_ = true;
 		} else if (err != GL_NO_ERROR) {
 			// We checked the err anyway, might as well log if there is one.

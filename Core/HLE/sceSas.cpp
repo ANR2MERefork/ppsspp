@@ -70,7 +70,7 @@ struct SasThreadParams {
 	int rightVol;
 };
 
-static std::thread *sasThread;
+static std::thread g_sasThread;
 static std::mutex sasWakeMutex;
 static std::mutex sasDoneMutex;
 static std::condition_variable sasWake;
@@ -79,6 +79,12 @@ static volatile int sasThreadState = SasThreadState::DISABLED;
 static SasThreadParams sasThreadParams;
 static int sasMixEvent = -1;
 
+static bool g_sasMuteFlag = false;
+
+bool *__SasGetGlobalMuteFlag() {
+	return &g_sasMuteFlag;
+}
+
 int __SasThread() {
 	SetCurrentThreadName("SAS");
 
@@ -86,8 +92,8 @@ int __SasThread() {
 	while (sasThreadState != SasThreadState::DISABLED) {
 		sasWake.wait(guard);
 		if (sasThreadState == SasThreadState::QUEUED) {
-			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol);
-
+			const bool mute = g_sasMuteFlag;
+			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol, mute);
 			std::lock_guard<std::mutex> doneGuard(sasDoneMutex);
 			sasThreadState = SasThreadState::READY;
 			sasDone.notify_one();
@@ -105,7 +111,8 @@ static void __SasDrain() {
 static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0) {
 	if (sasThreadState == SasThreadState::DISABLED) {
 		// No thread, call it immediately.
-		sas->Mix(outAddr, inAddr, leftVol, rightVol);
+		const bool mute = g_sasMuteFlag;
+		sas->Mix(outAddr, inAddr, leftVol, rightVol, mute);
 		return;
 	}
 
@@ -134,9 +141,9 @@ static void __SasDisableThread() {
 		sasThreadState = SasThreadState::DISABLED;
 		sasWake.notify_one();
 		sasWakeMutex.unlock();
-		sasThread->join();
-		delete sasThread;
-		sasThread = nullptr;
+		if (g_sasThread.joinable()) {
+			g_sasThread.join();
+		}
 	}
 }
 
@@ -162,11 +169,13 @@ static void sasMixFinish(u64 userdata, int cycleslate) {
 void __SasInit() {
 	sas = new SasInstance();
 
+	g_sasMuteFlag = false;
+
 	sasMixEvent = CoreTiming::RegisterEvent("SasMix", sasMixFinish);
 
 	if (g_Config.bSeparateSASThread) {
 		sasThreadState = SasThreadState::READY;
-		sasThread = new std::thread(__SasThread);
+		g_sasThread = std::thread(__SasThread);
 	} else {
 		sasThreadState = SasThreadState::DISABLED;
 	}
@@ -283,7 +292,7 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 		return hleReportError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid address");
 	}
 	if (sas->outputMode == PSP_SAS_OUTPUTMODE_RAW) {
-		return hleReportError(Log::sceSas, 0x80000004, "unsupported outputMode");
+		return hleReportError(Log::sceSas, SCE_KERNEL_ERROR_BAD_ARGUMENT, "unsupported outputMode");
 	}
 	if (!__KernelIsDispatchEnabled()) {
 		return hleLogError(Log::sceSas, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");

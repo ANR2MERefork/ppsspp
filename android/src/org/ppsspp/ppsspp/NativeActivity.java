@@ -990,7 +990,7 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent event) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
-			Log.i(TAG, "key event" + event.getSource());
+			// Log.d(TAG, "key event source: " + event.getSource());
 			if (NativeSurfaceView.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
 				Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode());
 				Log.i(TAG, "usemodernb2: " + useModernMouseEventsB2);
@@ -1106,14 +1106,14 @@ public abstract class NativeActivity extends Activity {
 						Log.i(TAG, "Erroneous move event"); // should be in touch events
 						return true;
 					case MotionEvent.ACTION_HOVER_MOVE:
-						Log.i(TAG, "Action Hover Move");
+						// Log.i(TAG, "Action Hover Move");
 						// process the mouse hover movement...
 						NativeApp.mouse(event.getX(), event.getY(), 0, 0);
 						return true;
 					case MotionEvent.ACTION_SCROLL:
 						float scrollX = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
 						float scrollY = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
-						Log.i(TAG, "Action Scroll: " + scrollX + " " + scrollY);
+						// Log.i(TAG, "Action Scroll: " + scrollX + " " + scrollY);
 						NativeApp.mouseWheelEvent(scrollX, scrollY);
 						return true;
 				}

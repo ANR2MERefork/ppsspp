@@ -303,16 +303,10 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 						source = normal.Normalized(cpu_info.bSSE4_1);
-						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
-						}
 						break;
 
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 						source = normal;
-						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
-						}
 						break;
 					}
 
@@ -337,6 +331,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 						Vec3f pos = getLPos(l);
 						return pos.NormalizedOr001(cpu_info.bSSE4_1);
 					};
+
 					// Might not have lighting enabled, so don't use lighter.
 					Vec3f lightpos0 = calcShadingLPos(gstate.getUVLS0());
 					Vec3f lightpos1 = calcShadingLPos(gstate.getUVLS1());
@@ -346,10 +341,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 					uv[2] = 1.0f;
 				}
 				break;
-
 			default:
-				// Illegal
-				ERROR_LOG_REPORT(Log::G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
 
@@ -1095,12 +1087,8 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std:
 				}
 				break;
 			case GE_VTYPE_IDX_32BIT:
-				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
 				for (int i = 0; i < count; ++i) {
-					// These aren't documented and should be rare.  Let's bounds check each one.
-					if (inds32[i] != (u16)inds32[i]) {
-						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
-					}
+					// These are rare. Only the bottom 16 bits are used.
 					indices[i] = (u16)inds32[i];
 				}
 				break;

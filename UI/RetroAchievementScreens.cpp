@@ -510,7 +510,24 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	case AchievementRenderStyle::UNLOCKED:
 	{
 		dc.SetFontScale(1.0f, 1.0f);
-		dc.DrawTextRect(achievement->title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
+		std::string title = achievement->title;
+
+		// Add simple display of the achievement types.
+		// Needs refinement, but works.
+		// See issue #19632
+		switch (achievement->type) {
+		case RC_CLIENT_ACHIEVEMENT_TYPE_MISSABLE:
+			title += " [m]";
+			break;
+		case RC_CLIENT_ACHIEVEMENT_TYPE_PROGRESSION:
+			title += " [p]";
+			break;
+		case RC_CLIENT_ACHIEVEMENT_TYPE_WIN:
+			title += " [win]";
+			break;
+		}
+
+		dc.DrawTextRect(title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
 		dc.SetFontScale(0.66f, 0.66f);
 		dc.DrawTextRectSqueeze(DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
@@ -559,7 +576,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.PopScissor();
 }
 
-static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
+static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha, const rc_client_game_t *gameInfo) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 
@@ -573,8 +590,6 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.FillRect(background, bounds);
 
 	dc.SetFontStyle(dc.theme->uiFont);
-
-	const rc_client_game_t *gameInfo = rc_client_get_game_info(Achievements::GetClient());
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -726,7 +741,10 @@ void AchievementView::Click() {
 }
 
 void GameAchievementSummaryView::Draw(UIContext &dc) {
-	RenderGameAchievementSummary(dc, bounds_, 1.0f);
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+	if (client_game) {
+		RenderGameAchievementSummary(dc, bounds_, 1.0f, client_game);
+	}
 }
 
 void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

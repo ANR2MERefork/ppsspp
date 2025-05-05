@@ -230,6 +230,7 @@ public:
 	int bHighQualityDepth;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
+	int iReplacementTextureLoadSpeed;
 	bool bIgnoreTextureFilenames;
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
@@ -262,6 +263,8 @@ public:
 	bool bUberShaderFragment;
 	int iDefaultTab;
 	int iScreenshotMode;
+	bool bVulkanDisableImplicitLayers;
+	bool bForceFfmpegForAudioDec;
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
@@ -284,6 +287,7 @@ public:
 	// Sound
 	bool bEnableSound;
 	int iAudioBackend;
+	int iSDLAudioBufferSize;
 
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;

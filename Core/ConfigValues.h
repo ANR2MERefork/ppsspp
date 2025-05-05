@@ -32,6 +32,8 @@ constexpr int PSP_DEFAULT_FIRMWARE = 660;
 constexpr int VOLUME_OFF = 0;
 constexpr int VOLUME_FULL = 10;
 constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
+constexpr int AUDIOSAMPLES_MIN = 0;
+constexpr int AUDIOSAMPLES_MAX = 2048;
 
 // This matches exactly the old shift-based curve.
 float Volume10ToMultiplier(int volume);
@@ -84,6 +86,13 @@ enum TextureFiltering {
 	TEX_FILTER_AUTO_MAX_QUALITY = 4,
 };
 
+enum ReplacementTextureLoadSpeed {
+	SLOW = 0,
+	MEDIUM = 1,
+	FAST = 2,
+	INSTANT = 3,
+};
+
 enum BufferFilter {
 	SCALE_LINEAR = 1,
 	SCALE_NEAREST = 2,
@@ -125,7 +134,8 @@ enum class DisableHLEFlags : int {
 	sceMpeg = (1 << 4),
 	sceMp3 = (1 << 5),
 	sceParseHttp = (1 << 6),
-	Count = 7,
+	sceCcc = (1 << 7),  // character conversion library.
+	Count = 8,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);

@@ -160,6 +160,13 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 		}
 	}
 
+	if (restriction == StringRestriction::NoLineBreaksOrSpecials) {
+		// Additionally, cut off the string if we find an overlong UTF-8 character, such as in Jak & Daxter's title.
+		size_t pos = sanitized.find("\xc0\x80");
+		if (pos != (size_t)std::string::npos) {
+			sanitized.resize(pos);
+		}
+	}
 	return sanitized;
 }
 
@@ -253,6 +260,15 @@ std::string_view KeepAfterLast(std::string_view s, char c) {
 	size_t pos = s.rfind(c);
 	if (pos != std::string_view::npos) {
 		return s.substr(pos + 1);
+	} else {
+		return s;
+	}
+}
+
+std::string_view KeepIncludingLast(std::string_view s, char c) {
+	size_t pos = s.rfind(c);
+	if (pos != std::string_view::npos) {
+		return s.substr(pos);
 	} else {
 		return s;
 	}

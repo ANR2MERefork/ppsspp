@@ -542,7 +542,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 				ERROR_LOG_REPORT(Log::Loader, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, state.lastHI16ExportAddress, exportAddress);
 			} else {
 				// Process each of the HI16.  Usually there's only one.
-				for (auto &reloc : state.lastHI16Relocs) {
+				for (const auto &reloc : state.lastHI16Relocs) {
 					if (!reverse) {
 						full = (reloc.data << 16) + offsetLo + exportAddress;
 					} else {
@@ -707,6 +707,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 void ExportFuncSymbol(const FuncSymbolExport &func) {
 	if (FuncImportIsHLE(func.moduleName, func.nid)) {
 		// HLE covers this already - let's ignore the function.
+		// This means that we loaded a module that we are HLE:ing, which is kinda unnecessary, but not harmful. And might even be good.
 		WARN_LOG(Log::Loader, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
 		return;
 	}
@@ -1180,9 +1181,15 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 			// If we've made it this far, it should be safe to dump.
 			// Copy the name to ensure it's null terminated.
-			char name[32]{};
-			strncpy(name, head->modname, ARRAY_SIZE(head->modname));
-			DumpFileIfEnabled(ptr, (u32)elfSize, name, DumpFileType::EBOOT);
+			// TODO: How do we determine if it's the eboot?
+			if (endsWith(filename, "BOOT.BIN")) {
+				DumpFileIfEnabled(ptr, (u32)elfSize, "EBOOT.BIN", DumpFileType::EBOOT);
+			} else {
+				char name[32]{};
+				strncpy(name, head->modname, ARRAY_SIZE(head->modname));
+
+				DumpFileIfEnabled(ptr, (u32)elfSize, name, DumpFileType::PRX);
+			}
 		}
 	}
 
