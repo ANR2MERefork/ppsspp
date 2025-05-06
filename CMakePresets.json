@@ -30,6 +30,7 @@
                 "USE_LIBNX": true,
                 "USING_GLES2": true,
                 "USING_EGL": false,
+				"USING_X11_VULKAN": false,
                 "USE_FFMPEG": false,
                 "USE_DISCORD": false,
                 "USE_MINIUPNPC": false,
