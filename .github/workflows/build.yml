@@ -366,7 +366,7 @@ jobs:
 
   build_test_headless_alpine:
     runs-on: ubuntu-latest
-    container: 
+    container:
       image: alpine:latest
       options: --shm-size=8g
     steps:
@@ -384,7 +384,7 @@ jobs:
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
-    
+
     - name: Compile ffmpeg
       run: |
         cd ffmpeg && ./linux_x86-64.sh
@@ -400,3 +400,44 @@ jobs:
     - name: Execute headless tests
       run: |
         python test.py -g --graphics=software
+
+  build_switch:
+    runs-on: ubuntu-latest
+    container:
+      image: 'devkitpro/devkita64'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Build
+      run: |
+        # Fix dubious ownership issue when running git describe inside a container
+        git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+
+        mkdir -p build-switch
+        cd build-switch
+        cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_CONFIGURATION }} \
+          -DUSE_LIBNX:BOOL=TRUE \
+          -DUSING_GLES2:BOOL=TRUE \
+          -DUSING_EGL:BOOL=FALSE \
+          -DUSING_X11_VULKAN:BOOL=FALSE \
+          -DUSE_FFMPEG:BOOL=FALSE \
+          -DUSE_DISCORD:BOOL=FALSE \
+          -DUSE_MINIUPNPC:BOOL=FALSE \
+          -DUSE_ARMIPS:BOOL=FALSE \
+          -DUSE_SYSTEM_LIBPNG:BOOL=FALSE \
+          -DCMAKE_COLOR_DIAGNOSTICS:BOOL=TRUE \
+          ..
+        ninja
+
+    - name: Upload artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ppsspp-switch-build
+        path: |
+          build-switch/PPSSPP.elf
+          build-switch/PPSSPP.nro
