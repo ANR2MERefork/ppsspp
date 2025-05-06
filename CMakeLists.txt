@@ -2469,6 +2469,15 @@ else()
 	add_compile_definitions(NO_ARMIPS=1)
 endif()
 
+if(USE_LIBNX)
+	set(MOBILE_DEVICE ON)
+	add_definitions(-DGLEW_NO_GLU)
+	add_compile_options(-fcommon)
+	include_directories(libretro/libretro-common/include)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+	set(CoreExtraLibs ${CoreExtraLibs} EGL glapi drm_nouveau nx)
+endif()
+
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)
 #	target_link_libraries(native X11-xcb X11)
