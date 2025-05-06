@@ -228,8 +228,10 @@ if(LIBRETRO)
 endif()
 
 if (USE_LIBNX)
-	add_definitions(-DHAVE_LIBNX)
+	add_definitions(-DHAVE_LIBNX -D__SWITCH__)
+	add_compile_options(-fPIC)
 	set(GLEW_NO_GLU ON)
+ 	set(USE_MINIUPNPC OFF)
 endif()
 
 if (GLEW_NO_GLU)
@@ -1082,7 +1084,7 @@ endif()
 
 
 find_package(LIBZIP)
-if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
+if(NOT USE_LIBNX AND LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	include_directories(${LIBZIP_INCLUDE_DIRS})
 	add_compile_definitions(SHARED_LIBZIP)
 else()
@@ -1223,7 +1225,7 @@ else()
 endif()
 
 # Arm platforms require at least libpng17.
-if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
+if(ANDROID OR ARMV7 OR (ARM64 AND NOT USE_LIBNX) OR ARM OR IOS)
 	set(PNG_REQUIRED_VERSION 1.7)
 else()
 	set(PNG_REQUIRED_VERSION 1.6)
@@ -1638,7 +1640,7 @@ add_library(native STATIC
 	ext/jpge/jpge.h
 )
 
-if(LINUX AND NOT ANDROID)
+if(LINUX AND NOT ANDROID AND NOT USE_LIBNX)
 	set(RT_LIB rt)
 endif()
 
@@ -1904,7 +1906,10 @@ set(GPU_D3D11
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
-set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
+set(GPU_IMPLS ${GPU_GLES})
+if(NOT USE_LIBNX)
+	list(APPEND GPU_IMPLS ${GPU_VULKAN})
+endif()
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
 endif()
@@ -2527,7 +2532,7 @@ if(FFmpeg_FOUND)
 endif()
 
 # Discord integration
-if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
+if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO AND NOT USE_LIBNX)
 	add_compile_definitions(USE_DISCORD=1)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
