@@ -64,6 +64,7 @@
 #include "scePower.h"
 #include "scePspNpDrm_user.h"
 #include "scePsmf.h"
+#include "sceReg.h"
 #include "sceRtc.h"
 #include "sceSas.h"
 #include "sceSircs.h"
@@ -288,13 +289,13 @@ void RegisterAllModules() {
 	Register_sceHeap();
 
 	for (int i = 0; i < numModules; i++) {
-		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
+		RegisterHLEModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
 
 	// IMPORTANT: New modules have to be added at the end, or they will break savestates.
 
 	Register_StdioForKernel();
-	RegisterModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
+	RegisterHLEModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
 	Register_IoFileMgrForKernel();
 	Register_LoadExecForKernel();
 	Register_SysMemForKernel();
@@ -323,6 +324,7 @@ void RegisterAllModules() {
 	Register_InterruptManagerForKernel();
 	Register_sceSircs();
 	Register_sceNet_lib();
+	Register_sceReg();
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 

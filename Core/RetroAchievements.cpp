@@ -966,10 +966,6 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 	g_isIdentifying = false;
 }
 
-bool IsReadyToStart() {
-	return !g_isLoggingIn;
-}
-
 void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader) {
 	bool homebrew = false;
 	switch (fileType) {
@@ -1000,6 +996,11 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 			ShowNotLoggedInMessage();
 		}
 		// Nothing to do.
+		return;
+	}
+
+	if (!fileLoader) {
+		ERROR_LOG(Log::Achievements, "File loader not initialized");
 		return;
 	}
 

@@ -23,7 +23,6 @@
 #include <algorithm>
 
 
-#include "Core/HLE/FunctionWrappers.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Core.h"
@@ -35,7 +34,9 @@
 #include "Core/MemMapHelpers.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/ErrorCodes.h"
 
 
 std::vector<SceUID> matchingThreads;
@@ -2676,7 +2677,7 @@ const HLEFunction sceNetAdhocMatching[] = {
 
 
 void Register_sceNetAdhocMatching() {
-	RegisterModule("sceNetAdhocMatching", ARRAY_SIZE(sceNetAdhocMatching), sceNetAdhocMatching);
+	RegisterHLEModule("sceNetAdhocMatching", ARRAY_SIZE(sceNetAdhocMatching), sceNetAdhocMatching);
 }
 
 void __NetAdhocMatchingInit() {

@@ -47,6 +47,7 @@ enum class CPUStepType {
 // Must be set when breaking.
 enum class BreakReason {
 	None,
+	AssertChoice,
 	DebugBreak,
 	DebugStep,
 	DebugStepInto,
@@ -61,7 +62,6 @@ enum class BreakReason {
 	SavestateCrash,
 	MemoryBreakpoint,
 	CpuBreakpoint,
-	BreakpointUpdate,
 	MemoryAccess,  // ???
 	JitBranchDebug,
 	BreakOnBoot,
@@ -117,12 +117,8 @@ enum CoreState {
 	CORE_NEXTFRAME = 1,
 	// Emulation is paused, CPU thread is sleeping.
 	CORE_STEPPING_CPU,  // Can be used for recoverable runtime errors (ignored memory exceptions)
-	// Core is being powered up.
-	CORE_POWERUP,
-	// Core is being powered down.
+	// Core is not running.
 	CORE_POWERDOWN,
-	// An error happened at boot.
-	CORE_BOOT_ERROR,
 	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
 	CORE_RUNTIME_ERROR,
 	// Stepping the GPU. When done, will switch over to STEPPING_CPU.
@@ -130,6 +126,7 @@ enum CoreState {
 	// Running the GPU. When done, will switch over to RUNNING_CPU.
 	CORE_RUNNING_GE,
 };
+const char *CoreStateToString(CoreState state);
 
 // Callback is called on the Emu thread.
 typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
@@ -149,8 +146,6 @@ void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
-
-const char *CoreStateToString(CoreState state);
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;

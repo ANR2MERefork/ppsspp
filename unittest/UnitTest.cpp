@@ -112,6 +112,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(UIMessage message, const std::string &param) {}
+void System_RunOnMainThread(std::function<void()>) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
@@ -119,9 +120,7 @@ void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
 // To clear the secret entirely, just save an empty string.
 bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) { return false; }
-std::string NativeLoadSecret(std::string_view nameOfSecret) {
-	return "";
-}
+std::string NativeLoadSecret(std::string_view nameOfSecret) { return ""; }
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -1100,7 +1099,7 @@ bool TestBuffer() {
 	return true;
 }
 
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+#if PPSSPP_ARCH(SSE2) && (defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER))
 [[gnu::target("sse4.1")]]
 #endif
 bool TestSIMD() {

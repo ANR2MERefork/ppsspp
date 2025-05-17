@@ -21,6 +21,7 @@
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/Log.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
 
 // Takes ownership of backend.
@@ -91,6 +92,7 @@ void RamCachingFileLoader::InitCache() {
 	// Overallocate for the last block.
 	cache_ = (u8 *)malloc((size_t)blockCount << BLOCK_SHIFT);
 	if (cache_ == nullptr) {
+		ERROR_LOG(Log::IO, "Failed to allocate cache for Cache full ISO in RAM! Will fall back to regular reads.");
 		return;
 	}
 	aheadRemaining_ = blockCount;
@@ -102,11 +104,10 @@ void RamCachingFileLoader::ShutdownCache() {
 
 	// We can't delete while the thread is running, so have to wait.
 	// This should only happen from the menu.
-	while (aheadThreadRunning_) {
-		sleep_ms(1, "shutdown-ram-cache-poll");
-	}
 	if (aheadThread_.joinable())
 		aheadThread_.join();
+
+	_dbg_assert_(!aheadThreadRunning_);
 
 	std::lock_guard<std::mutex> guard(blocksMutex_);
 	blocks_.clear();
@@ -178,6 +179,8 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags) {
 				if (blocksToRead >= MAX_BLOCKS_PER_READ) {
 					break;
 				}
+
+				// TODO: Shouldn't we break as soon as we see a 1?
 			}
 		}
 	}

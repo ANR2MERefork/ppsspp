@@ -1,3 +1,4 @@
+
 // Headless version of PPSSPP, for testing using http://code.google.com/p/pspautotests/ .
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
@@ -93,6 +94,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(UIMessage message, const std::string &param) {}
+void System_RunOnMainThread(std::function<void()>) {}
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::SEND_DEBUG_OUTPUT:
@@ -183,9 +185,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	if (opt.compare || opt.bench)
 		coreParameter.collectDebugOutput = &output;
 
-	std::string error_string;
-	if (!PSP_InitStart(coreParameter, &error_string)) {
-		fprintf(stderr, "Failed to start '%s'. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
+	if (!PSP_InitStart(coreParameter)) {
+		// Shouldn't really happen anymore, the errors happen later in PSP_InitUpdate.
+		fprintf(stderr, "Failed to start '%s'.\n", coreParameter.fileToStart.c_str());
 		printf("TESTERROR\n");
 		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
 		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
@@ -197,9 +199,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	if (opt.compare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 
-	while (!PSP_InitUpdate(&error_string))
+	std::string error_string;
+	while (PSP_InitUpdate(&error_string) == BootState::Booting)
 		sleep_ms(1, "auto-test");
+
 	if (!PSP_IsInited()) {
+		TeamCityPrint("%s", error_string.c_str());
 		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
 		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 		GitHubActionsPrint("error", "Test init failed for %s", currentTestName.c_str());
@@ -210,10 +215,13 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
-	PSP_BeginHostFrame();
+	if (gpu) {
+		gpu->BeginHostFrame();
+	}
 	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
-	if (draw)
+	if (draw) {
 		draw->BeginFrame(Draw::DebugFlags::NONE);
+	}
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
@@ -250,7 +258,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 			Core_Stop();
 		}
 	}
-	PSP_EndHostFrame();
+	if (gpu) {
+		gpu->EndHostFrame();
+	}
 
 	if (draw) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Headless");
@@ -261,7 +271,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		draw->EndFrame();
 	}
 
-	PSP_Shutdown();
+	PSP_Shutdown(true);
 
 	if (!opt.bench)
 		headlessHost->FlushDebugOutput();
@@ -329,7 +339,9 @@ int main(int argc, const char* argv[])
 	PROFILE_INIT();
 	TimeInit();
 #if PPSSPP_PLATFORM(WINDOWS)
-	SetCleanExitOnAssert();
+	if (!IsDebuggerPresent()) {
+		SetCleanExitOnAssert();
+	}
 #else
 	// Ignore sigpipe.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
@@ -348,7 +360,7 @@ int main(int argc, const char* argv[])
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
 	int debuggerPort = -1;
-	bool newAtrac = false;
+	bool oldAtrac = false;
 	bool outputDebugStringLog = false;
 
 	std::vector<std::string> testFilenames;
@@ -389,8 +401,8 @@ int main(int argc, const char* argv[])
 			testOptions.bench = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
-		else if (!strcmp(argv[i], "--new-atrac"))
-			newAtrac = true;
+		else if (!strcmp(argv[i], "--old-atrac"))
+			oldAtrac = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
@@ -530,7 +542,8 @@ int main(int argc, const char* argv[])
 	g_Config.iGameVolume = VOLUMEHI_FULL;
 	g_Config.iReverbVolume = VOLUMEHI_FULL;
 	g_Config.internalDataDirectory.clear();
-	g_Config.bUseExperimentalAtrac = newAtrac;
+	g_Config.bUseOldAtrac = oldAtrac;
+	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";

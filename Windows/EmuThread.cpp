@@ -67,58 +67,12 @@ void MainThread_Start(bool separateEmuThread) {
 void MainThread_Stop() {
 	// Already stopped?
 	UpdateUIState(UISTATE_EXIT);
-	Core_Stop();
+	_dbg_assert_(mainThread.joinable());
 	mainThread.join();
 }
 
 bool MainThread_Ready() {
 	return g_inLoop;
-}
-
-static bool Run(GraphicsContext *ctx) {
-	System_Notify(SystemNotification::DISASSEMBLY);
-	while (true) {
-		if (GetUIState() != UISTATE_INGAME) {
-			Core_StateProcessed();
-			if (GetUIState() == UISTATE_EXIT) {
-				// Not sure why we do a final frame here?
-				NativeFrame(ctx);
-				return false;
-			}
-			NativeFrame(ctx);
-			continue;
-		}
-
-		switch (coreState) {
-		case CORE_RUNNING_CPU:
-		case CORE_STEPPING_CPU:
-		case CORE_RUNNING_GE:  // Shouldn't be in this state between frames
-		case CORE_STEPPING_GE:  // This is OK though.
-			// enter a fast runloop
-			NativeFrame(ctx);
-			if (coreState == CORE_POWERDOWN) {
-				return true;
-			}
-			break;
-		case CORE_POWERDOWN:
-			// Need to step the loop.
-			NativeFrame(ctx);
-			return true;
-
-		case CORE_RUNTIME_ERROR:
-			// Need to step the loop.
-			NativeFrame(ctx);
-			break;
-
-		case CORE_POWERUP:
-		case CORE_BOOT_ERROR:
-			// Exit loop!!
-			return true;
-
-		case CORE_NEXTFRAME:
-			return true;
-		}
-	}
 }
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext) {
@@ -133,9 +87,14 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		// We're here again, so the game quit.  Restart Run() which controls the UI.
 		// This way they can load a new game.
-		if (!Core_IsActive())
+		if (!Core_IsActive()) {
 			UpdateUIState(UISTATE_MENU);
-		if (!Run(g_graphicsContext)) {
+		}
+
+		Core_StateProcessed();
+		NativeFrame(graphicsContext);
+
+		if (GetUIState() == UISTATE_EXIT) {
 			emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
 		}
 	}
@@ -200,7 +159,10 @@ void MainThreadFunc() {
 	// We'll start up a separate thread we'll call Emu
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
-	SetConsolePosition();
+	const HWND console = GetConsoleWindow();
+	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 
 	System_SetWindowTitle("");
 
@@ -316,11 +278,6 @@ void MainThreadFunc() {
 
 	DEBUG_LOG(Log::Boot, "Done.");
 
-	if (coreState == CORE_POWERDOWN) {
-		INFO_LOG(Log::Boot, "Exit before core loop.");
-		goto shutdown;
-	}
-
 	g_inLoop = true;
 
 	if (useEmuThread) {
@@ -328,10 +285,9 @@ void MainThreadFunc() {
 	}
 	graphicsContext->ThreadStart();
 
-	if (g_Config.bBrowse)
+	if (g_Config.bBrowse) {
 		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
-
-	Core_Resume();
+	}
 
 	if (useEmuThread) {
 		while (emuThreadState != (int)EmuThreadState::DISABLED) {
@@ -346,16 +302,15 @@ void MainThreadFunc() {
 			// This way they can load a new game.
 			if (!Core_IsActive())
 				UpdateUIState(UISTATE_MENU);
-			Run(g_graphicsContext);
-			if (coreState == CORE_BOOT_ERROR) {
-				break;
-			}
+			Core_StateProcessed();
+			NativeFrame(graphicsContext);
 		}
 	}
 	Core_Stop();
 	if (!useEmuThread) {
 		// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
-		Run(g_graphicsContext);
+		Core_StateProcessed();
+		NativeFrame(graphicsContext);
 	}
 	Core_WaitInactive();
 
@@ -370,8 +325,6 @@ void MainThreadFunc() {
 		EmuThreadJoin();
 	}
 
-shutdown:
-
 	if (!useEmuThread) {
 		NativeShutdownGraphics();
 	}
@@ -383,7 +336,12 @@ shutdown:
 
 	delete g_graphicsContext;
 
-	UpdateConsolePosition();
+	RECT rc;
+	if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
+
 	NativeShutdown();
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);

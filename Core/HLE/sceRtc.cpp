@@ -29,6 +29,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
@@ -76,7 +77,7 @@ const int PSP_TIME_INVALID_MINUTES = -5;
 const int PSP_TIME_INVALID_SECONDS = -6;
 const int PSP_TIME_INVALID_MICROSECONDS = -7;
 
-static u64 __RtcGetCurrentTick()
+u64 __RtcGetCurrentTick()
 {
 	// TODO: It's probably expecting ticks since January 1, 0001?
 	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
@@ -640,11 +641,11 @@ static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
 		u64 tick1 = Memory::Read_U64(tick1Ptr);
 		u64 tick2 = Memory::Read_U64(tick2Ptr);
 		if (tick1 > tick2)
-			return 1;
+			return hleNoLog(1);
 		if (tick1 < tick2)
-			return -1;
+			return hleNoLog(-1);
 	}
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
@@ -656,9 +657,7 @@ static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
 		srcTick += numTicks;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddTicks(%x,%x,%llu)", destTickPtr, srcTickPtr, numTicks);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
@@ -670,9 +669,7 @@ static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
 		srcTick += numMS;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddMicroseconds(%x,%x,%llu)", destTickPtr, srcTickPtr, numMS);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
@@ -684,8 +681,7 @@ static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
 		srcTick += numSecs * 1000000UL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddSeconds(%x,%x,%llu)", destTickPtr, srcTickPtr, numSecs);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
@@ -697,8 +693,7 @@ static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
 		srcTick += numMins*60000000UL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddMinutes(%x,%x,%llu)", destTickPtr, srcTickPtr, numMins);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
@@ -709,8 +704,7 @@ static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
 		srcTick += numHours * 3600ULL * 1000000ULL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddMinutes(%d,%d,%d)", destTickPtr, srcTickPtr, numHours);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays)
@@ -722,8 +716,7 @@ static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays)
 		srcTick += numDays * 86400ULL * 1000000ULL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddDays(%d,%d,%d)", destTickPtr, srcTickPtr, numDays);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
@@ -735,16 +728,14 @@ static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
 		srcTick += numWeeks * 7ULL * 86400ULL * 1000000ULL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddWeeks(%d,%d,%d)", destTickPtr, srcTickPtr, numWeeks);
-	return 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 {
 	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr))
 	{
-		WARN_LOG(Log::sceRtc, "sceRtcTickAddMonths(%08x, %08x, %d): invalid address", destTickPtr, srcTickPtr, numMonths);
-		return -1;
+		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
 	u64 srcTick = Memory::Read_U64(srcTickPtr);
@@ -776,15 +767,13 @@ static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddMonths(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numMonths);
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 {
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr))
-	{
-		WARN_LOG(Log::sceRtc, "sceRtcTickAddYears(%08x, %08x, %d): invalid address", destTickPtr, srcTickPtr, numYears);
-		return -1;
+	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr)) {
+		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
 	u64 srcTick = Memory::Read_U64(srcTickPtr);
@@ -804,7 +793,7 @@ static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddYears(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numYears);
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
@@ -1026,5 +1015,5 @@ const HLEFunction sceRtc[] =
 
 void Register_sceRtc()
 {
-	RegisterModule("sceRtc", ARRAY_SIZE(sceRtc), sceRtc);
+	RegisterHLEModule("sceRtc", ARRAY_SIZE(sceRtc), sceRtc);
 }

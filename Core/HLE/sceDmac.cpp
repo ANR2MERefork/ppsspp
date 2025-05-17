@@ -21,6 +21,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceDmac.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -84,7 +85,7 @@ static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
-		WARN_LOG_REPORT_ONCE(overlapDmacMemcpy, Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
+		WARN_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.
 		// Might matter for overlapping copies.
 	}
@@ -120,5 +121,5 @@ const HLEFunction sceDmac[] = {
 };
 
 void Register_sceDmac() {
-	RegisterModule("sceDmac", ARRAY_SIZE(sceDmac), sceDmac);
+	RegisterHLEModule("sceDmac", ARRAY_SIZE(sceDmac), sceDmac);
 }

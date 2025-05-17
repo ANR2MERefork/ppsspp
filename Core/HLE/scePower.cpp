@@ -21,6 +21,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -426,7 +427,7 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		break;
 	}
 
-	return error;
+	return hleNoLog(error);
 }
 
 
@@ -517,11 +518,11 @@ static u32 scePowerGetCpuClockFrequencyInt() {
 }
 
 static u32 scePowerGetPllClockFrequencyInt() {
-	return hleLogInfo(Log::sceMisc, pllFreq / 1000000);
+	return hleLogDebug(Log::sceMisc, pllFreq / 1000000);
 }
 
 static u32 scePowerGetBusClockFrequencyInt() {
-	return hleLogInfo(Log::sceMisc, busFreq / 1000000);
+	return hleLogDebug(Log::sceMisc, busFreq / 1000000);
 }
 
 static float scePowerGetCpuClockFrequencyFloat() {
@@ -629,9 +630,9 @@ const HLEFunction sceSuspendForUser[] = {
 
 
 void Register_scePower() {
-	RegisterModule("scePower",ARRAY_SIZE(scePower),scePower);
+	RegisterHLEModule("scePower",ARRAY_SIZE(scePower),scePower);
 }
 
 void Register_sceSuspendForUser() {
-	RegisterModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
+	RegisterHLEModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }

@@ -379,6 +379,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 	case SYSPROP_CAN_CREATE_SHORTCUT:
 	case SYSPROP_CAN_SHOW_FILE:
+	case SYSPROP_HAS_TRASH_BIN:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
@@ -405,6 +406,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_OK_BUTTON_LEFT:
 		return true;
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
+		return true;
+	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
 		return true;
 	default:
 		return false;
@@ -537,6 +540,10 @@ static std::wstring MakeWindowsFilter(BrowseFileType type) {
 		return FinalizeFilter(L"Sound effect files (*.wav *.mp3)|*.wav;*.mp3|All files (*.*)|*.*||");
 	case BrowseFileType::SYMBOL_MAP:
 		return FinalizeFilter(L"Symbol map files (*.ppmap)|*.ppmap|All files (*.*)|*.*||");
+	case BrowseFileType::SYMBOL_MAP_NOCASH:
+		return FinalizeFilter(L"No$ symbol map files (*.sym)|*.sym|All files (*.*)|*.*||");
+	case BrowseFileType::ATRAC3:
+		return FinalizeFilter(L"ATRAC3/3+ files (*.at3)|*.at3|All files (*.*)|*.*||");
 	case BrowseFileType::ANY:
 		return FinalizeFilter(L"All files (*.*)|*.*||");
 	default:
@@ -581,7 +588,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		winTitle.append(L" (debug)");
 #endif
 		MainWindow::SetWindowTitle(winTitle.c_str());
-		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 		return true;
 	}
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
@@ -638,7 +644,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			// Unsupported.
 			return false;
 		}
-		bool load = type == SystemRequestType::BROWSE_FOR_FILE;
+		const bool load = type == SystemRequestType::BROWSE_FOR_FILE;
 		std::thread([=] {
 			std::string out;
 			if (W32Util::BrowseForFileName(load, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
@@ -689,8 +695,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::CREATE_GAME_SHORTCUT:
 	{
 		// Get the game info to get our hands on the icon png
-		Path gamePath(param1);
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath, GameInfoFlags::ICON);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, Path(param1), GameInfoFlags::ICON);
 		Path icoPath;
 		if (info->icon.dataLoaded) {
 			// Write the icon png out as a .ICO file so the shortcut can point to it
@@ -710,9 +715,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::RUN_CALLBACK_IN_WNDPROC:
 	{
-		auto func = reinterpret_cast<void (*)(void *window, void *userdata)>(param3);
-		void *userdata = reinterpret_cast<void *>(param4);
+		auto func = reinterpret_cast<void (*)(void *window, void *userdata)>((uintptr_t)param3);
+		void *userdata = reinterpret_cast<void *>((uintptr_t)param4);
 		MainWindow::RunCallbackInWndProc(func, userdata);
+		return true;
+	}
+	case SystemRequestType::MOVE_TO_TRASH:
+	{
+		W32Util::MoveToTrash(Path(param1));
 		return true;
 	}
 	default:

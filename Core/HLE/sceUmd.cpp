@@ -466,7 +466,7 @@ static u32 sceUmdCancelWaitDriveStat() {
 }
 
 static u32 sceUmdGetErrorStat() {
-	return hleLogError(Log::sceIo, umdErrorStat);
+	return hleLogDebug(Log::sceIo, umdErrorStat);
 }
 
 void __UmdReplace(const Path &filepath) {
@@ -534,5 +534,5 @@ const HLEFunction sceUmdUser[] =
 
 void Register_sceUmdUser()
 {
-	RegisterModule("sceUmdUser", ARRAY_SIZE(sceUmdUser), sceUmdUser);
+	RegisterHLEModule("sceUmdUser", ARRAY_SIZE(sceUmdUser), sceUmdUser);
 }

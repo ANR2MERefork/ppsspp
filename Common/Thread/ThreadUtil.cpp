@@ -30,9 +30,13 @@ AttachDetachFunc g_detach;
 void AttachThreadToJNI() {
 	if (g_attach) {
 		g_attach();
+	} else {
+#if PPSSPP_PLATFORM(ANDROID)
+		// Not relevant on other platforms.
+		ERROR_LOG(Log::System, "Couldn't attach thread - g_attach not set");
+#endif
 	}
 }
-
 
 void DetachThreadFromJNI() {
 	if (g_detach) {

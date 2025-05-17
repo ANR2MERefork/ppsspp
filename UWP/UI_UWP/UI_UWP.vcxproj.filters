@@ -54,6 +54,10 @@
     <ClCompile Include="..\..\UI\ImDebugger\ImMemView.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImConsole.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -109,6 +113,10 @@
     <ClInclude Include="..\..\UI\ImDebugger\ImMemView.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImConsole.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">

@@ -565,6 +565,7 @@
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="Dialog\PSPOskConstants.cpp" />
+    <ClCompile Include="FileLoaders\ZipFileLoader.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="FrameTiming.cpp" />
     <ClCompile Include="HLE\AtracCtx.cpp" />
@@ -578,6 +579,7 @@
     <ClCompile Include="HLE\sceNetInet.cpp" />
     <ClCompile Include="HLE\sceNetResolver.cpp" />
     <ClCompile Include="HLE\sceNp2.cpp" />
+    <ClCompile Include="HLE\sceReg.cpp" />
     <ClCompile Include="HLE\sceUsbAcc.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
     <ClCompile Include="HLE\sceUsbMic.cpp" />
@@ -589,6 +591,7 @@
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="KeyMapDefaults.cpp" />
+    <ClCompile Include="LuaContext.cpp" />
     <ClCompile Include="MemFault.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRAsm.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRCompALU.cpp" />
@@ -679,7 +682,6 @@
     <ClCompile Include="Font\PGF.cpp" />
     <ClCompile Include="HDRemaster.cpp" />
     <ClCompile Include="HLE\HLE.cpp">
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">MaxSpeed</Optimization>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">MaxSpeed</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
@@ -1084,8 +1086,8 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="System.cpp" />
-    <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="TiltEventProcessor.cpp" />
+    <ClCompile Include="Util\AtracTrack.cpp" />
     <ClCompile Include="Util\AudioFormat.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
     <ClCompile Include="Util\DisArm64.cpp" />
@@ -1121,6 +1123,7 @@
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">AnySuitable</InlineFunctionExpansion>
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">AnySuitable</InlineFunctionExpansion>
     </ClCompile>
+    <ClCompile Include="Util\RecentFiles.cpp" />
     <ClCompile Include="WaveFile.cpp" />
     <ClCompile Include="WebServer.cpp" />
     <ClCompile Include="MIPS\x86\X64IRRegCache.cpp" />
@@ -1184,20 +1187,24 @@
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="Dialog\PSPOskConstants.h" />
+    <ClInclude Include="FileLoaders\ZipFileLoader.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
     <ClInclude Include="FrameTiming.h" />
     <ClInclude Include="HLE\AtracCtx.h" />
     <ClInclude Include="HLE\AtracCtx2.h" />
+    <ClInclude Include="HLE\ErrorCodes.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\NetInetConstants.h" />
     <ClInclude Include="HLE\Plugins.h" />
+    <ClInclude Include="HLE\PSPThreadContext.h" />
     <ClInclude Include="HLE\sceAac.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
     <ClInclude Include="HLE\sceNetApctl.h" />
     <ClInclude Include="HLE\sceNetInet.h" />
     <ClInclude Include="HLE\sceNetResolver.h" />
     <ClInclude Include="HLE\sceNp2.h" />
+    <ClInclude Include="HLE\sceReg.h" />
     <ClInclude Include="HLE\sceUsbAcc.h" />
     <ClInclude Include="HLE\sceUsbCam.h" />
     <ClInclude Include="HLE\sceUsbMic.h" />
@@ -1208,6 +1215,7 @@
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="KeyMapDefaults.h" />
+    <ClInclude Include="LuaContext.h" />
     <ClInclude Include="MemFault.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h" />
@@ -1467,9 +1475,8 @@
     <ClInclude Include="MIPS\MIPSStackWalk.h" />
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
-    <ClInclude Include="ThreadEventQueue.h" />
-    <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="TiltEventProcessor.h" />
+    <ClInclude Include="Util\AtracTrack.h" />
     <ClInclude Include="Util\AudioFormat.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\DisArm64.h" />
@@ -1479,6 +1486,7 @@
     <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="..\ext\xxhash.h" />
+    <ClInclude Include="Util\RecentFiles.h" />
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="WebServer.h" />
     <ClInclude Include="MIPS\x86\X64IRRegCache.h" />

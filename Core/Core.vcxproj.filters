@@ -952,9 +952,6 @@
     <ClCompile Include="KeyMap.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadPools.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -1342,6 +1339,21 @@
     <ClCompile Include="HLE\sceAac.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="Util\AtracTrack.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\RecentFiles.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaContext.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceReg.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLoaders\ZipFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1728,9 +1740,6 @@
     <ClInclude Include="FileSystems\VirtualDiscFileSystem.h">
       <Filter>FileSystems</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadEventQueue.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="HW\AsyncIOManager.h">
       <Filter>HW</Filter>
     </ClInclude>
@@ -2031,9 +2040,6 @@
     <ClInclude Include="KeyMap.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadPools.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="Debugger\WebSocket\InputSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
@@ -2162,6 +2168,27 @@
     </ClInclude>
     <ClInclude Include="HLE\sceAac.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\ErrorCodes.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\AtracTrack.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\RecentFiles.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaContext.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\PSPThreadContext.h">
+      <Filter>HLE\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceReg.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\ZipFileLoader.h">
+      <Filter>FileLoaders</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

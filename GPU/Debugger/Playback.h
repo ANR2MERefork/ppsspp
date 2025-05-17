@@ -30,6 +30,8 @@ enum class ReplayResult {
 
 void WriteRunDumpCode(u32 addr);
 ReplayResult RunMountedReplay(const std::string &filename);
-void ReplayShutdown();
+
+// Will also cancel a currently running replay.
+void Replay_Unload();
 
 }  // namespace GPURecord

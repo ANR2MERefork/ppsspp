@@ -44,10 +44,8 @@ public:
 
 protected:
 	void CreateViews() override;
-	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
-	bool isRecentGame(const Path &gamePath);
 
 private:
 	UI::Choice *AddOtherChoice(UI::Choice *choice);
@@ -59,7 +57,6 @@ private:
 	UI::EventReturn OnDeleteGame(UI::EventParams &e);
 	UI::EventReturn OnSwitchBack(UI::EventParams &e);
 	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
-	UI::EventReturn OnShowInFolder(UI::EventParams &e);
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);

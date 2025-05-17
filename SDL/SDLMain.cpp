@@ -6,9 +6,11 @@
 #if PPSSPP_PLATFORM(MAC)
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_syswm.h"
+#include "SDL2/SDL_mouse.h"
 #else
 #include "SDL.h"
 #include "SDL_syswm.h"
+#include "SDL_mouse.h"
 #endif
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
@@ -24,6 +26,10 @@ SDLJoystick *joystick = NULL;
 #include <thread>
 #include <locale>
 
+#include "ext/portable-file-dialogs/portable-file-dialogs.h"
+
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_platform.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -140,7 +146,7 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	fmt.freq = g_sampleRate;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 256;
+	fmt.samples = std::max(g_Config.iSDLAudioBufferSize, 128);
 	fmt.callback = &sdl_mixaudio_callback;
 	fmt.userdata = nullptr;
 
@@ -157,7 +163,9 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		}
 	}
 	if (audioDev <= 0) {
-		INFO_LOG(Log::Audio, "SDL: Trying a different audio device");
+		if (audioDev < 0) {
+			INFO_LOG(Log::Audio, "SDL: Error: %s. Trying a different audio device", SDL_GetError());
+		}
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
@@ -219,6 +227,51 @@ void System_ShowKeyboard() {
 
 void System_Vibrate(int length_ms) {
 	// Ignore on PC
+}
+
+static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType type) {
+	switch (type) {
+	case BrowseFileType::BOOTABLE:
+		filters.push_back("All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)");
+		filters.push_back("*.pbp *.elf *.iso *.cso *.chd *.prx *.zip *.ppdmp");
+		break;
+	case BrowseFileType::INI:
+		filters.push_back("Ini files");
+		filters.push_back("*.ini");
+		break;
+	case BrowseFileType::ZIP:
+		filters.push_back("ZIP files");
+		filters.push_back("*.zip");
+		break;
+	case BrowseFileType::DB:
+		filters.push_back("Cheat db files");
+		filters.push_back("*.db");
+		break;
+	case BrowseFileType::SOUND_EFFECT:
+		filters.push_back("Sound effect files (wav, mp3)");
+		filters.push_back("*.wav *.mp3");
+		break;
+	case BrowseFileType::SYMBOL_MAP:
+		filters.push_back("PPSSPP Symbol Map files (ppmap)");
+		filters.push_back("*.ppmap");
+		break;
+	case BrowseFileType::SYMBOL_MAP_NOCASH:
+		filters.push_back("No$ symbol Map files (sym)");
+		filters.push_back("*.sym");
+		break;
+	case BrowseFileType::ATRAC3:
+		filters.push_back("Atrac3 files (at3)");
+		filters.push_back("*.at3");
+		break;
+	case BrowseFileType::IMAGE:
+		filters.push_back("Pictures (jpg, png)");
+		filters.push_back("*.jpg *.png");
+		break;
+	case BrowseFileType::ANY:
+		break;
+	}
+	filters.push_back("All files (*.*)");
+	filters.push_back("*");
 }
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
@@ -286,6 +339,44 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		};
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+#else
+	case SystemRequestType::BROWSE_FOR_FILE:
+	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
+	{
+		// TODO: Add non-blocking support.
+		const BrowseFileType browseType = (BrowseFileType)param3;
+		std::string initialFilename = param2;
+		const std::string &title = param1;
+		std::vector<std::string> filters;
+		InitializeFilters(filters, browseType);
+		if (type == SystemRequestType::BROWSE_FOR_FILE) {
+			std::vector<std::string> result = pfd::open_file(title, initialFilename, filters).result();
+			if (!result.empty()) {
+				g_requestManager.PostSystemSuccess(requestId, result[0]);
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		} else {
+			std::string result = pfd::save_file(title, initialFilename, filters).result();
+			if (!result.empty()) {
+				g_requestManager.PostSystemSuccess(requestId, result);
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		// TODO: Add non-blocking support.
+		std::string result = pfd::select_folder(param1, param2).result();
+		if (!result.empty()) {
+			g_requestManager.PostSystemSuccess(requestId, result);
+		} else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
 		return true;
 	}
 #endif
@@ -606,16 +697,18 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
-	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR: 
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
 #endif
+case SYSPROP_HAS_FOLDER_BROWSER:
+case SYSPROP_HAS_FILE_BROWSER:
 #if PPSSPP_PLATFORM(MAC)
-	case SYSPROP_HAS_FOLDER_BROWSER:
-	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
+#else
+		return pfd::settings::available();
 #endif
 	case SYSPROP_HAS_ACCELEROMETER:
 #if defined(MOBILE_DEVICE)
@@ -625,7 +718,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
-default:
+	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+#if defined(MOBILE_DEVICE)
+		return false;
+#else
+		return true;
+#endif
+	default:
 		return false;
 	}
 }
@@ -746,6 +845,36 @@ struct InputStateTracker {
 	int mouseDown;  // bitflags
 	bool mouseCaptured;
 };
+
+SDL_Cursor *g_builtinCursors[SDL_NUM_SYSTEM_CURSORS];
+
+static SDL_SystemCursor GetSDLCursorFromImgui(ImGuiMouseCursor cursor) {
+	switch (cursor) {
+	case ImGuiMouseCursor_Arrow:        return SDL_SYSTEM_CURSOR_ARROW; break;
+	case ImGuiMouseCursor_TextInput:    return SDL_SYSTEM_CURSOR_IBEAM; break;
+	case ImGuiMouseCursor_ResizeAll:    return SDL_SYSTEM_CURSOR_SIZEALL; break;
+	case ImGuiMouseCursor_ResizeEW:     return SDL_SYSTEM_CURSOR_SIZEWE; break;
+	case ImGuiMouseCursor_ResizeNS:     return SDL_SYSTEM_CURSOR_SIZENS; break;
+	case ImGuiMouseCursor_ResizeNESW:   return SDL_SYSTEM_CURSOR_SIZENESW; break;
+	case ImGuiMouseCursor_ResizeNWSE:   return SDL_SYSTEM_CURSOR_SIZENWSE; break;
+	case ImGuiMouseCursor_Hand:         return SDL_SYSTEM_CURSOR_HAND; break;
+	case ImGuiMouseCursor_NotAllowed:   return SDL_SYSTEM_CURSOR_NO; break;
+	default:							return SDL_SYSTEM_CURSOR_ARROW; break;
+	}
+}
+
+void UpdateCursor() {
+	static SDL_SystemCursor curCursor = SDL_SYSTEM_CURSOR_ARROW;
+	auto cursor = ImGui_ImplPlatform_GetCursor();
+	SDL_SystemCursor sysCursor = GetSDLCursorFromImgui(cursor);
+	if (sysCursor != curCursor) {
+		curCursor = sysCursor;
+		if (!g_builtinCursors[(int)curCursor]) {
+			g_builtinCursors[(int)curCursor] = SDL_CreateSystemCursor(curCursor);
+		}
+	}
+	SDL_SetCursor(g_builtinCursors[(int)curCursor]);
+}
 
 static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputStateTracker *inputTracker) {
 	// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
@@ -1042,6 +1171,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = 0;
 			NativeTouch(input);
 			NativeMouseDelta(event.motion.xrel, event.motion.yrel);
+
+			UpdateCursor();
 			break;
 		}
 	case SDL_MOUSEBUTTONUP:
@@ -1495,7 +1626,7 @@ int main(int argc, char *argv[]) {
 	graphicsContext->ThreadStart();
 
 	InputStateTracker inputTracker{};
-	
+
 #if PPSSPP_PLATFORM(MAC)
 	// setup menu items for macOS
 	initializeOSXExtras();

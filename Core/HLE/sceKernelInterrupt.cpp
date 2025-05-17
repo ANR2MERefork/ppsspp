@@ -28,6 +28,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 
 #include "Core/Debugger/MemBlockInfo.h"
@@ -510,7 +511,8 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 			return hleLogDebug(Log::sceIntc, error);
 		}
 	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
-		return hleReportError(Log::sceIntc, error, "duplicate handler");
+		// Pretty common. Used to report here, but not useful.
+		return hleLogError(Log::sceIntc, error, "duplicate handler");
 	}
 	return hleReportError(Log::sceIntc, error);
 }
@@ -1003,12 +1005,12 @@ const HLEFunction SysclibForKernel[] =
 
 void Register_Kernel_Library()
 {
-	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
+	RegisterHLEModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
 }
 
 void Register_SysclibForKernel()
 {
-	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
+	RegisterHLEModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
 }
 
 const HLEFunction InterruptManager[] =
@@ -1027,7 +1029,7 @@ const HLEFunction InterruptManager[] =
 
 void Register_InterruptManager()
 {
-	RegisterModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
+	RegisterHLEModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
 }
 
 
@@ -1055,5 +1057,5 @@ const HLEFunction InterruptManagerForKernel[] =
 
 void Register_InterruptManagerForKernel()
 {
-	RegisterModule("InterruptManagerForKernel", ARRAY_SIZE(InterruptManagerForKernel), InterruptManagerForKernel);
+	RegisterHLEModule("InterruptManagerForKernel", ARRAY_SIZE(InterruptManagerForKernel), InterruptManagerForKernel);
 }

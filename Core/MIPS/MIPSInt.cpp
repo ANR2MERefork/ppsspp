@@ -828,14 +828,19 @@ namespace MIPSInt
 		switch (op & 0x3F)
 		{
 		case 36:  // mfic
+			// move from interrupt controller, not implemented
+			// See related report https://report.ppsspp.org/logs/kind/316 for possible locations.
+			// Also see https://forums.ps2dev.org/viewtopic.php?p=32700#p32700 .
+			// TODO: Should we actually implement this?
 			if (!reported) {
-				WARN_LOG(Log::CPU,"MFIC Disable/Enable Interrupt CPU instruction");
+				WARN_LOG(Log::CPU, "MFIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
 		case 38:  // mtic
+			// move to interrupt controller, not implemented
 			if (!reported) {
-				WARN_LOG(Log::CPU,"MTIC Disable/Enable Interrupt CPU instruction");
+				WARN_LOG(Log::CPU, "MTIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
@@ -1026,9 +1031,10 @@ namespace MIPSInt
 		switch (op & 1)
 		{
 		case 0:
+			// unlikely to be legitimately used
 			if (!reported) {
 				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
-				WARN_LOG(Log::CPU,"Disable/Enable Interrupt CPU instruction");
+				WARN_LOG(Log::CPU, "Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
@@ -1039,8 +1045,11 @@ namespace MIPSInt
 	void Int_Emuhack(MIPSOpcode op)
 	{
 		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
-			_dbg_assert_msg_(false,"Trying to interpret emuhack instruction that can't be interpreted");
+			_dbg_assert_msg_(false, "Trying to interpret emuhack instruction that can't be interpreted");
 		}
+
+		_assert_((PC & 3) == 0);
+
 		// It's a replacement func!
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
@@ -1065,6 +1074,4 @@ namespace MIPSInt
 			MIPSInterpret(Memory::Read_Instruction(PC, true));
 		}
 	}
-
-
 }

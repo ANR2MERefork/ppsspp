@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdarg>
 #include <climits>
 #include <cstdio>
@@ -160,9 +161,14 @@ bool TryParse(const std::string &str, bool *const output) {
 }
 
 StringWriter &StringWriter::F(const char *format, ...) {
+	const size_t remainder = bufSize_ - (p_ - start_);
+	if (remainder < 3) {
+		return *this;
+	}
 	va_list args;
 	va_start(args, format);
-	p_ += vsprintf(p_, format, args);
+	int wouldHaveBeenWritten = vsnprintf(p_, remainder, format, args);
+	p_ += std::min((int)remainder, wouldHaveBeenWritten);
 	va_end(args);
 	return *this;
 }

@@ -32,6 +32,8 @@ constexpr int PSP_DEFAULT_FIRMWARE = 660;
 constexpr int VOLUME_OFF = 0;
 constexpr int VOLUME_FULL = 10;
 constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
+constexpr int AUDIOSAMPLES_MIN = 0;
+constexpr int AUDIOSAMPLES_MAX = 2048;
 
 // This matches exactly the old shift-based curve.
 float Volume10ToMultiplier(int volume);
@@ -84,9 +86,21 @@ enum TextureFiltering {
 	TEX_FILTER_AUTO_MAX_QUALITY = 4,
 };
 
+enum ReplacementTextureLoadSpeed {
+	SLOW = 0,
+	MEDIUM = 1,
+	FAST = 2,
+	INSTANT = 3,
+};
+
 enum BufferFilter {
 	SCALE_LINEAR = 1,
 	SCALE_NEAREST = 2,
+};
+
+enum class ScreenshotMode {
+	FinalOutput = 0,
+	GameImage = 1,
 };
 
 // Software is not among these because it will have one of these perform the blit to display.
@@ -110,6 +124,21 @@ enum class RestoreSettingsBits : int {
 	RECENT = 4,
 };
 ENUM_CLASS_BITOPS(RestoreSettingsBits);
+
+// Modules that are candidates for disabling HLE of.
+enum class DisableHLEFlags : int {
+	sceFont = (1 << 0),
+	sceAtrac = (1 << 1),
+	scePsmf = (1 << 2),
+	scePsmfPlayer = (1 << 3),
+	sceMpeg = (1 << 4),
+	sceMp3 = (1 << 5),
+	sceParseHttp = (1 << 6),
+	sceCcc = (1 << 7),  // character conversion library.
+	Count = 8,
+	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
+};
+ENUM_CLASS_BITOPS(DisableHLEFlags);
 
 std::string GPUBackendToString(GPUBackend backend);
 GPUBackend GPUBackendFromString(std::string_view backend);
@@ -145,6 +174,7 @@ enum class BackgroundAnimation {
 	RECENT_GAMES = 2,
 	WAVE = 3,
 	MOVING_BACKGROUND = 4,
+	BOUNCING_ICON = 5,
 };
 
 // iOS only
@@ -159,6 +189,13 @@ enum class ShowStatusFlags {
 	SPEED_COUNTER = 1 << 2,
 	BATTERY_PERCENT = 1 << 3,
 };
+
+enum class DumpFileType {
+	EBOOT = (1 << 0),
+	PRX = (1 << 1),
+	Atrac3 = (1 << 2),
+};
+ENUM_CLASS_BITOPS(DumpFileType);
 
 // for iTiltInputType
 enum TiltTypes {

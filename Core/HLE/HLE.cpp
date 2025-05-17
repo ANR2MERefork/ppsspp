@@ -36,6 +36,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
@@ -112,6 +113,135 @@ static std::vector<HLEMipsCallInfo> enqueuedMipsCalls;
 // Does need to be saved, referenced by the stack and owned.
 static std::vector<PSPAction *> mipsCallActions;
 
+// Modules that games try to load from disk, that we should not load normally. Instead we just HLE hook them.
+// TODO: Merge with moduleDB?
+static const HLEModuleMeta g_moduleMeta[] = {
+	{"sceATRAC3plus_Library", "sceAtrac3plus", DisableHLEFlags::sceAtrac},
+	{"sceFont_Library", "sceLibFont", DisableHLEFlags::sceFont},
+	{"SceFont_Library", "sceLibFont", DisableHLEFlags::sceFont},
+	{"SceFont_Library", "sceLibFttt", DisableHLEFlags::sceFont},
+	{"SceHttp_Library", "sceHttp"},
+	{"sceMpeg_library", "sceMpeg", DisableHLEFlags::sceMpeg},
+	{"sceMp3_Library", "sceMp3", DisableHLEFlags::sceMp3},
+	{"sceNetAdhocctl_Library"},
+	{"sceNetAdhocDownload_Library"},
+	{"sceNetAdhocMatching_Library"},
+	{"sceNetApDialogDummy_Library"},
+	{"sceNetAdhoc_Library"},
+	{"sceNetApctl_Library"},
+	{"sceNetInet_Library"},
+	{"sceNetResolver_Library"},
+	{"sceNet_Library"},
+	{"sceNetAdhoc_Library"},
+	{"sceNetAdhocAuth_Service"},
+	{"sceNetAdhocctl_Library"},
+	{"sceNetIfhandle_Service"},
+	{"sceSsl_Module"},
+	{"sceDEFLATE_Library"},
+	{"sceMD5_Library"},
+	{"sceMemab"},  // Underlying AdHoc crypto library
+	{"sceAvcodec_driver"},
+	{"sceAudiocodec_Driver"},
+	{"sceAudiocodec"},
+	{"sceVideocodec_Driver"},
+	{"sceVideocodec"},
+	{"sceMpegbase_Driver"},
+	{"sceMpegbase"},
+	{"scePsmf_library", "scePsmf", DisableHLEFlags::scePsmf},
+	{"scePsmfP_library", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
+	{"scePsmfPlayer", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
+	{"sceSAScore", "sceSasCore"},
+	{"sceCcc_Library", "sceCcc", DisableHLEFlags::sceCcc},
+	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
+	{"SceParseURI_Library"},
+	// Guessing these names
+	{"sceJpeg", "sceJpeg"},
+	{"sceJpeg_library", "sceJpeg"},
+	{"sceJpeg_Library", "sceJpeg"},
+};
+
+const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname) {
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (equalsNoCase(modname, g_moduleMeta[i].modname)) {
+			return &g_moduleMeta[i];
+		}
+	}
+	return nullptr;
+}
+
+const HLEModuleMeta *GetHLEModuleMetaByFlag(DisableHLEFlags flag) {
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (g_moduleMeta[i].disableFlag == flag) {
+			return &g_moduleMeta[i];
+		}
+	}
+	return nullptr;
+}
+
+const HLEModuleMeta *GetHLEModuleMetaByImport(std::string_view importModuleName) {
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (g_moduleMeta[i].importName && equalsNoCase(importModuleName, g_moduleMeta[i].importName)) {
+			return &g_moduleMeta[i];
+		}
+	}
+	return nullptr;
+}
+
+DisableHLEFlags AlwaysDisableHLEFlags() {
+	// Once a module seems stable to load properly, we'll graduate it here.
+	// This will hide the checkbox in Developer Settings, too.
+	//
+	// PSMF testing issue: #20200
+	// sceCcc is simply a character conversion library, zero deps. If available we just load it.
+	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc;
+}
+
+// Process compat flags.
+static DisableHLEFlags GetDisableHLEFlags() {
+	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | AlwaysDisableHLEFlags();
+	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
+		flags |= DisableHLEFlags::sceFont;
+	}
+
+	flags &= ~(DisableHLEFlags)g_Config.iForceEnableHLE;
+	return flags;
+}
+
+// Note: name is the modname from prx, not the export module name!
+bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually) {
+	if (wasDisabledManually) {
+		*wasDisabledManually = false;
+	}
+	const HLEModuleMeta *meta = GetHLEModuleMeta(modname);
+	if (!meta) {
+		return false;
+	}
+
+	bool disabled = meta->disableFlag & GetDisableHLEFlags();
+	if (disabled) {
+		if (wasDisabledManually) {
+			// We don't show notifications if a flag has "graduated".
+			if (!(meta->disableFlag & AlwaysDisableHLEFlags())) {
+				*wasDisabledManually = true;
+			}
+		}
+		return false;
+	}
+	return true;
+}
+
+bool ShouldHLEModuleByImportName(std::string_view name) {
+	// Check our special metadata lookup. Should probably be merged with the main one.
+	const HLEModuleMeta *meta = GetHLEModuleMetaByImport(name);
+	if (meta) {
+		bool disabled = meta->disableFlag & GetDisableHLEFlags();
+		return !disabled;
+	}
+
+	// Otherwise, just fall back to the regular db. If it's in there, we should HLE it.
+	return GetHLEModuleByName(name) != nullptr;
+}
+
 static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 	u32 error;
 	SceUID threadID = (SceUID) userdata;
@@ -178,21 +308,21 @@ void HLEShutdown() {
 	mipsCallActions.clear();
 }
 
-int GetNumRegisteredModules() {
+int GetNumRegisteredHLEModules() {
 	return (int)moduleDB.size();
 }
 
-void RegisterModule(std::string_view name, int numFunctions, const HLEFunction *funcTable) {
+void RegisterHLEModule(std::string_view name, int numFunctions, const HLEFunction *funcTable) {
 	HLEModule module = {name, numFunctions, funcTable};
 	moduleDB.push_back(module);
 }
 
-const HLEModule *GetModuleByIndex(int index) {
+const HLEModule *GetHLEModuleByIndex(int index) {
 	return &moduleDB[index];
 }
 
 // TODO: Do something faster.
-const HLEModule *GetModuleByName(std::string_view name) {
+const HLEModule *GetHLEModuleByName(std::string_view name) {
 	for (auto &module : moduleDB) {
 		if (name == module.name) {
 			return &module;
@@ -202,7 +332,7 @@ const HLEModule *GetModuleByName(std::string_view name) {
 }
 
 // TODO: Do something faster.
-const HLEFunction *GetFuncByName(const HLEModule *module, std::string_view name) {
+const HLEFunction *GetHLEFuncByName(const HLEModule *module, std::string_view name) {
 	for (int i = 0; i < module->numFunctions; i++) {
 		auto &func = module->funcTable[i];
 		if (func.name == name) {
@@ -212,14 +342,14 @@ const HLEFunction *GetFuncByName(const HLEModule *module, std::string_view name)
 	return nullptr;
 }
 
-int GetModuleIndex(std::string_view moduleName) {
+int GetHLEModuleIndex(std::string_view moduleName) {
 	for (size_t i = 0; i < moduleDB.size(); i++)
 		if (moduleDB[i].name == moduleName)
 			return (int)i;
 	return -1;
 }
 
-int GetFuncIndex(int moduleIndex, u32 nib) {
+int GetHLEFuncIndexByNib(int moduleIndex, u32 nib) {
 	const HLEModule &module = moduleDB[moduleIndex];
 	for (int i = 0; i < module.numFunctions; i++) {
 		if (module.funcTable[i].ID == nib)
@@ -229,7 +359,7 @@ int GetFuncIndex(int moduleIndex, u32 nib) {
 }
 
 u32 GetNibByName(std::string_view moduleName, std::string_view function) {
-	int moduleIndex = GetModuleIndex(moduleName);
+	int moduleIndex = GetHLEModuleIndex(moduleName);
 	if (moduleIndex == -1)
 		return -1;
 
@@ -241,20 +371,21 @@ u32 GetNibByName(std::string_view moduleName, std::string_view function) {
 	return -1;
 }
 
-const HLEFunction *GetFunc(std::string_view moduleName, u32 nib) {
-	int moduleIndex = GetModuleIndex(moduleName);
+const HLEFunction *GetHLEFunc(std::string_view moduleName, u32 nib) {
+	int moduleIndex = GetHLEModuleIndex(moduleName);
 	if (moduleIndex != -1) {
-		int idx = GetFuncIndex(moduleIndex, nib);
+		int idx = GetHLEFuncIndexByNib(moduleIndex, nib);
 		if (idx != -1)
 			return &(moduleDB[moduleIndex].funcTable[idx]);
 	}
 	return 0;
 }
 
-const char *GetFuncName(std::string_view moduleName, u32 nib) {
+// WARNING: Not thread-safe!
+const char *GetHLEFuncName(std::string_view moduleName, u32 nib) {
 	_dbg_assert_msg_(!moduleName.empty(), "Invalid module name.");
 
-	const HLEFunction *func = GetFunc(moduleName, nib);
+	const HLEFunction *func = GetHLEFunc(moduleName, nib);
 	if (func)
 		return func->name;
 
@@ -263,15 +394,25 @@ const char *GetFuncName(std::string_view moduleName, u32 nib) {
 	return temp;
 }
 
+const char *GetHLEFuncName(int moduleIndex, int func) {
+	if (moduleIndex >= 0 && moduleIndex < (int)moduleDB.size()) {
+		const HLEModule &module = moduleDB[moduleIndex];
+		if (func >= 0 && func < module.numFunctions) {
+			return module.funcTable[func].name;
+		}
+	}
+	return "[unknown]";
+}
+
 u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 	// Special case to hook up bad imports.
 	if (moduleName.empty()) {
-		return (0x03FFFFCC);	// invalid syscall
+		return 0x03FFFFCC;  // invalid syscall
 	}
 
-	int modindex = GetModuleIndex(moduleName);
+	int modindex = GetHLEModuleIndex(moduleName);
 	if (modindex != -1) {
-		int funcindex = GetFuncIndex(modindex, nib);
+		int funcindex = GetHLEFuncIndexByNib(modindex, nib);
 		if (funcindex != -1) {
 			return (0x0000000c | (modindex<<18) | (funcindex<<6));
 		} else {
@@ -280,13 +421,8 @@ u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 		}
 	} else {
 		ERROR_LOG(Log::HLE, "Unknown module %.*s!", (int)moduleName.size(), moduleName.data());
-		return 0x03FFFFCC;	// invalid syscall
+		return 0x03FFFFCC;	// invalid syscall (invalid mod index and func index..)
 	}
-}
-
-bool FuncImportIsSyscall(std::string_view module, u32 nib)
-{
-	return GetFunc(module, nib) != nullptr;
 }
 
 void WriteFuncStub(u32 stubAddr, u32 symAddr)
@@ -305,7 +441,7 @@ void WriteFuncMissingStub(u32 stubAddr, u32 nid)
 	Memory::Write_U32(GetSyscallOp("", nid), stubAddr + 4);
 }
 
-bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
+bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address)
 {
 	if (nib == 0)
 	{
@@ -314,7 +450,7 @@ bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
 		Memory::Write_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return true;
 	}
-	int modindex = GetModuleIndex(moduleName);
+	int modindex = GetHLEModuleIndex(moduleName);
 	if (modindex != -1)
 	{
 		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
@@ -326,19 +462,6 @@ bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
 		ERROR_LOG_REPORT(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
 		return false;
 	}
-}
-
-const char *GetFuncName(int moduleIndex, int func)
-{
-	if (moduleIndex >= 0 && moduleIndex < (int)moduleDB.size())
-	{
-		const HLEModule &module = moduleDB[moduleIndex];
-		if (func >= 0 && func < module.numFunctions)
-		{
-			return module.funcTable[func].name;
-		}
-	}
-	return "[unknown]";
 }
 
 void hleCheckCurrentCallbacks()
@@ -857,12 +980,12 @@ void CallSyscall(MIPSOpcode op) {
 }
 
 void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
-	const HLEModule *mod = GetModuleByName(module);
+	const HLEModule *mod = GetHLEModuleByName(module);
 	_dbg_assert_(mod != nullptr);
 	if (!mod) {
 		return;
 	}
-	const HLEFunction *func = GetFuncByName(mod, funcName);
+	const HLEFunction *func = GetHLEFuncByName(mod, funcName);
 	_dbg_assert_(func != nullptr);
 	// Push to the stack. Be careful (due to the nasty adhoc thread..)
 	int stackSize = g_stackSize;
@@ -1033,7 +1156,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	case 'I':
 		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
-			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
+			fmt = "%s%s=%s(%s)%s";
 		} else {
 			fmt = "%s%lld=%s(%s)%s";
 			errStr = nullptr;  // We check errstr later to determine which format to use.
@@ -1056,13 +1179,13 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) ? "K " : "";
 	if (retmask != 'v') {
 		if (errStr) {
-			GenericLog(level, t, file, line, fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
+			GenericLog(t, level, file, line, fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
 		} else {
-			GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+			GenericLog(t, level, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
 		}
 	} else {
 		// Skipping the res argument for this format string.
-		GenericLog(level, t, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);
+		GenericLog(t, level, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);
 	}
 
 	if (reportTag) {

@@ -38,11 +38,7 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 float TextDrawer::CalculateDPIScale() const {
 	if (ignoreGlobalDpi_)
 		return dpiScale_;
-	float scale = g_display.dpi_scale;
-	if (scale >= 1.0f) {
-		scale = 1.0f;
-	}
-	return scale;
+	return g_display.dpi_scale;
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
@@ -151,14 +147,14 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 }
 
 void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 
 	float plainW, plainH;
 	MeasureString(str, &plainW, &plainH);
 
 	if (wrap && plainW > bounds.w) {
 		std::string toMeasure = std::string(str);
-		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
+		WrapString(toMeasure, toMeasure, bounds.w, wrap);
 		MeasureString(toMeasure, w, h);
 	} else {
 		*w = plainW;
@@ -189,7 +185,7 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const 
 		WrapString(toDraw, str, bounds.w, wrap);
 	}
 
-	DrawString(target, toDraw.c_str(), x, y, color, align);
+	DrawString(target, toDraw, x, y, color, align);
 }
 
 bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor) {
@@ -198,7 +194,7 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 	if (wrap) {
 		WrapString(toDraw, str, bounds.w, wrap);
 	}
-	return DrawStringBitmap(bitmapData, entry, texFormat, toDraw.c_str(), align, fullColor);
+	return DrawStringBitmap(bitmapData, entry, texFormat, toDraw, align, fullColor);
 }
 
 void TextDrawer::ClearCache() {
@@ -242,6 +238,14 @@ void TextDrawer::OncePerFrame() {
 			}
 		}
 	}
+}
+
+size_t TextDrawer::GetCacheDataSize() const {
+	size_t sz = 0;
+	for (const auto &iter : cache_) {
+		sz += iter.second->texture->DataSize();
+	}
+	return sz;
 }
 
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {

@@ -38,8 +38,6 @@ public:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 protected:
-	UI::EventReturn OnLogView(UI::EventParams &e);
-	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnShaderView(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
@@ -76,7 +74,7 @@ private:
 	UI::EventReturn OnLogLevelChange(UI::EventParams &e);
 };
 
-class LogScreen : public UIDialogScreenWithBackground {
+class LogViewScreen : public UIDialogScreenWithBackground {
 public:
 	void CreateViews() override;
 	void update() override;
@@ -85,9 +83,7 @@ public:
 
 private:
 	void UpdateLog();
-	UI::EventReturn OnSubmit(UI::EventParams &e);
 
-	UI::TextEdit *cmdLine_ = nullptr;
 	UI::LinearLayout *vert_ = nullptr;
 	UI::ScrollView *scroll_ = nullptr;
 	bool toBottom_ = false;
@@ -115,7 +111,18 @@ public:
 protected:
 	UI::EventReturn CopySummaryToClipboard(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
+
+private:
+	void CreateDeviceInfoTab(UI::LinearLayout *deviceInfo);
+	void CreateStorageTab(UI::LinearLayout *storage);
+	void CreateBuildConfigTab(UI::LinearLayout *storage);
+	void CreateCPUExtensionsTab(UI::LinearLayout *storage);
+	void CreateDriverBugsTab(UI::LinearLayout *storage);
 	void CreateInternalsTab(UI::ViewGroup *internals);
+	void CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions);
+	void CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions);
+
+	int testSliderValue_ = 0;
 };
 
 class GPIGPOScreen : public PopupScreen {

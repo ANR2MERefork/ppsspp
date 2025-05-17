@@ -273,14 +273,21 @@ public:
 
 	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
 	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
-	static void WaitForAll();
+	// Returns the maximum value of tasks in flight seen during the wait.
+	static int WaitForAll();
 	static std::atomic<int> tasksInFlight_;
 };
 
-void CreateMultiPipelinesTask::WaitForAll() {
-	while (tasksInFlight_.load() > 0) {
+int CreateMultiPipelinesTask::WaitForAll() {
+	int inFlight = 0;
+	int maxInFlight = 0;
+	while ((inFlight = tasksInFlight_.load()) > 0) {
+		if (inFlight > maxInFlight) {
+			maxInFlight = inFlight;
+		}
 		sleep_ms(2, "create-multi-pipelines-wait");
 	}
+	return maxInFlight;
 }
 
 std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
@@ -410,7 +417,7 @@ void VulkanRenderManager::StopThreads() {
 		presentWaitThread_.join();
 	}
 
-	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
+	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks. runCompileThread_ = %d", (int)runCompileThread_);
 	CreateMultiPipelinesTask::WaitForAll();
 
 	{
@@ -507,7 +514,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			}
 		}
 
-		for (auto iter : map) {
+		for (const auto &iter : map) {
 			auto &shaders = iter.first;
 			auto &entries = iter.second;
 
@@ -775,6 +782,10 @@ void VulkanRenderManager::ReportBadStateForDraw() {
 	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
+int VulkanRenderManager::WaitForPipelines() {
+	return CreateMultiPipelinesTask::WaitForAll();
+}
+
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
 	if (!desc->vertexShader || !desc->fragmentShader) {
 		ERROR_LOG(Log::G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
@@ -799,6 +810,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
+		_dbg_assert_(runCompileThread_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -820,8 +832,11 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				sampleCount = VK_SAMPLE_COUNT_1_BIT;
 			}
 
-			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			// Sanity check
+			if (runCompileThread_) {
+				pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
+				compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			}
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -833,6 +848,8 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 void VulkanRenderManager::EndCurRenderStep() {
 	if (!curRenderStep_)
 		return;
+
+	_dbg_assert_(runCompileThread_);
 
 	RPKey key{
 		curRenderStep_->render.colorLoad, curRenderStep_->render.depthLoad, curRenderStep_->render.stencilLoad,
@@ -869,21 +886,26 @@ void VulkanRenderManager::EndCurRenderStep() {
 
 	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
-	compileQueueMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline) {
 			// Not good, but let's try not to crash.
 			continue;
 		}
-		std::lock_guard<std::mutex> lock(pipeline->mutex_);
+		std::unique_lock<std::mutex> lock(pipeline->mutex_);
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
+			lock.unlock();
+
 			_assert_(renderPass);
+			compileQueueMutex_.lock();
 			compileQueue_.emplace_back(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			compileQueueMutex_.unlock();
 			needsCompile = true;
 		}
 	}
+
+	compileQueueMutex_.lock();
 	if (needsCompile)
 		compileCond_.notify_one();
 	compileQueueMutex_.unlock();
@@ -1374,6 +1396,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer) {
 	_dbg_assert_(curRenderStep_ != nullptr);
+	_dbg_assert_(fb != nullptr);
 
 	// We don't support texturing from stencil, neither do we support texturing from depth|stencil together (nonsensical).
 	_dbg_assert_(aspectBit == VK_IMAGE_ASPECT_COLOR_BIT || aspectBit == VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -1624,7 +1647,7 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	memcpy(layout->bindingTypes, bindingTypes, sizeof(BindingType) * bindingTypesCount);
 
 	VkDescriptorSetLayoutBinding bindings[VKRPipelineLayout::MAX_DESC_SET_BINDINGS];
-	for (int i = 0; i < bindingTypesCount; i++) {
+	for (int i = 0; i < (int)bindingTypesCount; i++) {
 		bindings[i].binding = i;
 		bindings[i].descriptorCount = 1;
 		bindings[i].pImmutableSamplers = nullptr;
@@ -1864,7 +1887,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 void VulkanRenderManager::SanityCheckPassesOnAdd() {
 #if _DEBUG
 	// Check that we don't have any previous passes that write to the backbuffer, that must ALWAYS be the last one.
-	for (int i = 0; i < steps_.size(); i++) {
+	for (int i = 0; i < (int)steps_.size(); i++) {
 		if (steps_[i]->stepType == VKRStepType::RENDER) {
 			_dbg_assert_msg_(steps_[i]->render.framebuffer != nullptr, "Adding second backbuffer pass? Not good!");
 		}

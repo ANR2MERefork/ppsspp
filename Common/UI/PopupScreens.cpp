@@ -61,19 +61,22 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto category = GetI18NCategory(category_);
 
 	for (size_t i = 0; i < itemCount_; i++) {
+		Choice *choice;
 		if (items_[i].imageID) {
-			Choice *choice = new Choice(category->T(items_[i].text), ImageID(items_[i].imageID));
-			parent->Add(choice);
-			if (enabled_[i]) {
-				choice->OnClick.Add([=](EventParams &p) {
-					TriggerFinish(DR_OK);
-				p.a = (uint32_t)i;
-				OnChoice.Dispatch(p);
-				return EVENT_DONE;
-					});
-			} else {
-				choice->SetEnabled(false);
-			}
+			choice = new Choice(category->T(items_[i].text), ImageID(items_[i].imageID));
+		} else {
+			choice = new Choice(category->T(items_[i].text));
+		}
+		parent->Add(choice);
+		if (enabled_[i]) {
+			choice->OnClick.Add([=](EventParams &p) {
+				TriggerFinish(DR_OK);
+			p.a = (uint32_t)i;
+			OnChoice.Dispatch(p);
+			return EVENT_DONE;
+				});
+		} else {
+			choice->SetEnabled(false);
 		}
 	}
 
@@ -205,6 +208,7 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	if (!negativeLabel_.empty())
 		popupScreen->SetNegativeDisable(negativeLabel_);
+	popupScreen->RestrictChoices(fixedChoices_, numFixedChoices_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
@@ -364,8 +368,9 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		sliderValue_ = 0;
 
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
+	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, 1, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
+	slider_->RestrictChoices(fixedChoices_, numFixedChoices_);
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));

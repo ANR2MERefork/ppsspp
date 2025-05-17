@@ -63,6 +63,10 @@ inline bool endsWithNoCase(std::string_view str, std::string_view key) {
 	return strncasecmp(str.data() + offset, key.data(), key.size()) == 0;
 }
 
+inline bool equals(std::string_view str, std::string_view key) {
+	return str == key;
+}
+
 inline bool equalsNoCase(std::string_view str, std::string_view key) {
 	if (str.size() != key.size())
 		return false;
@@ -79,11 +83,13 @@ bool containsNoCase(std::string_view haystack, std::string_view needle);
 enum class StringRestriction {
 	None,
 	AlphaNumDashUnderscore,  // Used for infrastructure usernames
+	NoLineBreaksOrSpecials,  // Used for savedata UI. Removes line breaks, backslashes and similar.
+	ConvertToUnixEndings,
 };
 
-std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength, int maxLength);
+std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength = 0, int maxLength = -1);
 
-void DataToHexString(const uint8_t *data, size_t size, std::string *output);
+void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool lineBreaks = true);
 void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
 
 std::string StringFromFormat(const char* format, ...);
@@ -91,6 +97,9 @@ std::string StringFromInt(int value);
 
 std::string StripSpaces(const std::string &s);
 std::string StripQuotes(const std::string &s);
+
+std::string_view KeepAfterLast(std::string_view s, char c);
+std::string_view KeepIncludingLast(std::string_view s, char c);
 
 std::string_view StripSpaces(std::string_view s);
 std::string_view StripQuotes(std::string_view s);

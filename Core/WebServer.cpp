@@ -31,6 +31,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/WebServer.h"
@@ -172,7 +173,7 @@ static std::string RemotePathForRecent(const std::string &filename) {
 static Path LocalFromRemotePath(const std::string &path) {
 	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 	case RemoteISOShareType::RECENT:
-		for (const std::string &filename : g_Config.RecentIsos()) {
+		for (const std::string &filename : g_recentFiles.GetRecentFiles()) {
 			std::string basename = RemotePathForRecent(filename);
 			if (basename == path) {
 				return Path(filename);
@@ -269,7 +270,7 @@ static void HandleListing(const http::ServerRequest &request) {
 		switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 		case RemoteISOShareType::RECENT:
 			// List the current discs in their recent order.
-			for (const std::string &filename : g_Config.RecentIsos()) {
+			for (const std::string &filename : g_recentFiles.GetRecentFiles()) {
 				std::string basename = RemotePathForRecent(filename);
 				if (!basename.empty()) {
 					request.Out()->Printf("%s\n", basename.c_str());
@@ -426,8 +427,8 @@ static void ExecuteWebServer() {
 	RegisterServer(http->Port());
 	double lastRegister = time_now_d();
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
-		http->RunSlice(1.0);
-
+		constexpr double webServerSliceSeconds = 0.2f;
+		http->RunSlice(webServerSliceSeconds);
 		double now = time_now_d();
 		if (now > lastRegister + 540.0) {
 			RegisterServer(http->Port());

@@ -100,7 +100,7 @@ View::~View() {
 	RemoveQueuedEventsByView(this);
 
 	// Could use unique_ptr, but then we have to include tween everywhere.
-	for (auto &tween : tweens_)
+	for (UI::Tween *tween : tweens_)
 		delete tween;
 }
 
@@ -1484,32 +1484,71 @@ bool Slider::Key(const KeyInput &input) {
 }
 
 bool Slider::ApplyKey(InputKeyCode keyCode) {
-	switch (keyCode) {
-	case NKCODE_DPAD_LEFT:
-	case NKCODE_MINUS:
-	case NKCODE_NUMPAD_SUBTRACT:
-		*value_ -= step_;
-		break;
-	case NKCODE_DPAD_RIGHT:
-	case NKCODE_PLUS:
-	case NKCODE_NUMPAD_ADD:
-		*value_ += step_;
-		break;
-	case NKCODE_PAGE_UP:
-		*value_ -= step_ * 10;
-		break;
-	case NKCODE_PAGE_DOWN:
-		*value_ += step_ * 10;
-		break;
-	case NKCODE_MOVE_HOME:
-		*value_ = minValue_;
-		break;
-	case NKCODE_MOVE_END:
-		*value_ = maxValue_;
-		break;
-	default:
-		return false;
+	SnapToFixed();
+	
+	if (numFixedChoices_) {
+		// Find the current one.
+		int curIndex = -1;
+		for (int i = 0; i < numFixedChoices_; i++) {
+			if (*value_ == fixedChoices_[i]) {
+				curIndex = i;
+			}
+		}
+		switch (keyCode) {
+		case NKCODE_DPAD_LEFT:
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
+		case NKCODE_PAGE_DOWN:
+			if (curIndex >= 1) {
+				*value_ = fixedChoices_[curIndex - 1];
+			}
+			break;
+		case NKCODE_DPAD_RIGHT:
+		case NKCODE_PLUS:
+		case NKCODE_NUMPAD_ADD:
+		case NKCODE_PAGE_UP:
+			if (curIndex < numFixedChoices_ - 1) {
+				*value_ = fixedChoices_[curIndex + 1];
+			}
+			break;
+		case NKCODE_MOVE_HOME:
+			*value_ = fixedChoices_[0];
+			break;
+		case NKCODE_MOVE_END:
+			*value_ = fixedChoices_[numFixedChoices_ - 1];
+			break;
+		default:
+			return false;
+		}
+	} else {
+		switch (keyCode) {
+		case NKCODE_DPAD_LEFT:
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
+			*value_ -= step_;
+			break;
+		case NKCODE_DPAD_RIGHT:
+		case NKCODE_PLUS:
+		case NKCODE_NUMPAD_ADD:
+			*value_ += step_;
+			break;
+		case NKCODE_PAGE_UP:
+			*value_ -= step_ * 10;
+			break;
+		case NKCODE_PAGE_DOWN:
+			*value_ += step_ * 10;
+			break;
+		case NKCODE_MOVE_HOME:
+			*value_ = minValue_;
+			break;
+		case NKCODE_MOVE_END:
+			*value_ = maxValue_;
+			break;
+		default:
+			return false;
+		}
 	}
+
 	EventParams params{};
 	params.v = this;
 	params.a = (uint32_t)(*value_);
@@ -1544,24 +1583,34 @@ void Slider::Clamp() {
 
 	// Clamp the value to be a multiple of the nearest step (e.g. if step == 5, value == 293, it'll round down to 290).
 	*value_ = *value_ - fmodf(*value_, step_);
+
+	// If it's a fixed set, snap it.
+	SnapToFixed();
 }
 
 void Slider::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	uint32_t linecolor = dc.theme->itemStyle.fgColor;
-	Style knobStyle = (down_ || focus) ? dc.theme->itemStyle : dc.theme->popupStyle;
+	uint32_t sliderColor;
+
+	if (down_) {
+		sliderColor = popupStyle_ ? dc.theme->popupSliderFocusedColor : dc.theme->itemDownStyle.fgColor;
+	} else if (focus) {
+		sliderColor = popupStyle_ ? dc.theme->popupSliderFocusedColor : dc.theme->itemFocusedStyle.fgColor;
+	} else {
+		sliderColor = popupStyle_ ? dc.theme->popupSliderColor : dc.theme->itemStyle.fgColor;
+	}
 
 	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
-	dc.FillRect(Drawable(linecolor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
+	dc.FillRect(Drawable(sliderColor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
 	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, (bounds_.x + bounds_.w - paddingRight_ - knobX), 4));
-	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, knobStyle.fgColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
 	char temp[64];
 	if (showPercent_)
 		snprintf(temp, sizeof(temp), "%d%%", *value_);
 	else
 		snprintf(temp, sizeof(temp), "%d", *value_);
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), dc.theme->popupStyle.fgColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 }
 
 std::string Slider::DescribeText() const {
@@ -1585,6 +1634,30 @@ void Slider::Update() {
 	} else if (repeat_ >= 12 && (repeat_ & 1) == 1) {
 		ApplyKey(repeatCode_);
 		Clamp();
+	}
+}
+
+void Slider::SnapToFixed() {
+	if (!numFixedChoices_) {
+		return;
+	}
+
+	int val = *value_;
+	// Find the closest value.
+	int minDist = 999999999;
+	int best = -1;
+	for (int i = 0; i < numFixedChoices_; i++) {
+		int dist = val - fixedChoices_[i];
+		if (dist < 0)
+			dist = -dist;
+		if (dist < minDist) {
+			minDist = dist;
+			best = i;
+		}
+	}
+
+	if (best >= 0) {
+		*value_ = fixedChoices_[best];
 	}
 }
 
@@ -1677,17 +1750,24 @@ void SliderFloat::Clamp() {
 
 void SliderFloat::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	uint32_t linecolor = dc.theme->itemStyle.fgColor;
-	Style knobStyle = (down_ || focus) ? dc.theme->itemStyle : dc.theme->popupStyle;
+	uint32_t sliderColor;
+
+	if (down_) {
+		sliderColor = popupStyle_ ? dc.theme->popupSliderFocusedColor : dc.theme->itemDownStyle.fgColor;
+	} else if (focus) {
+		sliderColor = popupStyle_ ? dc.theme->popupSliderFocusedColor : dc.theme->itemFocusedStyle.fgColor;
+	} else {
+		sliderColor = popupStyle_ ? dc.theme->popupSliderColor : dc.theme->itemStyle.fgColor;
+	}
 
 	float knobX = (*value_ - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
-	dc.FillRect(Drawable(linecolor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
+	dc.FillRect(Drawable(sliderColor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
 	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, (bounds_.x + bounds_.w - paddingRight_ - knobX), 4));
-	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, knobStyle.fgColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%0.2f", *value_);
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), dc.theme->popupStyle.fgColor, ALIGN_CENTER);
+	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER);
 }
 
 std::string SliderFloat::DescribeText() const {

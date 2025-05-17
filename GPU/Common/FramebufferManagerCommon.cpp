@@ -557,7 +557,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		currentRenderVfb_ = vfb;
 
 		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
-		if (useBufferedRendering_ && params.isDrawing) {
+		if (useBufferedRendering_ && params.isDrawing && vfb->fb_stride > 0) {
 			gpu->PerformWriteColorFromMemory(params.fb_address, colorByteSize);
 			// Alpha was already done by PerformWriteColorFromMemory.
 			PerformWriteStencilFromMemory(params.fb_address, colorByteSize, WriteStencil::STENCIL_IS_ZERO | WriteStencil::IGNORE_ALPHA);
@@ -1615,7 +1615,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (vfb) {
 			// Okay, we found one above.
 			// Log should be "Displaying from framebuf" but not worth changing the report.
-			INFO_LOG_REPORT_ONCE(displayoffset, Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			INFO_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
 		}
 	}
 
@@ -2783,7 +2783,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 
 		// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 		// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
-		if (!useBufferedRendering_ && currentRenderVfb_ != dstRect.vfb) {
+		if ((!useBufferedRendering_ && currentRenderVfb_ != dstRect.vfb) || dstRect.vfb == nullptr) {
 			return;
 		}
 

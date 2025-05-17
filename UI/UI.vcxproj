@@ -41,6 +41,7 @@
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DebugOverlay.cpp" />
+    <ClCompile Include="DeveloperToolsScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
@@ -51,6 +52,7 @@
     <ClCompile Include="GameScreen.cpp" />
     <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="GPUDriverTestScreen.cpp" />
+    <ClCompile Include="ImDebugger\ImConsole.cpp" />
     <ClCompile Include="ImDebugger\ImDebugger.cpp" />
     <ClCompile Include="ImDebugger\ImDisasmView.cpp" />
     <ClCompile Include="ImDebugger\ImGe.cpp" />
@@ -85,6 +87,7 @@
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="CustomButtonMappingScreen.h" />
     <ClInclude Include="DebugOverlay.h" />
+    <ClInclude Include="DeveloperToolsScreen.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
@@ -96,6 +99,7 @@
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
+    <ClInclude Include="ImDebugger\ImConsole.h" />
     <ClInclude Include="ImDebugger\ImDebugger.h" />
     <ClInclude Include="ImDebugger\ImDisasmView.h" />
     <ClInclude Include="ImDebugger\ImGe.h" />

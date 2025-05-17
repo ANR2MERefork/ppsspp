@@ -24,6 +24,8 @@ const int MAX_CORES_TO_USE = 16;
 const int MIN_IO_BLOCKING_THREADS = 4;
 static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
 
+ThreadManager g_threadManager;
+
 struct GlobalThreadContext {
 	std::mutex mutex;
 	std::deque<Task *> compute_queue[TASK_PRIORITY_COUNT];
@@ -137,6 +139,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 	}
 	SetCurrentThreadName(thread->name);
 
+	// Should we do this on all threads?
 	if (thread->type == TaskType::IO_BLOCKING) {
 		AttachThreadToJNI();
 	}
@@ -301,7 +304,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 	_assert_msg_(task->Type() != TaskType::DEDICATED_THREAD, "Dedicated thread tasks can't be put on specific threads");
 
-	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
+	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum %d(/%d) or not initialized", threadNum, (int)global_->threads_.size());
 	TaskThreadContext *thread = global_->threads_[threadNum];
 	size_t queueIndex = (size_t)task->Priority();
 

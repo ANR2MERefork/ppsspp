@@ -27,6 +27,7 @@
 
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
+#include <errno.h>
 
 #include <clocale>
 #include <algorithm>
@@ -84,11 +85,13 @@
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/Thread/ThreadManager.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FrameTiming.h"
 #include "Core/KeyMap.h"
@@ -106,11 +109,12 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Util/AudioFormat.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
-#include "Core/ThreadPools.h"
 
 #include "GPU/GPUCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
@@ -119,6 +123,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/DeveloperToolsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
@@ -161,13 +166,13 @@
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value);
 static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress);
+void SaveFrameDump();
 
 ScreenManager *g_screenManager;
 std::string config_filename;
 
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
-static bool isOuya;
 static bool resized = false;
 static bool restarting = false;
 
@@ -178,7 +183,7 @@ struct PendingMessage {
 	std::string value;
 };
 
-static std::mutex pendingMutex;
+static std::mutex g_pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
@@ -186,6 +191,7 @@ static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static int g_restartGraphics;
 static bool g_windowHidden = false;
+std::vector<std::function<void()>> g_pendingClosures;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -298,19 +304,28 @@ static void CheckFailedGPUBackends() {
 	// Use this if you want to debug a graphics crash...
 	if (g_Config.sFailedGPUBackends == "IGNORE")
 		return;
-	else if (!g_Config.sFailedGPUBackends.empty())
+	else if (!g_Config.sFailedGPUBackends.empty()) {
 		ERROR_LOG(Log::Loader, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
+	}
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	if (lastBackend != g_Config.iGPUBackend) {
+		// This is the expected path.
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 		System_GraphicsBackendFailedAlert(param);
-		WARN_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+		INFO_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+	} else {
+		WARN_LOG(Log::Loader, "Did not switch failed backend! %d", g_Config.iGPUBackend);
 	}
+
 	// And then let's - for now - add the current to the failed list, in case it fails - we'll clear it again once it succeeds.
+	const std::string curBackend = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 	if (g_Config.sFailedGPUBackends.empty()) {
-		g_Config.sFailedGPUBackends = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+		g_Config.sFailedGPUBackends = curBackend;
+	} else if (g_Config.sFailedGPUBackends.find(curBackend) != std::string::npos) {
+		// Backend already listed!
+		ERROR_LOG(Log::Loader, "Unexpected: Backend already in failed backends. Should not have been attempted");
 	} else if (g_Config.sFailedGPUBackends.find("ALL") == std::string::npos) {
 		g_Config.sFailedGPUBackends += "," + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 	}
@@ -335,9 +350,14 @@ static void ClearFailedGPUBackends() {
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
+	// Probably an excessive timeout. it only causes delays on shutdown, though.
+	__UPnPInit(2000);
+
 	ShaderTranslationInit();
 
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
+	g_recentFiles.EnsureThread();
 
 	// Make sure UI state is MENU.
 	ResetUIState();
@@ -346,6 +366,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
+	g_pendingClosures.clear();
 	g_requestManager.Clear();
 
 	// external_dir has all kinds of meanings depending on platform.
@@ -704,7 +725,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_BackgroundAudio.SFX().Init();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message, void *) {
+		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
 					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
@@ -746,15 +767,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Easy testing
 	// screenManager->push(new GPUDriverTestScreen());
 
-	if (g_Config.bRemoteShareOnStartup && g_Config.bRemoteDebuggerOnStartup)
+	WebServerFlags flags = (WebServerFlags)0;
+	if (g_Config.bRemoteShareOnStartup) {
+		flags |= WebServerFlags::DISCS;
+	}
+	if (g_Config.bRemoteDebuggerOnStartup) {
+		flags |= WebServerFlags::DEBUGGER;
+	}
+	if (flags != WebServerFlags::NONE) {
 		StartWebServer(WebServerFlags::ALL);
-	else if (g_Config.bRemoteShareOnStartup)
-		StartWebServer(WebServerFlags::DISCS);
-	else if (g_Config.bRemoteDebuggerOnStartup)
-		StartWebServer(WebServerFlags::DEBUGGER);
+	}
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
-	isOuya = KeyMap::IsOuya(sysName);
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
@@ -947,39 +971,60 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 	}
 
 	// First, find a free filename.
-	int i = 0;
+	//
+	// NOTE: On Android, the old approach of checking filenames one by one doesn't scale.
+	// So let's just grab the full file listing, and then find a name that's not in it.
+	//
+	// TODO: Also, we could do this on a thread too. Not sure if worth it.
 
-	std::string gameId = g_paramSFO.GetDiscID();
+	const std::string gameId = g_paramSFO.GetDiscID();
+
+	// TODO: Make something like IterateFileInDir instead.
+	std::vector<File::FileInfo> files;
+	const std::string prefix = gameId + "_";
+	File::GetFilesInDir(path, &files, nullptr, 0, prefix);
+	std::set<std::string> existingNames;
+	for (auto &file : files) {
+		existingNames.insert(file.name);
+	}
 
 	Path filename;
-	while (i < 10000){
-		if (g_Config.bScreenshotsAsPNG)
-			filename = path / StringFromFormat("%s_%05d.png", gameId.c_str(), i);
-		else
-			filename = path / StringFromFormat("%s_%05d.jpg", gameId.c_str(), i);
-		File::FileInfo info;
-		if (!File::Exists(filename))
+	int i = 0;
+	for (int i = 0; i < 20000; i++) {
+		const std::string pngName = prefix + StringFromFormat("%05d.png", i);
+		const std::string jpgName = prefix + StringFromFormat("%05d.jpg", i);
+		if (existingNames.find(pngName) == existingNames.end() && existingNames.find(jpgName) == existingNames.end()) {
+			filename = path / (g_Config.bScreenshotsAsPNG ? pngName : jpgName);
 			break;
-		i++;
+		}
 	}
 
-	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
-	if (success) {
-		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
-				Path *path = reinterpret_cast<Path *>(data);
-				if (clicked) {
-					System_ShowFileInFolder(*path);
-				} else {
-					delete path;
-				}
-			}, new Path(filename));
-		}
-	} else {
-		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
+	if (filename.empty()) {
+		// Overwrite this one over and over.
+		filename = path / (prefix + (g_Config.bScreenshotsAsPNG ? "20000.png" : "20000.jpg"));
 	}
+
+	const ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? SCREENSHOT_DISPLAY : SCREENSHOT_OUTPUT;
+
+	const ScreenshotResult result = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](bool success) {
+		if (success) {
+			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
+					Path *path = reinterpret_cast<Path *>(data);
+					if (clicked) {
+						System_ShowFileInFolder(*path);
+					} else {
+						delete path;
+					}
+				}, new Path(filename));
+			}
+		} else {
+			auto err = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
+			WARN_LOG(Log::System, "Failed to take screenshot.");
+		}
+	});
 }
 
 void CallbackPostRender(UIContext *dc, void *userdata) {
@@ -1018,6 +1063,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
 
+	SetOverrideScreenFrame(nullptr);
+
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();
 
@@ -1043,22 +1090,33 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_screenManager->update();
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
-	std::vector<PendingMessage> toProcess;
 	{
-		std::lock_guard<std::mutex> lock(pendingMutex);
-		toProcess = std::move(pendingMessages);
-		pendingMessages.clear();
-	}
-
-	for (const auto &item : toProcess) {
-		if (HandleGlobalMessage(item.message, item.value)) {
-			// TODO: Add a to-string thingy.
-			INFO_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+		std::vector<PendingMessage> toProcess;
+		std::vector<std::function<void()>> toRun;
+		{
+			std::lock_guard<std::mutex> lock(g_pendingMutex);
+			toProcess = std::move(pendingMessages);
+			toRun = std::move(g_pendingClosures);
+			pendingMessages.clear();
+			g_pendingClosures.clear();
 		}
-		g_screenManager->sendMessage(item.message, item.value.c_str());
+
+		for (auto &item : toRun) {
+			item();
+		}
+
+		for (const auto &item : toProcess) {
+			if (HandleGlobalMessage(item.message, item.value)) {
+				// TODO: Add a to-string thingy.
+				VERBOSE_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+			}
+			g_screenManager->sendMessage(item.message, item.value.c_str());
+		}
 	}
 
 	g_requestManager.ProcessRequests();
+
+	g_breakpoints.Frame();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
@@ -1207,6 +1265,9 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
 		return true;
+	} else if (message == UIMessage::SAVE_FRAME_DUMP) {
+		SaveFrameDump();
+		return true;
 	} else {
 		return false;
 	}
@@ -1221,7 +1282,6 @@ bool NativeIsAtTopLevel() {
 	Screen *currentScreen = g_screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
-		INFO_LOG(Log::System, "Screen toplevel: %i", (int)top);
 		return currentScreen->isTopLevel();
 	} else {
 		ERROR_LOG(Log::System, "No current screen");
@@ -1400,11 +1460,16 @@ void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 }
 
 void System_PostUIMessage(UIMessage message, const std::string &value) {
-	std::lock_guard<std::mutex> lock(pendingMutex);
+	std::lock_guard<std::mutex> lock(g_pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.message = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
+}
+
+void System_RunOnMainThread(std::function<void()> func) {
+	std::lock_guard<std::mutex> lock(g_pendingMutex);
+	g_pendingClosures.push_back(std::move(func));
 }
 
 void NativeResized() {
@@ -1449,6 +1514,8 @@ void NativeShutdown() {
 #if PPSSPP_PLATFORM(ANDROID)
 	System_ExitApp();
 #endif
+
+	__UPnPShutdown();
 
 	g_PortManager.Shutdown();
 

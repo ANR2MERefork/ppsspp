@@ -101,7 +101,7 @@ void WebSocketHLEThreadList(DebuggerRequest &req) {
 }
 
 static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
-	if (!PSP_IsInited()) {
+	if (PSP_GetBootState() != BootState::Complete) {
 		req.Fail("CPU not active");
 		return false;
 	}
@@ -209,7 +209,7 @@ void WebSocketHLEFuncList(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
 
-	auto functions = g_symbolMap->GetAllSymbols(ST_FUNCTION);
+	auto functions = g_symbolMap->GetAllActiveSymbols(ST_FUNCTION);
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("functions");

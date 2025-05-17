@@ -49,14 +49,16 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/OSD.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
-#include "Core/Loaders.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
+#include "Core/Util/RecentFiles.h"
+
 #include "GPU/Common/FramebufferManagerCommon.h"
 
 // TODO: Find a better place for this.
@@ -66,24 +68,13 @@ Config g_Config;
 
 static bool jitForcedOff;
 
-// Not in Config.h because it's #included a lot.
-struct ConfigPrivate {
-	std::mutex recentIsosLock;
-	std::mutex recentIsosThreadLock;
-	std::thread recentIsosThread;
-	bool recentIsosThreadPending = false;
-
-	void ResetRecentIsosThread();
-	void SetRecentIsosThread(std::function<void()> f);
-};
-
 #ifdef _DEBUG
 static const char * const logSectionName = "LogDebug";
 #else
 static const char * const logSectionName = "Log";
 #endif
 
-static bool TryUpdateSavedPath(Path *path);
+bool TryUpdateSavedPath(Path *path);
 
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
@@ -101,13 +92,13 @@ std::string GPUBackendToString(GPUBackend backend) {
 }
 
 GPUBackend GPUBackendFromString(std::string_view backend) {
-	if (!equalsNoCase(backend, "OPENGL") || backend == "0")
+	if (equalsNoCase(backend, "OPENGL") || backend == "0")
 		return GPUBackend::OPENGL;
-	if (!equalsNoCase(backend, "DIRECT3D9") || backend == "1")
+	if (equalsNoCase(backend, "DIRECT3D9") || backend == "1")
 		return GPUBackend::DIRECT3D9;
-	if (!equalsNoCase(backend, "DIRECT3D11") || backend == "2")
+	if (equalsNoCase(backend, "DIRECT3D11") || backend == "2")
 		return GPUBackend::DIRECT3D11;
-	if (!equalsNoCase(backend, "VULKAN") || backend == "3")
+	if (equalsNoCase(backend, "VULKAN") || backend == "3")
 		return GPUBackend::VULKAN;
 	return GPUBackend::OPENGL;
 }
@@ -248,7 +239,9 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
 	ConfigSetting("DebugOverlay", &g_Config.iDebugOverlay, 0, CfgFlag::DONT_SAVE),
 	ConfigSetting("DefaultTab", &g_Config.iDefaultTab, 0, CfgFlag::DEFAULT),
+	ConfigSetting("DisableHLEFlags", &g_Config.iDisableHLE, 0, CfgFlag::PER_GAME),
 
+	ConfigSetting("ScreenshotMode", &g_Config.iScreenshotMode, 0, CfgFlag::DEFAULT),
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, CfgFlag::PER_GAME),
 	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false, CfgFlag::DEFAULT),
 	ConfigSetting("DumpFrames", &g_Config.bDumpFrames, false, CfgFlag::DEFAULT),
@@ -289,6 +282,7 @@ static const ConfigSetting generalSettings[] = {
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default", CfgFlag::DEFAULT),
 	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false, CfgFlag::PER_GAME),
+	ConfigSetting("CompressSymbols", &g_Config.bCompressSymbols, true, CfgFlag::DEFAULT),
 	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false, CfgFlag::PER_GAME),
 	ConfigSetting("RemoteISOPort", &g_Config.iRemoteISOPort, 0, CfgFlag::DEFAULT),
 	ConfigSetting("LastRemoteISOServer", &g_Config.sLastRemoteISOServer, "", CfgFlag::DEFAULT),
@@ -328,7 +322,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("PauseExitsEmulator", &g_Config.bPauseExitsEmulator, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("PauseMenuExitsEmulator", &g_Config.bPauseMenuExitsEmulator, false, CfgFlag::DONT_SAVE),
 
-	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false, CfgFlag::PER_GAME),
+	ConfigSetting("DumpFileTypes", &g_Config.iDumpFileTypes, 0, CfgFlag::PER_GAME),
+
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("ShowMenuBar", &g_Config.bShowMenuBar, true, CfgFlag::DEFAULT),
 
@@ -343,6 +338,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowGPOLEDs", &g_Config.bShowGPOLEDs, false, CfgFlag::PER_GAME),
 
 	ConfigSetting("UIScaleFactor", &g_Config.iUIScaleFactor, false, CfgFlag::DEFAULT),
+
+	ConfigSetting("VulkanDisableImplicitLayers", &g_Config.bVulkanDisableImplicitLayers, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultSasThread() {
@@ -351,7 +348,7 @@ static bool DefaultSasThread() {
 
 static const ConfigSetting achievementSettings[] = {
 	// Core settings
-	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsEnableRAIntegration", &g_Config.bAchievementsEnableRAIntegration, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsHardcoreMode, true, CfgFlag::PER_GAME | CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsEncoreMode", &g_Config.bAchievementsEncoreMode, false, CfgFlag::PER_GAME | CfgFlag::DEFAULT),
@@ -716,6 +713,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, CfgFlag::PER_GAME),
+	ConfigSetting("ReplacementTextureLoadSpeed", &g_Config.iReplacementTextureLoadSpeed, 0, CfgFlag::PER_GAME),
 
 	ConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -740,7 +738,7 @@ static const ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("MultiThreading", &g_Config.bRenderMultiThreading, true, CfgFlag::DEFAULT),
 
-	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, CfgFlag::DONT_SAVE),  // Doesn't save. Ini-only.
+	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, CfgFlag::DEFAULT),
 	ConfigSetting("GpuLogProfiler", &g_Config.bGpuLogProfiler, false, CfgFlag::DEFAULT),
 
 	ConfigSetting("UberShaderVertex", &g_Config.bUberShaderVertex, true, CfgFlag::DEFAULT),
@@ -772,6 +770,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, CfgFlag::PER_GAME),
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, CfgFlag::DEFAULT),
+	ConfigSetting("AudioBufferSize", &g_Config.iSDLAudioBufferSize, 256, CfgFlag::DEFAULT),
 
 	// Legacy volume settings, these get auto upgraded through default handlers on the new settings. NOTE: Must be before the new ones in the order here.
 	// The default settings here are still relevant, they will get propagated into the new ones.
@@ -790,7 +789,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioMixWithOthers", &g_Config.bAudioMixWithOthers, true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioRespectSilentMode", &g_Config.bAudioRespectSilentMode, false, CfgFlag::DEFAULT),
-	ConfigSetting("UseExperimentalAtrac", &g_Config.bUseExperimentalAtrac, false, CfgFlag::DONT_SAVE),
+	ConfigSetting("UseOldAtrac", &g_Config.bUseOldAtrac, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultShowTouchControls() {
@@ -1090,30 +1089,12 @@ static void IterateSettings(std::function<void(const ConfigSetting &setting)> fu
 	}
 }
 
-void ConfigPrivate::ResetRecentIsosThread() {
-	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
-	if (recentIsosThreadPending && recentIsosThread.joinable())
-		recentIsosThread.join();
-}
-
-void ConfigPrivate::SetRecentIsosThread(std::function<void()> f) {
-	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
-	if (recentIsosThreadPending && recentIsosThread.joinable())
-		recentIsosThread.join();
-	recentIsosThread = std::thread(f);
-	recentIsosThreadPending = true;
-}
-
-Config::Config() {
-	private_ = new ConfigPrivate();
-}
+Config::Config() {}
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
-	private_->ResetRecentIsosThread();
-	delete private_;
 }
 
 void Config::LoadLangValuesMapping() {
@@ -1238,11 +1219,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// For iOS, issue #19211
 	TryUpdateSavedPath(&currentDirectory);
 
-	// This check is probably not really necessary here anyway, you can always
-	// press Home or Browse if you're in a bad directory.
-	if (!File::Exists(currentDirectory))
-		currentDirectory = defaultCurrentDirectory;
-
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
 
 	bool debugDefaults = false;
@@ -1268,18 +1244,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	if (iMaxRecent > 0) {
-		private_->ResetRecentIsosThread();
-		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-		recentIsos.clear();
-		for (int i = 0; i < iMaxRecent; i++) {
-			char keyName[64];
-			std::string fileName;
-
-			snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-				recentIsos.push_back(fileName);
-			}
-		}
+		g_recentFiles.Load(recent, iMaxRecent);
 	}
 
 	// Time tracking
@@ -1376,7 +1341,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		loadGameConfig(gameId_, gameIdTitle_);
 	}
 
-	CleanRecent();
+	g_recentFiles.Clean();
 
 	PostLoadCleanup(false);
 
@@ -1399,7 +1364,7 @@ bool Config::Save(const char *saveReason) {
 
 		PreSaveCleanup(false);
 
-		CleanRecent();
+		g_recentFiles.Clean();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_)) {
 			WARN_LOG(Log::Loader, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
@@ -1416,18 +1381,7 @@ bool Config::Save(const char *saveReason) {
 
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
-
-		private_->ResetRecentIsosThread();
-		for (int i = 0; i < iMaxRecent; i++) {
-			char keyName[64];
-			snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-			if (i < (int)recentIsos.size()) {
-				recent->Set(keyName, recentIsos[i]);
-			} else {
-				recent->Delete(keyName); // delete the nonexisting FileName
-			}
-		}
+		g_recentFiles.Save(recent, iMaxRecent);
 
 		Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
 		pinnedPaths->Clear();
@@ -1620,44 +1574,11 @@ void Config::DismissUpgrade() {
 	g_Config.dismissedVersion = g_Config.upgradeVersion;
 }
 
-void Config::AddRecent(const std::string &file) {
-	// Don't bother with this if the user disabled recents (it's -1).
-	if (iMaxRecent <= 0)
-		return;
-
-	// We'll add it back below.  This makes sure it's at the front, and only once.
-	RemoveRecent(file);
-
-	private_->ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	const std::string filename = File::ResolvePath(file);
-	recentIsos.insert(recentIsos.begin(), filename);
-	if ((int)recentIsos.size() > iMaxRecent)
-		recentIsos.resize(iMaxRecent);
-}
-
-void Config::RemoveRecent(const std::string &file) {
-	// Don't bother with this if the user disabled recents (it's -1).
-	if (iMaxRecent <= 0)
-		return;
-
-	private_->ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	
-	const std::string filename = File::ResolvePath(file);
-	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
-		const std::string recent = File::ResolvePath(str);
-		return filename == recent;
-	});
-	// remove_if is weird.
-	recentIsos.erase(iter, recentIsos.end());
-}
-
 // On iOS, the path to the app documents directory changes on each launch.
 // Example path:
 // /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
 // The GUID part changes on each launch.
-static bool TryUpdateSavedPath(Path *path) {
+bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
 	INFO_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
@@ -1679,77 +1600,6 @@ static bool TryUpdateSavedPath(Path *path) {
 #else
 	return false;
 #endif
-}
-
-void Config::CleanRecent() {
-	private_->SetRecentIsosThread([this] {
-		SetCurrentThreadName("RecentISOs");
-
-		AndroidJNIThreadContext jniContext;  // destructor detaches
-
-		double startTime = time_now_d();
-
-		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-		std::vector<std::string> cleanedRecent;
-		if (recentIsos.empty()) {
-			INFO_LOG(Log::Loader, "No recents list found.");
-		}
-
-		for (size_t i = 0; i < recentIsos.size(); i++) {
-			bool exists = false;
-			Path path = Path(recentIsos[i]);
-			switch (path.Type()) {
-			case PathType::CONTENT_URI:
-			case PathType::NATIVE:
-				exists = File::Exists(path);
-				if (!exists) {
-					if (TryUpdateSavedPath(&path)) {
-						exists = File::Exists(path);
-						INFO_LOG(Log::Loader, "Exists=%d when checking updated path: %s", exists, path.c_str());
-					}
-				}
-				break;
-			default:
-				FileLoader *loader = ConstructFileLoader(path);
-				exists = loader->ExistsFast();
-				delete loader;
-				break;
-			}
-
-			if (exists) {
-				std::string pathStr = path.ToString();
-				// Make sure we don't have any redundant items.
-				auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), pathStr);
-				if (duplicate == cleanedRecent.end()) {
-					cleanedRecent.push_back(pathStr);
-				}
-			} else {
-				DEBUG_LOG(Log::Loader, "Removed %s from recent. errno=%d", path.c_str(), errno);
-			}
-		}
-
-		double recentTime = time_now_d() - startTime;
-		if (recentTime > 0.1) {
-			INFO_LOG(Log::System, "CleanRecent took %0.2f", recentTime);
-		}
-		recentIsos = cleanedRecent;
-	});
-}
-
-std::vector<std::string> Config::RecentIsos() const {
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	return recentIsos;
-}
-
-bool Config::HasRecentIsos() const {
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	return !recentIsos.empty();
-}
-
-void Config::ClearRecentIsos() {
-	private_->ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	recentIsos.clear();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {
@@ -1805,7 +1655,7 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 		}
 
 		if (whatToRestore & RestoreSettingsBits::RECENT) {
-			ClearRecentIsos();
+			g_recentFiles.Clear();
 			currentDirectory = defaultCurrentDirectory;
 		}
 	}
@@ -1843,7 +1693,11 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 	Path fullIniFilePath = Path(getGameConfigFile(pGameId, &exists));
 
 	if (exists) {
-		File::Delete(fullIniFilePath);
+		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+			System_MoveToTrash(fullIniFilePath);
+		} else {
+			File::Delete(fullIniFilePath);
+		}
 	}
 	return true;
 }
@@ -1856,7 +1710,7 @@ Path Config::getGameConfigFile(const std::string &pGameId, bool *exists) {
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId, const std::string &title) {
+bool Config::saveGameConfig(const std::string &pGameId, const std::string &titleForComment) {
 	if (pGameId.empty()) {
 		return false;
 	}
@@ -1867,7 +1721,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	IniFile iniFile;
 
 	Section *top = iniFile.GetOrCreateSection("");
-	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), title.c_str()));
+	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), titleForComment.c_str()));
 
 	PreSaveCleanup(true);
 
@@ -2014,7 +1868,7 @@ void Config::ResetControlLayout() {
 	g_Config.fRightStickHeadScale = 1.0f;
 }
 
-void Config::GetReportingInfo(UrlEncoder &data) {
+void Config::GetReportingInfo(UrlEncoder &data) const {
 	for (size_t i = 0; i < numSections; ++i) {
 		const std::string prefix = std::string("config.") + sections[i].section;
 		for (size_t j = 0; j < sections[i].settingsCount; j++) {
@@ -2046,7 +1900,7 @@ void PlayTimeTracker::Start(const std::string &gameId) {
 	if (gameId.empty()) {
 		return;
 	}
-	INFO_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
@@ -2069,7 +1923,7 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 		return;
 	}
 
-	INFO_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {

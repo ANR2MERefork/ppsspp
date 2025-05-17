@@ -188,9 +188,11 @@ void VagDecoder::DoState(PointerWrap &p) {
 	Do(p, end_);
 }
 
-int SasAtrac3::setContext(u32 contextAddr) {
+int SasAtrac3::SetContext(u32 contextAddr) {
 	contextAddr_ = contextAddr;
-	atracID_ = AtracSasGetIDByContext(contextAddr);
+	// Note: On hardware, atracID_ is also stored in the loopNum member of the context.
+	// But we don't actually mirror our struct to memory, so it doesn't really matter.
+	atracID_ = AtracSasBindContextAndGetID(contextAddr);
 	if (!sampleQueue_)
 		sampleQueue_ = new BufferQueue();
 	sampleQueue_->clear();
@@ -198,20 +200,23 @@ int SasAtrac3::setContext(u32 contextAddr) {
 	return 0;
 }
 
-void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
+void SasAtrac3::GetNextSamples(s16 *outbuf, int wantedSamples) {
 	if (atracID_ < 0) {
 		end_ = true;
 		return;
 	}
-	u32 finish = 0;
+
+	if (!buf_) {
+		buf_ = new s16[0x800];
+	}
+
+	int finish = 0;
 	int wantedbytes = wantedSamples * sizeof(s16);
 	while (!finish && sampleQueue_->getQueueSize() < wantedbytes) {
-		u32 numSamples = 0;
-		int remains = 0;
-		static s16 buf[0x800];
-		AtracSasDecodeData(atracID_, (u8*)buf, 0, &numSamples, &finish, &remains);
+		int numSamples = 0;
+		AtracSasDecodeData(atracID_, (u8*)buf_, &numSamples, &finish);
 		if (numSamples > 0)
-			sampleQueue_->push((u8*)buf, numSamples * sizeof(s16));
+			sampleQueue_->push((u8*)buf_, numSamples * sizeof(s16));
 		else
 			finish = 1;
 	}
@@ -219,8 +224,8 @@ void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
 	end_ = finish == 1;
 }
 
-int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
-	if (atracID_ > 0) {
+int SasAtrac3::Concatenate(u32 bufPtr, u32 addbytes) {
+	if (atracID_ >= 0) {
 		AtracSasAddStreamData(atracID_, bufPtr, addbytes);
 	}
 	return 0;
@@ -496,7 +501,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		}
 		break;
 	case VOICETYPE_ATRAC3:
-		atrac3.getNextSamples(output, numSamples);
+		atrac3.GetNextSamples(output, numSamples);
 		break;
 	default:
 		memset(output, 0, numSamples * sizeof(s16));
@@ -526,10 +531,12 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
 			break;
 		// else fallthrough! Don't change the check above.
+		[[fallthrough]];
 	case VOICETYPE_PCM:
 		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
 			break;
 		// else fallthrough! Don't change the check above.
+		[[fallthrough]];
 	default:
 		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
 		int delay = 0;
@@ -616,12 +623,18 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	}
 }
 
-void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
+void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol, bool mute) {
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
 			continue;
 		MixVoice(voice);
+	}
+
+	// Apply mute if needed (note: we try to keep everything else identical to the non-muted case).
+	if (mute) {
+		memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
+		memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
 	}
 
 	// Then mix the send buffer in with the rest.
@@ -657,6 +670,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
 }
 
+// Note: leftVol/rightVol here are how much to scale the inp content by, not the mixBuffer.
 void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol) {
 	const bool dry = waveformEffect.isDryOn != 0;
 	const bool wet = waveformEffect.isWetOn != 0;

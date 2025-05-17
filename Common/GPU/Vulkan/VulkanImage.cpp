@@ -79,7 +79,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	// The graphics debugger always "needs" TRANSFER_SRC but in practice doesn't matter - 
 	// unless validation is on. So let's only force it on when being validated, for now.
-	if (vulkan_->GetFlags() & VULKAN_FLAG_VALIDATE) {
+	if (vulkan_->GetInitFlags() & VulkanInitFlags::VALIDATE) {
 		image_create_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 	VmaAllocationCreateInfo allocCreateInfo{};
@@ -104,7 +104,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		VkAccessFlagBits dstAccessFlags;
+		VkAccessFlagBits dstAccessFlags = (VkAccessFlagBits)0;
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 			dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -168,10 +168,12 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 }
 
 void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
-	VkBufferImageCopy copy_region{};
+	VkBufferImageCopy &copy_region = copyBatch->copies.push_uninitialized();
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
 	copy_region.bufferImageHeight = 0;  // 2D
+	copy_region.imageOffset.x = 0;
+	copy_region.imageOffset.y = 0;
 	copy_region.imageOffset.z = depthLayer;
 	copy_region.imageExtent.width = mipWidth;
 	copy_region.imageExtent.height = mipHeight;
@@ -190,7 +192,6 @@ void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *
 		FinishCopyBatch(cmd, copyBatch);
 		copyBatch->buffer = buffer;
 	}
-	copyBatch->copies.push_back(copy_region);
 }
 
 void VulkanTexture::FinishCopyBatch(VkCommandBuffer cmd, TextureCopyBatch *copyBatch) {

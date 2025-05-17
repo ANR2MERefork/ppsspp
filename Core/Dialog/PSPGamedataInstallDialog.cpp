@@ -19,6 +19,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
@@ -85,7 +86,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 
 	if (allFilesSize == 0) {
 		ERROR_LOG_REPORT(Log::sceUtility, "Game install with no files / data");
-		// TODO: What happens here?
+		// Getting a lot of reports of this from patched football games. Can probably ignore. https://report.ppsspp.org/logs/kind/793
 		return -1;
 	}
 

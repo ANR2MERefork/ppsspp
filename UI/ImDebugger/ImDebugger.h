@@ -20,6 +20,7 @@
 #include "UI/ImDebugger/ImMemView.h"
 #include "UI/ImDebugger/ImStructViewer.h"
 #include "UI/ImDebugger/ImGe.h"
+#include "UI/ImDebugger/ImConsole.h"
 
 // This is the main state container of the whole Dear ImGUI-based in-game cross-platform debugger.
 //
@@ -29,76 +30,6 @@
 class MIPSDebugInterface;
 class GPUDebugInterface;
 struct ImConfig;
-
-// Corresponds to the CDisasm dialog
-class ImDisasmWindow {
-public:
-	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState);
-	ImDisasmView &View() {
-		return disasmView_;
-	}
-	void NotifyStep() {
-		disasmView_.NotifyStep();
-	}
-	void DirtySymbolMap() {
-		symsDirty_ = true;
-	}
-	const char *Title() const {
-		return "CPU Debugger";
-	}
-
-private:
-	// We just keep the state directly in the window. Can refactor later.
-
-	enum {
-		INVALID_ADDR = 0xFFFFFFFF,
-	};
-
-	u32 gotoAddr_ = 0x08800000;
-
-	// Symbol cache
-	std::vector<SymbolEntry> symCache_;
-	bool symsDirty_ = true;
-	int selectedSymbol_ = -1;
-	char selectedSymbolName_[128];
-
-	ImDisasmView disasmView_;
-	char searchTerm_[64]{};
-};
-
-// Corresponds to the CMemView dialog
-class ImMemWindow {
-public:
-	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index);
-	ImMemView &View() {
-		return memView_;
-	}
-	void DirtySymbolMap() {
-		symsDirty_ = true;
-	}
-	void GotoAddr(u32 addr) {
-		gotoAddr_ = addr;
-		memView_.gotoAddr(addr);
-	}
-	static const char *Title(int index);
-
-private:
-	// We just keep the state directly in the window. Can refactor later.
-	enum {
-		INVALID_ADDR = 0xFFFFFFFF,
-	};
-
-	// Symbol cache
-	std::vector<SymbolEntry> symCache_;
-	bool symsDirty_ = true;
-	int selectedSymbol_ = -1;
-	char selectedSymbolName_[128];
-
-	ImMemView memView_;
-	char searchTerm_[64]{};
-
-	u32 gotoAddr_ = 0x08800000;
-};
 
 // Snapshot of the MIPS CPU and other things we want to show diffs off.
 struct ImSnapshotState {
@@ -115,7 +46,6 @@ class IniFile;
 
 struct ImConfig {
 	// Defaults for saved settings are set in SyncConfig.
-
 	bool disasmOpen;
 	bool demoOpen;
 	bool gprOpen;
@@ -124,9 +54,10 @@ struct ImConfig {
 	bool threadsOpen;
 	bool callstackOpen;
 	bool breakpointsOpen;
+	bool symbolsOpen;
 	bool modulesOpen;
 	bool hleModulesOpen;
-	bool audioDecodersOpen;
+	bool mediaDecodersOpen;
 	bool structViewerOpen;
 	bool framebuffersOpen;
 	bool texturesOpen;
@@ -138,7 +69,9 @@ struct ImConfig {
 	bool debugStatsOpen;
 	bool geDebuggerOpen;
 	bool geStateOpen;
+	bool geVertsOpen;
 	bool schedulerOpen;
+	bool timeOpen;
 	bool watchOpen;
 	bool pixelViewerOpen;
 	bool npOpen;
@@ -148,17 +81,29 @@ struct ImConfig {
 	bool memDumpOpen;
 	bool internalsOpen;
 	bool sasAudioOpen;
+	bool logConfigOpen;
+	bool utilityModulesOpen;
+	bool atracToolOpen;
 	bool memViewOpen[4];
+	bool luaConsoleOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
 
 	// Various selections
-	int selectedModule = 0;
+	int selectedModuleId = 0;
+	int selectedSymbolModule = 0;
+	int selectedUtilityModule = 0;
 	int selectedThread = 0;
+	int selectedKernelObject = 0;
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
+	int selectedAtracCtx = 0;
+	int selectedMp3Ctx = 0;
+	int selectedMemoryBlock = 0;
+	u32 selectedMpegCtx = 0;
+
 	uint64_t selectedTexAddr = 0;
 
 	bool realtimePixelPreview = false;
@@ -169,11 +114,24 @@ struct ImConfig {
 
 	bool sasShowAllVoices = false;
 
+
 	// We use a separate ini file from the main PPSSPP config.
 	void LoadConfig(const Path &iniFile);
 	void SaveConfig(const Path &iniFile);
 
 	void SyncConfig(IniFile *ini, bool save);
+};
+
+struct Track;
+class ImAtracToolWindow {
+public:
+	void Draw(ImConfig &cfg);
+	void Load();
+
+	char atracPath_[1024]{};
+	std::unique_ptr<Track> track_;
+	std::string error_;
+	std::string data_;
 };
 
 enum class ImCmd {
@@ -209,6 +167,12 @@ public:
 	void Snapshot(MIPSState *mips);
 	void SnapshotGPU(GPUDebugInterface *mips);
 
+	// Call from the outside.
+	void PostCmd(ImCommand cmd) {
+		externalCommand_ = cmd;
+	}
+	void DeviceLost();
+
 private:
 	Path ConfigPath();
 
@@ -221,6 +185,8 @@ private:
 	ImStructViewer structViewer_;
 	ImGePixelViewerWindow pixelViewer_;
 	ImMemDumpWindow memDumpWindow_;
+	ImAtracToolWindow atracToolWindow_;
+	ImConsole luaConsole_;
 
 	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;
@@ -230,10 +196,13 @@ private:
 
 	// Open variables.
 	ImConfig cfg_{};
+
+	ImCommand externalCommand_;
 };
 
 // Simple custom controls and utilities.
-void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd);
+void ImClickableValue(const char *id, uint32_t value, ImControl &control, ImCmd cmd);
+void ImClickableValueFloat(const char *id, float value);
 void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);
 void ShowInMemoryDumperMenuItem(uint32_t addr, uint32_t size, MemDumpMode mode, ImControl &control);

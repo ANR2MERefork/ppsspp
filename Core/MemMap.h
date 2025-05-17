@@ -369,6 +369,15 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
 }
 
+// NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
+// Also, length is not checked for alignment.
+inline bool IsValid4AlignedRange(const u32 address, const u32 size) {
+	if (address & 3) {
+		return false;
+	}
+	return ValidSize(address, size) == size;
+}
+
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -
 // so we don't want to get caught in GetPointer's crash reporting
 // TODO: This should use IsValidNullTerminatedString, but may be expensive since this is used so much - needs evaluation.
@@ -396,11 +405,19 @@ inline u32 GetAddressFromHostPointer(const void* host_ptr) {
 	return address;
 }
 
+// Like GetPointer, but bad values don't result in a memory exception, instead nullptr is returned.
+inline const u8* GetPointerOrNull(const u32 address) {
+	return IsValidAddress(address) ? GetPointerUnchecked(address) : nullptr;
+}
+
 }  // namespace Memory
 
 // Avoiding a global include for NotifyMemInfo.
 void PSPPointerNotifyRW(int rw, uint32_t ptr, uint32_t bytes, const char *tag, size_t tagLen);
 
+// TODO: These are actually quite annoying because they can't be followed in the MSVC debugger...
+// Need to find a solution for that. Can't just change the internal representation though, because
+// these can be present in PSP-native structs.
 template <typename T>
 struct PSPPointer
 {
@@ -535,6 +552,10 @@ struct PSPPointer
 
 	void FillWithZero() {
 		memset(Memory::GetPointerWrite(ptr), 0, sizeof(T));
+	}
+
+	bool Equals(u32 addr) const {
+		return ptr == addr;
 	}
 
 	T *PtrOrNull() {

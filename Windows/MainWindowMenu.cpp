@@ -245,7 +245,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE);
 		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, g_Config.bSystemControls ? L"\tF12" : L"");
-		TranslateMenuItem(menu, ID_DEBUG_DUMPNEXTFRAME);
+		TranslateMenuItem(menu, ID_DEBUG_SAVEFRAMEDUMP);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
 		TranslateMenuItem(menu, ID_DEBUG_RESTARTGRAPHICS);
 		TranslateMenuItem(menu, ID_DEBUG_DISASSEMBLY, g_Config.bSystemControls ? L"\tCtrl+D" : L"");
@@ -370,11 +370,12 @@ namespace MainWindow {
 	static void UmdSwitchAction(RequesterToken token) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});
 	}
 
-	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, void *userdata) {
+	static void SaveStateActionFinished(SaveState::Status status, std::string_view message) {
 		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 			g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 		}
@@ -383,17 +384,24 @@ namespace MainWindow {
 
 	// not static
 	void setTexScalingMultiplier(int level) {
-		g_Config.iTexScalingLevel = level;
+		System_RunOnMainThread([level]() {
+			g_Config.iTexScalingLevel = level;
+		});
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setTexScalingType(int type) {
-		g_Config.iTexScalingType = type;
+		System_RunOnMainThread([type]() {
+			g_Config.iTexScalingType = type;
+		});
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setSkipBufferEffects(bool skip) {
-		g_Config.bSkipBufferEffects = skip;
+		System_RunOnMainThread([skip]() {
+			g_Config.bSkipBufferEffects = skip;
+		});
+		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
@@ -497,23 +505,17 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_PAUSE:
-			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
-			}
+			System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 			break;
 
 		case ID_EMULATION_STOP:
-			if (Core_IsStepping())
-				Core_Resume();
-
-			Core_Stop();
 			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
-			Core_WaitInactive();
 			break;
 
 		case ID_EMULATION_RESET:
-			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			Core_Resume();
+			if (MainWindow::ConfirmAction(hWnd, true)) {
+				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			}
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:
@@ -662,14 +664,13 @@ namespace MainWindow {
 
 		case ID_OPTIONS_VSYNC:
 			g_Config.bVSync = !g_Config.bVSync;
-			NativeResized();
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 			break;
 
 		case ID_OPTIONS_FRAMESKIP_AUTO:
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 			if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-				g_Config.bSkipBufferEffects = false;
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+				setSkipBufferEffects(false);
 			}
 			break;
 
@@ -714,8 +715,7 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
-			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
-			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
+			setSkipBufferEffects(!g_Config.bSkipBufferEffects);
 			g_OSD.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
@@ -731,9 +731,12 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
-			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-			g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
+			System_RunOnMainThread([]() {
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+				g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
+			});
 			break;
 
 		case ID_OPTIONS_DISPLAY_LAYOUT:
@@ -755,7 +758,7 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIPTYPE_PRCNT:    setFrameSkippingType(FRAMESKIPTYPE_PRCNT); break;
 
 		case ID_FILE_EXIT:
-			if (MainWindow::ConfirmExit(hWnd)) {
+			if (MainWindow::ConfirmAction(hWnd, false)) {
 				DestroyWindow(hWnd);
 			}
 			break;
@@ -764,9 +767,11 @@ namespace MainWindow {
 			g_Config.bAutoRun = !g_Config.bAutoRun;
 			break;
 
-		case ID_DEBUG_DUMPNEXTFRAME:
-			System_PostUIMessage(UIMessage::REQUEST_GPU_DUMP_NEXT_FRAME);
+		case ID_DEBUG_SAVEFRAMEDUMP:
+		{
+			System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
 			break;
+		}
 
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
@@ -1243,7 +1248,7 @@ namespace MainWindow {
 
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
-		static CoreState lastCoreState = CORE_BOOT_ERROR;
+		static CoreState lastCoreState = CORE_POWERDOWN;
 
 		HMENU menu = GetMenu(GetHWND());
 		EnableMenuItem(menu, ID_DEBUG_LOG, g_Config.bEnableLogging ? MF_ENABLED : MF_GRAYED);

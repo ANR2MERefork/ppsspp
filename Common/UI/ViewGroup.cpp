@@ -164,7 +164,7 @@ void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.
 		dc.FillRect(UI::Drawable(0x60000000), dc.GetBounds().Expand(dropShadowExpand_));
-		float dropsize = 30.0f;
+		const float dropsize = 30.0f;
 		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid,
 			bounds_.x - dropsize, bounds_.y,
 			bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5f, 0xDF000000, 3.0f);
@@ -329,7 +329,7 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
 		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
-			INFO_LOG(Log::System, "Contain overlap");
+			INFO_LOG(Log::UI, "Contain overlap");
 			return 0.0;
 		}
 	}
@@ -386,7 +386,7 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		break;
 	case FOCUS_PREV:
 	case FOCUS_NEXT:
-		ERROR_LOG(Log::System, "Invalid focus direction");
+		ERROR_LOG(Log::UI, "Invalid focus direction");
 		break;
 	}
 
@@ -408,7 +408,7 @@ static float GetDirectionScore(int originIndex, const View *origin, View *destin
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
 	if (!IsEnabled()) {
-		INFO_LOG(Log::sceCtrl, "Not enabled");
+		INFO_LOG(Log::UI, "Not enabled");
 		return result;
 	}
 	if (GetVisibility() != V_VISIBLE) {
@@ -474,7 +474,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
 
 	default:
-		ERROR_LOG(Log::System, "Bad focus direction %d", (int)direction);
+		ERROR_LOG(Log::UI, "Bad focus direction %d", (int)direction);
 		return result;
 	}
 }
@@ -889,7 +889,7 @@ void AnchorLayout::Layout() {
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
 	: ViewGroup(layoutParams), settings_(settings) {
 	if (settings.orientation != ORIENT_HORIZONTAL)
-		ERROR_LOG(Log::System, "GridLayout: Vertical layouts not yet supported");
+		ERROR_LOG(Log::UI, "GridLayout: Vertical layouts not yet supported");
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -957,8 +957,8 @@ std::string GridLayoutList::DescribeText() const {
 	return DescribeListOrdered(u->T("List:"));
 }
 
-TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
-	: LinearLayout(Opposite(orientation), layoutParams), stripSize_(stripSize) {
+TabHolder::TabHolder(Orientation orientation, float stripSize, View *bannerView, LayoutParams *layoutParams)
+	: LinearLayout(Opposite(orientation), layoutParams) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
@@ -979,8 +979,14 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 
 	Add(new Spacer(4.0f))->SetSeparator();
 
-	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-	Add(contents_)->SetClip(true);
+	ViewGroup *contentHolder_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	if (bannerView) {
+		contentHolder_->Add(bannerView);
+		bannerView_ = bannerView;
+	}
+	contents_ = contentHolder_->Add(new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+	contents_->SetClip(true);
+	Add(contentHolder_);
 }
 
 void TabHolder::AddBack(UIScreen *parent) {
@@ -990,25 +996,75 @@ void TabHolder::AddBack(UIScreen *parent) {
 	}
 }
 
-void TabHolder::AddTabContents(std::string_view title, View *tabContents) {
-	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
 	tabs_.push_back(tabContents);
 	tabStrip_->AddChoice(title);
 	contents_->Add(tabContents);
 	if (tabs_.size() > 1)
 		tabContents->SetVisibility(V_GONE);
+	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	// Will be filled in later.
 	tabTweens_.push_back(nullptr);
+	// This entry doesn't need one.
+	createFuncs_.push_back(nullptr);
 }
 
-void TabHolder::SetCurrentTab(int tab, bool skipTween) {
+void TabHolder::AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb) {
+	tabs_.push_back(nullptr);  // marker
+	tabStrip_->AddChoice(title);
+	tabTweens_.push_back(nullptr);
+	createFuncs_.push_back(createCb);
+
+	if (tabs_.size() == 1) {
+		EnsureTab(0);
+	}
+}
+
+void TabHolder::EnsureAllCreated() {
+	for (int i = 0; i < createFuncs_.size(); i++) {
+		if (createFuncs_[i]) {
+			EnsureTab(i);
+			tabs_[i]->SetVisibility(i == currentTab_ ? V_VISIBLE : V_GONE);
+		}
+	}
+}
+
+bool TabHolder::EnsureTab(int index) {
+	_dbg_assert_(index >= 0 && index < createFuncs_.size());
+
+	if (!tabs_[index]) {
+		_dbg_assert_(index < createFuncs_.size());
+		_dbg_assert_(createFuncs_[index]);
+		std::function<UI::ViewGroup * ()> func;
+		createFuncs_[index].swap(func);
+
+		ViewGroup *tabContents = func();
+		tabs_[index] = tabContents;
+		contents_->Add(tabContents);
+
+		tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 	if (tab >= (int)tabs_.size()) {
 		// Ignore
-		return;
+		return false;
+	}
+
+	bool created = false;
+
+	if (tab != currentTab_) {
+		_dbg_assert_(tabs_[currentTab_]);  // we should always have a tab to switch *from*.
+		created = EnsureTab(tab);
 	}
 
 	auto setupTween = [&](View *view, AnchorTranslateTween *&tween) {
+		_dbg_assert_(view != nullptr);
 		if (tween)
 			return;
 
@@ -1053,12 +1109,15 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		currentTab_ = tab;
 	}
 	tabStrip_->SetSelection(tab, false);
+
+	return created;
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
+		EnsureTab(e.a);
 		SetCurrentTab((int)e.a);
 	}
 	return EVENT_DONE;
@@ -1081,7 +1140,10 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 
 	case PERSIST_RESTORE:
 		if (buffer.size() == 1) {
-			SetCurrentTab(buffer[0], true);
+			if (SetCurrentTab(buffer[0], true)) {
+				// Re-run PersistData. TODO: Only need to do it for the new tab.
+				ViewGroup::PersistData(status, anonId, storage);
+			}
 		}
 		break;
 	}

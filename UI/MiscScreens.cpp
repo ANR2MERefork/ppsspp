@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 
 #include "Common/Render/DrawBuffer.h"
@@ -45,6 +46,7 @@
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Util/RecentFiles.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PostShader.h"
@@ -211,7 +213,7 @@ public:
 			lastIndex_ = nextIndex_;
 		}
 
-		if (g_Config.HasRecentIsos()) {
+		if (g_recentFiles.HasAny()) {
 			std::shared_ptr<GameInfo> lastInfo = GetInfo(dc, lastIndex_);
 			std::shared_ptr<GameInfo> nextInfo = GetInfo(dc, nextIndex_);
 			dc.Flush();
@@ -228,12 +230,14 @@ public:
 
 private:
 	void CheckNext(UIContext &dc, double t) {
-		if (!g_Config.HasRecentIsos()) {
+		if (!g_recentFiles.HasAny()) {
 			return;
 		}
 
+		std::vector<std::string> recents = g_recentFiles.GetRecentFiles();
+
 		for (int index = lastIndex_ + 1; index != lastIndex_; ++index) {
-			if (index < 0 || index >= (int)g_Config.RecentIsos().size()) {
+			if (index < 0 || index >= (int)recents.size()) {
 				if (lastIndex_ == -1)
 					break;
 				index = 0;
@@ -258,9 +262,9 @@ private:
 		if (index < 0) {
 			return nullptr;
 		}
-		const auto recentIsos = g_Config.RecentIsos();
+		const auto recentIsos = g_recentFiles.GetRecentFiles();
 		if (index >= (int)recentIsos.size())
-			return nullptr;
+			return std::shared_ptr<GameInfo>();
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
@@ -283,6 +287,102 @@ private:
 	int lastIndex_ = -1;
 	int nextIndex_ = -1;
 	double nextT_ = -INTERVAL;
+};
+
+class BouncingIconAnimation : public Animation {
+	public:
+		void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+			dc.Flush();
+			dc.Begin();
+
+			// Handle change in resolution.
+			float xres = dc.GetBounds().w;
+			float yres = dc.GetBounds().h;
+			if (last_xres != xres || last_yres != yres) {
+				Recalculate(xres, yres);
+			}
+
+			// Draw the image.
+			float xpos = xbase + dc.GetBounds().x;
+			float ypos = ybase + dc.GetBounds().y;
+			ImageID icon = !color_ix && System_GetPropertyBool(SYSPROP_APP_GOLD) ? ImageID("I_ICONGOLD") : ImageID("I_ICON");
+			ui_draw2d.DrawImage(icon, xpos, ypos, scale, colors[color_ix], ALIGN_CENTER);
+			dc.Flush();
+
+			// Switch direction if within border.
+			bool should_recolor = true;
+			if (xbase > xres - border || xbase < border) {
+				xspeed *= -1.0f;
+				RandomizeColor();
+				should_recolor = false;
+			}
+
+			if (ybase > yres - border || ybase < border) {
+				yspeed *= -1.0f;
+
+				if (should_recolor) {
+					RandomizeColor();
+				}
+			}
+
+			// Place to border if out of bounds.
+			if (xbase > xres - border) xbase = xres - border;
+			else if (xbase < border) xbase = border;
+			if (ybase > yres - border) ybase = yres - border;
+			else if (ybase < border) ybase = border;
+
+			// Update location.
+			xbase += xspeed;
+			ybase += yspeed;
+		}
+
+	private:
+		static constexpr int COLOR_COUNT = 11;
+		static constexpr Color colors[COLOR_COUNT] = { 0xFFFFFFFF, 0xFFFFFF00, 0xFFFF0000, 0xFF00FF00, 0xFF0000FF,
+				0xFF00FFFF, 0xFFFF00FF, 0xFF4111D1, 0xFF3577F3, 0xFFAA77FF, 0xFF623B84 };
+
+		float xbase = 0.0f;
+		float ybase = 0.0f;	
+		float last_xres = 0.0f;
+		float last_yres = 0.0f;
+		float xspeed = 1.0f;
+		float yspeed = 1.0f;
+		float scale = 1.0f;
+		float border = 35.0f;
+		int color_ix = 0;
+		int last_color_ix = -1;
+		GMRng rng;
+
+		void Recalculate(int xres, int yres) {
+			// First calculation.
+			if (last_color_ix == -1) {
+				xbase = xres / 2.0f;
+				ybase = yres / 2.0f;
+				last_color_ix = 0;
+	
+				// Determine initial direction.
+				if ((int)(rng.F() * xres) % 2) xspeed *= -1.0f;
+				if ((int)(rng.F() * yres) % 2) yspeed *= -1.0f;
+			}
+
+			// Scale certain attributes to resolution.
+			scale = std::min(xres, yres) / 400.0f;
+			float speed = scale < 2.5f ? scale * 0.58f : scale * 0.46f;
+			xspeed = std::signbit(xspeed) ? speed * -1.0f : speed;
+			yspeed = std::signbit(yspeed) ? speed * -1.0f : speed;
+			border = 35.0f * scale;
+
+			last_xres = xres;
+			last_yres = yres;
+		}
+
+		void RandomizeColor() {
+			do {
+				color_ix = (int)(rng.F() * xbase) % COLOR_COUNT;
+			} while (color_ix == last_color_ix);
+
+			last_color_ix = color_ix;
+		}
 };
 
 // TODO: Add more styles. Remember to add to the enum in ConfigValues.h and the selector in GameSettings too.
@@ -330,6 +430,9 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 			break;
 		case BackgroundAnimation::MOVING_BACKGROUND:
 			g_Animation.reset(new MovingBackground());
+			break;
+		case BackgroundAnimation::BOUNCING_ICON:
+			g_Animation.reset(new BouncingIconAnimation());
 			break;
 		default:
 			g_Animation.reset(nullptr);
@@ -522,9 +625,9 @@ void PromptScreen::CreateViews() {
 
 	root_ = new AnchorLayout();
 
-	root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 330, 10)))->SetClip(false);
+	root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 15, 15, NONE));
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
 	root_->Add(rightColumnItems);
 
 	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));

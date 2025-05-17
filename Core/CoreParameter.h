@@ -23,7 +23,7 @@
 #include "Core/Compatibility.h"
 #include "Core/Loaders.h"
 
-enum GPUCore {
+enum GPUCore : int {
 	GPUCORE_GLES,
 	GPUCORE_SOFTWARE,
 	GPUCORE_DIRECTX9,
@@ -49,33 +49,31 @@ enum class CPUCore;
 
 // PSP_CoreParameter()
 struct CoreParameter {
-	CoreParameter() {}
-
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 
 	GraphicsContext *graphicsContext = nullptr;  // TODO: Find a better place.
-	bool enableSound;  // there aren't multiple sound cores.
+	bool enableSound = true;  // there aren't multiple sound cores.
 
 	Path fileToStart;
 	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
 	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
 	std::string errorString;
 
-	bool startBreak;
+	bool startBreak = false;
 	std::string *collectDebugOutput = nullptr;
-	bool headLess;   // Try to avoid messageboxes etc
+	bool headLess = false;   // Try to avoid messageboxes etc
 
 	// Internal PSP rendering resolution and scale factor.
 	int renderScaleFactor = 1;
-	int renderWidth;
-	int renderHeight;
+	int renderWidth = 0;
+	int renderHeight = 0;
 
 	// Actual output resolution in pixels.
-	int pixelWidth;
-	int pixelHeight;
+	int pixelWidth = 0;
+	int pixelHeight = 0;
 
-	// Can be modified at runtime.
+	// Can be modified at runtime. Do not belong here.
 	bool fastForward = false;
 	FPSLimit fpsLimit = FPSLimit::NORMAL;
 	int analogFpsLimit = 0;

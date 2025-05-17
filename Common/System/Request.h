@@ -4,6 +4,7 @@
 #include <mutex>
 #include <map>
 #include <functional>
+#include <string_view>
 
 #include "Common/System/System.h"
 
@@ -32,7 +33,7 @@ public:
 	bool MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int64_t param3, int64_t param4 = 0);
 
 	// Called by the platform implementation, when it's finished with a request.
-	void PostSystemSuccess(int requestId, const char *responseString, int responseValue = 0);
+	void PostSystemSuccess(int requestId, std::string_view responseString, int responseValue = 0);
 	void PostSystemFailure(int requestId);
 
 	// This must be called every frame from the beginning of NativeFrame().
@@ -103,6 +104,8 @@ enum class BrowseFileType {
 	SOUND_EFFECT,
 	ZIP,
 	SYMBOL_MAP,
+	SYMBOL_MAP_NOCASH,
+	ATRAC3,
 	ANY,
 };
 
@@ -186,6 +189,7 @@ inline void System_SendDebugScreenshot(std::string_view data, int height) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, NO_REQUESTER_TOKEN, nullptr, nullptr, data, "", height);
 }
 
+void System_MoveToTrash(const Path &path);
 void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata);
 
 // Non-inline to avoid including Path.h

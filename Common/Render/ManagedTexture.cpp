@@ -54,7 +54,7 @@ private:
 	std::string filename_;
 	TempImage *tempImage_;
 	ImageFileType type_;
-	bool generateMips_;
+	bool generateMips_;  // not yet used
 	ManagedTexture::LoadState *state_;
 };
 
@@ -116,6 +116,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 			}
 		} else {
 			ERROR_LOG(Log::IO, "PNG load failed");
+			_dbg_assert_(!levels[0]);
 			return false;
 		}
 		break;

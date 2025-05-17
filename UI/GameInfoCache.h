@@ -47,7 +47,7 @@ enum GameRegion {
 	GAMEREGION_ASIA,
 	GAMEREGION_KOREA,
 	GAMEREGION_OTHER,
-	GAMEREGION_MAX,
+	GAMEREGION_COUNT,
 };
 
 enum class GameInfoFlags {
@@ -85,7 +85,7 @@ public:
 	GameInfo(const Path &gamePath);
 	~GameInfo();
 
-	bool Delete();  // Better be sure what you're doing when calling this.
+	bool Delete();  // Better be sure what you're doing when calling this. Will move to trash if available on the system, though.
 	bool DeleteAllSaveData();
 	bool CreateLoader();
 

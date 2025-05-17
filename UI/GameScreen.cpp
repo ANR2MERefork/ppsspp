@@ -39,6 +39,7 @@
 #include "Core/Loaders.h"
 #include "Core/Util/GameDB.h"
 #include "Core/HLE/Plugins.h"
+#include "Core/Util/RecentFiles.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
@@ -228,6 +229,8 @@ void GameScreen::CreateViews() {
 
 	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
 	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	if (inGame_)
+		btnGameSettings_->SetEnabled(false);
 
 	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
@@ -266,7 +269,8 @@ void GameScreen::CreateViews() {
 		});
 	}
 
-	if (isRecentGame(gamePath_)) {
+	// TODO: This is synchronous, bad!
+	if (g_recentFiles.ContainsFile(gamePath_.ToString())) {
 		Choice *removeButton = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))));
 		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 		if (inGame_) {
@@ -274,9 +278,13 @@ void GameScreen::CreateViews() {
 		}
 	}
 
-#if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
-	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
-#endif
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		rightColumnItems->Add(AddOtherChoice(new Choice(di->T("Show in folder"))))->OnClick.Add([this](UI::EventParams &e) {
+			System_ShowFileInFolder(gamePath_);
+			return UI::EVENT_DONE;
+		});
+	}
+
 	if (g_Config.bEnableCheats) {
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
 		rightColumnItems->Add(AddOtherChoice(new Choice(pa->T("Cheats"))))->OnClick.Handle(this, &GameScreen::OnCwCheat);
@@ -286,7 +294,7 @@ void GameScreen::CreateViews() {
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
 
-	isHomebrew_ = info && info->region > GAMEREGION_MAX;
+	isHomebrew_ = info && info->region > GAMEREGION_COUNT;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
@@ -315,26 +323,22 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::CallbackDeleteConfig(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-			return;
-		}
-		g_Config.deleteGameConfig(info->id);
-		info->hasConfig = false;
-		screenManager()->RecreateAllViews();
-	}
-}
-
-UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
-{
+UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto ga = GetI18NCategory(I18NCat::GAME);
+	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
-		std::bind(&GameScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
-
+		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+			[this](bool result) {
+		if (result) {
+			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+			if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+				return;
+			}
+			g_Config.deleteGameConfig(info->id);
+			info->hasConfig = false;
+			screenManager()->RecreateAllViews();
+		}
+	}));
 	return UI::EVENT_DONE;
 }
 
@@ -377,8 +381,8 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (tvRegion_) {
-		if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
-			static const char *regionNames[GAMEREGION_MAX] = {
+		if (info->region >= 0 && info->region < GAMEREGION_COUNT && info->region != GAMEREGION_OTHER) {
+			static const char *regionNames[GAMEREGION_COUNT] = {
 				"Japan",
 				"USA",
 				"Europe",
@@ -387,7 +391,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 				"Korea"
 			};
 			tvRegion_->SetText(ga->T(regionNames[info->region]));
-		} else if (info->region > GAMEREGION_MAX) {
+		} else if (info->region > GAMEREGION_COUNT) {
 			tvRegion_->SetText(ga->T("Homebrew"));
 		}
 	}
@@ -491,11 +495,6 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	return flags;
 }
 
-UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
-	System_ShowFileInFolder(gamePath_);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
@@ -537,10 +536,10 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	if (info) {
 		// Check that there's any savedata to delete
 		if (info->saveDataSize) {
+			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
-			auto ga = GetI18NCategory(I18NCat::GAME);
 			screenManager()->push(
-				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
 		}
 	}
@@ -561,12 +560,12 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string prompt;
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
+		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 		screenManager()->push(
-			new PromptScreen(gamePath_, prompt, ga->T("ConfirmDelete"), di->T("Cancel"),
+			new PromptScreen(gamePath_, prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
 	}
 	return UI::EVENT_DONE;
@@ -581,21 +580,8 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 	}
 }
 
-bool GameScreen::isRecentGame(const Path &gamePath) {
-	if (g_Config.iMaxRecent <= 0)
-		return false;
-
-	const std::string resolved = File::ResolvePath(gamePath.ToString());
-	for (const auto &iso : g_Config.RecentIsos()) {
-		const std::string recent = File::ResolvePath(iso);
-		if (resolved == recent)
-			return true;
-	}
-	return false;
-}
-
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
-	g_Config.RemoveRecent(gamePath_.ToString());
+	g_recentFiles.Remove(gamePath_.ToString());
 	screenManager()->switchScreen(new MainScreen());
 	return UI::EVENT_DONE;
 }

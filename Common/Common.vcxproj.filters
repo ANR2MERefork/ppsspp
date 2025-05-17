@@ -682,6 +682,18 @@
     <ClInclude Include="Net\SocketCompat.h">
       <Filter>Net</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\sol\config.hpp">
+      <Filter>ext\sol</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\sol\forward.hpp">
+      <Filter>ext\sol</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\sol\sol.hpp">
+      <Filter>ext\sol</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\imgui\imgui_extras.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1291,6 +1303,9 @@
     <ClCompile Include="..\ext\lua\lzio.c">
       <Filter>ext\lua</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\imgui\imgui_extras.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1416,6 +1431,9 @@
     <Filter Include="ext\lua">
       <UniqueIdentifier>{71e2e5df-5cfb-41e6-97da-f71584a7394e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\sol">
+      <UniqueIdentifier>{ec7d8691-bb7f-4689-b66a-cb60c1f48afd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ext\libpng17\CMakeLists.txt">
@@ -1468,5 +1486,10 @@
     <None Include="..\ext\lua\README.md">
       <Filter>ext\lua</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Data\Collections\FastVec.natvis">
+      <Filter>Data\Collections</Filter>
+    </Natvis>
   </ItemGroup>
 </Project>

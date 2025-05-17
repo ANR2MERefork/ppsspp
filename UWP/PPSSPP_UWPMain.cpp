@@ -436,7 +436,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
 	{
-		// Do actual check 
+		// Do actual check
 		// touch devices has input pane, we need to depend on it
 		// I don't know any possible way to display input dialog in non-xaml apps
 		return isKeyboardAvailable() || isTouchAvailable();
@@ -517,13 +517,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			supportedExtensions = { ".zip" };
 			break;
 		case BrowseFileType::SYMBOL_MAP:
-			supportedExtensions = { ".map" };
+			supportedExtensions = { ".ppmap" };
+			break;
+		case BrowseFileType::SYMBOL_MAP_NOCASH:
+			supportedExtensions = { ".sym" };
 			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;
 		case BrowseFileType::SOUND_EFFECT:
 			supportedExtensions = { ".wav", ".mp3" };
+			break;
+		case BrowseFileType::ATRAC3:
+			supportedExtensions = { ".at3" };
 			break;
 		case BrowseFileType::ANY:
 			// 'ChooseFile' will added '*' by default when there are no extensions assigned

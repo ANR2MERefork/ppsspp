@@ -40,9 +40,9 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Core/System.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
@@ -75,27 +75,14 @@
 
 bool MainScreen::showHomebrewTab = false;
 
-bool LaunchFile(ScreenManager *screenManager, const Path &path) {
-	// Depending on the file type, we don't want to launch EmuScreen at all.
-	auto loader = ConstructFileLoader(path);
-	if (!loader) {
-		return false;
-	}
-
-	std::string errorString;
-	IdentifiedFileType type = Identify_File(loader, &errorString);
-	delete loader;
-
-	switch (type) {
-	case IdentifiedFileType::ARCHIVE_ZIP:
+static void LaunchFile(ScreenManager *screenManager, const Path &path) {
+	if (path.GetFileExtension() == ".zip") {
+		// If it's a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
-		break;
-	default:
-		// Let the EmuScreen take care of it.
+	} else {
+		// Otherwise let the EmuScreen take care of it, including error handling.
 		screenManager->switchScreen(new EmuScreen(path));
-		break;
 	}
-	return true;
 }
 
 static bool IsTempPath(const Path &str) {
@@ -394,8 +381,9 @@ void GameButton::Draw(UIContext &dc) {
 			}
 		}
 	}
-	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
-		const ImageID regionIcons[GAMEREGION_MAX] = {
+	const int region = ginfo->region;
+	if (g_Config.bShowRegionOnGameIcon && region >= 0 && region < GAMEREGION_COUNT && region != GAMEREGION_OTHER) {
+		const ImageID regionIcons[GAMEREGION_COUNT] = {
 			ImageID("I_FLAG_JP"),
 			ImageID("I_FLAG_US"),
 			ImageID("I_FLAG_EU"),
@@ -404,13 +392,13 @@ void GameButton::Draw(UIContext &dc) {
 			ImageID("I_FLAG_KO"),
 			ImageID::invalid(),
 		};
-		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[ginfo->region]);
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[region]);
 		if (image) {
 			if (gridStyle_) {
-				dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - (image->w + 5)*g_Config.fGameGridScale,
+				dc.Draw()->DrawImage(regionIcons[region], x + w - (image->w + 5)*g_Config.fGameGridScale,
 							y + h - (image->h + 5)*g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(regionIcons[ginfo->region], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
+				dc.Draw()->DrawImage(regionIcons[region], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
 			}
 		}
 	}
@@ -685,7 +673,7 @@ bool GameBrowser::DisplayTopBar() {
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
-		for (auto &str : g_Config.RecentIsos()) {
+		for (auto &str : g_recentFiles.GetRecentFiles()) {
 			filenames.emplace_back(str);
 		}
 		return true;
@@ -970,7 +958,8 @@ void GameBrowser::Refresh() {
 
 bool GameBrowser::IsCurrentPathPinned() {
 	const auto paths = g_Config.vPinnedPaths;
-	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath().ToString())) != paths.end();
+	std::string resolved = File::ResolvePath(path_.GetPath().ToString());
+	return std::find(paths.begin(), paths.end(), resolved) != paths.end();
 }
 
 std::vector<Path> GameBrowser::GetPinnedPaths() const {
@@ -1105,7 +1094,7 @@ void MainScreen::CreateViews() {
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 64, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	ViewGroup *leftColumn = tabHolder_;
 	tabHolder_->SetTag("MainScreenGames");
 	gameBrowsers_.clear();
@@ -1117,7 +1106,7 @@ void MainScreen::CreateViews() {
 		System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
 	bool storageIsTemporary = IsTempPath(GetSysDirectory(DIRECTORY_SAVEDATA)) && !confirmedTemporary_;
 	if (showRecent && !hasStorageAccess) {
-		showRecent = g_Config.HasRecentIsos();
+		showRecent = g_recentFiles.HasAny();
 	}
 
 	if (showRecent) {
@@ -1198,7 +1187,7 @@ void MainScreen::CreateViews() {
 			tabRemote->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 		}
 
-		if (g_Config.HasRecentIsos()) {
+		if (g_recentFiles.HasAny()) {
 			tabHolder_->SetCurrentTab(std::clamp(g_Config.iDefaultTab, 0, g_Config.bRemoteTab ? 3 : 2), true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);	
@@ -1291,12 +1280,16 @@ void MainScreen::CreateViews() {
 	ClickableTextView *ver = rightColumnItems->Add(new ClickableTextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-	ver->OnClick.Add([](UI::EventParams &e) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
-		return UI::EVENT_DONE;
-	});
+
+	// Only allow copying the version if it looks like a git version string. 1.19 for example is not really necessary to be able to copy/paste.
+	if (strchr(PPSSPP_GIT_VERSION, '-')) {
+		ver->OnClick.Add([](UI::EventParams &e) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
+			return UI::EVENT_DONE;
+		});
+	}
 
 	LinearLayout *rightColumnChoices = rightColumnItems;
 	if (vertical) {
@@ -1432,6 +1425,8 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 			LaunchFile(screenManager(), Path(std::string(value)));
 		}
 	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
+		RecreateViews();
+	} else if (message == UIMessage::RECENT_FILES_CHANGED) {
 		RecreateViews();
 	}
 }
@@ -1653,7 +1648,7 @@ void UmdReplaceScreen::CreateViews() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 	leftColumn->SetTag("UmdReplace");
 	leftColumn->SetClip(true);
 
@@ -1691,7 +1686,7 @@ void UmdReplaceScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
-			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [&](const std::string &value, int) {
+			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](const std::string &value, int) {
 				__UmdReplace(Path(value));
 				TriggerFinish(DR_OK);
 			});
@@ -1703,7 +1698,7 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer());
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
-	if (g_Config.HasRecentIsos()) {
+	if (g_recentFiles.HasAny()) {
 		leftColumn->SetCurrentTab(0, true);
 	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1, true);
@@ -1774,7 +1769,7 @@ UI::EventReturn GridSettingsPopupScreen::GridMinusClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GridSettingsPopupScreen::OnRecentClearClick(UI::EventParams &e) {
-	g_Config.ClearRecentIsos();
+	g_recentFiles.Clear();
 	OnRecentChanged.Trigger(e);
 	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;

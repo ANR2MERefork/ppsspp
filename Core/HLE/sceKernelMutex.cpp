@@ -23,6 +23,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
@@ -35,22 +36,6 @@
 #define PSP_MUTEX_ATTR_PRIORITY 0x100
 #define PSP_MUTEX_ATTR_ALLOW_RECURSIVE 0x200
 #define PSP_MUTEX_ATTR_KNOWN (PSP_MUTEX_ATTR_PRIORITY | PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
-
-// Not sure about the names of these
-#define PSP_MUTEX_ERROR_NO_SUCH_MUTEX 0x800201C3
-#define PSP_MUTEX_ERROR_TRYLOCK_FAILED 0x800201C4
-#define PSP_MUTEX_ERROR_NOT_LOCKED 0x800201C5
-#define PSP_MUTEX_ERROR_LOCK_OVERFLOW 0x800201C6
-#define PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW 0x800201C7
-#define PSP_MUTEX_ERROR_ALREADY_LOCKED 0x800201C8
-
-#define PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX 0x800201CA
-// Note: used only for _600.
-#define PSP_LWMUTEX_ERROR_TRYLOCK_FAILED 0x800201CB
-#define PSP_LWMUTEX_ERROR_NOT_LOCKED 0x800201CC
-#define PSP_LWMUTEX_ERROR_LOCK_OVERFLOW 0x800201CD
-#define PSP_LWMUTEX_ERROR_UNLOCK_UNDERFLOW 0x800201CE
-#define PSP_LWMUTEX_ERROR_ALREADY_LOCKED 0x800201CF
 
 struct NativeMutex
 {
@@ -69,7 +54,7 @@ struct PSPMutex : public KernelObject
 	const char *GetName() override { return nm.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "Mutex"; }
-	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
+	static u32 GetMissingErrorCode() { return SCE_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
 
@@ -135,7 +120,7 @@ struct LwMutex : public KernelObject
 	const char *GetName() override { return nm.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "LwMutex"; }
-	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
+	static u32 GetMissingErrorCode() { return SCE_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_LwMutex; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_LwMutex; }
 
@@ -346,8 +331,9 @@ int sceKernelDeleteMutex(SceUID id)
 {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
-	if (mutex)
-	{
+	if (!mutex) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
 		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteMutex(%i)", id);
 		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter, end;
@@ -361,12 +347,7 @@ int sceKernelDeleteMutex(SceUID id)
 		if (wokeThreads)
 			hleReSchedule("mutex deleted");
 
-		return kernelObjects.Destroy<PSPMutex>(id);
-	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteMutex(%i): invalid mutex", id);
-		return error;
+		return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<PSPMutex>(id));
 	}
 }
 
@@ -382,14 +363,14 @@ static bool __KernelLockMutexCheck(PSPMutex *mutex, int count, u32 &error) {
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	// Two positive ints will always overflow to negative.
 	else if (count + mutex->nm.lockLevel < 0)
-		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
+		error = SCE_MUTEX_ERROR_LOCK_OVERFLOW;
 	// Only a recursive mutex can re-lock.
 	else if (mutex->nm.lockThread == __KernelGetCurThread())
 	{
 		if (mutexIsRecursive)
 			return true;
 
-		error = PSP_MUTEX_ERROR_ALREADY_LOCKED;
+		error = SCE_MUTEX_ERROR_ALREADY_LOCKED;
 	}
 	// Otherwise it would lock or wait.
 	else if (mutex->nm.lockLevel == 0)
@@ -496,16 +477,15 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(uid, error);
-	if (mutex)
-	{
+	if (!mutex) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
 		bool lockable = count <= 0 || __KernelLockMutexCheck(mutex, count, error);
 		if (!lockable)
 		{
 			// May still be okay.  As long as the count/etc. are valid.
-			if (error != 0 && error != PSP_MUTEX_ERROR_LOCK_OVERFLOW && error != PSP_MUTEX_ERROR_ALREADY_LOCKED)
-			{
-				DEBUG_LOG(Log::sceKernel, "sceKernelCancelMutex(%i, %d, %08x): invalid count", uid, count, numWaitThreadsPtr);
-				return error;
+			if (error != 0 && error != SCE_MUTEX_ERROR_LOCK_OVERFLOW && error != SCE_MUTEX_ERROR_ALREADY_LOCKED) {
+				return hleLogWarning(Log::sceKernel, error, "invalid count");
 			}
 		}
 
@@ -536,51 +516,54 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 		if (wokeThreads)
 			hleReSchedule("mutex canceled");
 
-		return 0;
-	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
-		return error;
+		return hleNoLog(0);
 	}
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
+	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
+	// This ID is always invalid.
+	if (id == 0x80020001 && timeoutPtr == 0) {
+		return hleNoLog(0);
+	}
+
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
-		return 0;
-	else if (error)
-		return error;
-	else
-	{
-		SceUID threadID = __KernelGetCurThread();
-		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
-		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
-			mutex->waitingThreads.push_back(threadID);
-		__KernelWaitMutex(mutex, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false, "mutex waited");
-
-		// Return value will be overwritten by wait.
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
+	else if (error) {
+		if (error == SCE_MUTEX_ERROR_ALREADY_LOCKED) {
+			// Benign it seems.
+			return hleLogDebug(Log::sceKernel, error);
+		} else {
+			return hleLogError(Log::sceKernel, error);
+		}
 	}
+
+	SceUID threadID = __KernelGetCurThread();
+	// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+	if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
+		mutex->waitingThreads.push_back(threadID);
+	__KernelWaitMutex(mutex, timeoutPtr);
+	__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false, "mutex waited");
+
+	// Return value will be overwritten by wait.
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 // int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (!__KernelLockMutexCheck(mutex, count, error))
 	{
 		if (error)
-			return error;
+			return hleLogError(Log::sceKernel, error);
 
 		SceUID threadID = __KernelGetCurThread();
 		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
@@ -590,7 +573,7 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true, "mutex waited");
 
 		// Return value will be overwritten by wait.
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 	else
 	{
@@ -605,42 +588,48 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		else
 			__KernelLockMutex(mutex, count, error);
 
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 }
 
 // int sceKernelTryLockMutex(SceUID id, int count)
-int sceKernelTryLockMutex(SceUID id, int count)
-{
-	DEBUG_LOG(Log::sceKernel, "sceKernelTryLockMutex(%i, %i)", id, count);
+int sceKernelTryLockMutex(SceUID id, int count) {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	else if (error)
-		return error;
+		return hleLogError(Log::sceKernel, error);
 	else
-		return PSP_MUTEX_ERROR_TRYLOCK_FAILED;
+		return hleLogDebug(Log::sceKernel, SCE_MUTEX_ERROR_TRYLOCK_FAILED);
 }
 
 // int sceKernelUnlockMutex(SceUID id, int count)
 int sceKernelUnlockMutex(SceUID id, int count)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelUnlockMutex(%i, %i)", id, count);
+	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
+	// This ID is always invalid.
+	if (id == 0x80020001) {
+		return hleNoLog(0);
+	}
+
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (error)
-		return error;
+		return hleLogError(Log::sceKernel, error);
 	if (count <= 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	if (mutex->nm.lockLevel == 0 || mutex->nm.lockThread != __KernelGetCurThread())
-		return PSP_MUTEX_ERROR_NOT_LOCKED;
+		return hleLogDebug(Log::sceKernel, SCE_MUTEX_ERROR_NOT_LOCKED);
 	if (mutex->nm.lockLevel < count)
-		return PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW;
+		return hleLogWarning(Log::sceKernel, SCE_MUTEX_ERROR_UNLOCK_UNDERFLOW);
+
+	// To log before the reschedule.
+	DEBUG_LOG(Log::sceKernel, "0=sceKernelUnlockMutex(%i, %i)", id, count);
 
 	mutex->nm.lockLevel -= count;
 
@@ -650,7 +639,7 @@ int sceKernelUnlockMutex(SceUID id, int count)
 			hleReSchedule("mutex unlocked");
 	}
 
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
@@ -676,23 +665,19 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
-int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
-{
-	if (!name)
-	{
-		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
+int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr) {
+	if (!name) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	}
-	if (attr >= 0x400)
-	{
-		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateLwMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	if (attr >= 0x400) {
+		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	}
-
-	if (initialCount < 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	if (initialCount < 0) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+	}
+	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+	}
 
 	LwMutex *mutex = new LwMutex();
 	SceUID id = kernelObjects.Create(mutex);
@@ -713,8 +698,6 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	workarea->attr = attr;
 	workarea->uid = id;
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
-
 	if (optionsPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionsPtr);
@@ -724,7 +707,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 template <typename T>
@@ -752,19 +735,19 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 	return true;
 }
 
-int sceKernelDeleteLwMutex(u32 workareaPtr)
-{
+int sceKernelDeleteLwMutex(u32 workareaPtr) {
 	DEBUG_LOG(Log::sceKernel, "sceKernelDeleteLwMutex(%08x)", workareaPtr);
 
 	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error;
 	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
-	if (mutex)
-	{
+	if (!mutex) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
 		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter, end;
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
@@ -776,10 +759,8 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 		if (wokeThreads)
 			hleReSchedule("lwmutex deleted");
 
-		return kernelObjects.Destroy<LwMutex>(mutex->GetUID());
+		return hleLogDebugOrError(Log::sceKernel, kernelObjects.Destroy<LwMutex>(mutex->GetUID()));
 	}
-	else
-		return error;
 }
 
 static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 &error)
@@ -792,9 +773,9 @@ static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 
 			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 		// Two positive ints will always overflow to negative.
 		else if (count + workarea->lockLevel < 0)
-			error = PSP_LWMUTEX_ERROR_LOCK_OVERFLOW;
+			error = SCE_LWMUTEX_ERROR_LOCK_OVERFLOW;
 		else if (workarea->uid == -1)
-			error = PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
+			error = SCE_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 	}
 
 	if (error)
@@ -825,7 +806,7 @@ static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 
 		}
 		else
 		{
-			error = PSP_LWMUTEX_ERROR_ALREADY_LOCKED;
+			error = SCE_LWMUTEX_ERROR_ALREADY_LOCKED;
 			return false;
 		}
 	}
@@ -910,11 +891,8 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
-
 	if (!Memory::IsValidAddress(workareaPtr)) {
-		ERROR_LOG(Log::sceKernel, "Bad workarea pointer for LwMutex");
-		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
@@ -922,21 +900,18 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-		return 0;
-	// Unlike sceKernelTryLockLwMutex_600, this always returns the same error.
+		return hleLogDebug(Log::sceKernel, 0);
 	else if (error)
-		return PSP_MUTEX_ERROR_TRYLOCK_FAILED;
+		// Unlike sceKernelTryLockLwMutex_600, this always returns the same error.
+		return hleLogDebug(Log::sceKernel, SCE_MUTEX_ERROR_TRYLOCK_FAILED);
 	else
-		return PSP_MUTEX_ERROR_TRYLOCK_FAILED;
+		return hleLogDebug(Log::sceKernel, SCE_MUTEX_ERROR_TRYLOCK_FAILED);
 }
 
 int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelTryLockLwMutex_600(%08x, %i)", workareaPtr, count);
-
 	if (!Memory::IsValidAddress(workareaPtr)) {
-		ERROR_LOG(Log::sceKernel, "Bad workarea pointer for LwMutex");
-		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
@@ -944,20 +919,17 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	else if (error)
-		return error;
+		return hleLogDebug(Log::sceKernel, error);
 	else
-		return PSP_LWMUTEX_ERROR_TRYLOCK_FAILED;
+		return hleLogDebug(Log::sceKernel, SCE_LWMUTEX_ERROR_TRYLOCK_FAILED);
 }
 
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
-	VERBOSE_LOG(Log::sceKernel, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
-
 	if (!Memory::IsValidAddress(workareaPtr)) {
-		ERROR_LOG(Log::sceKernel, "Bad workarea pointer for LwMutex");
-		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
@@ -965,14 +937,15 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-		return 0;
+		return hleLogVerbose(Log::sceKernel, 0);
 	else if (error)
-		return error;
+		return hleLogVerbose(Log::sceKernel, error);
 	else
 	{
 		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
-		if (mutex)
-		{
+		if (!mutex) {
+			return hleLogError(Log::sceKernel, error);
+		} else {
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
@@ -981,10 +954,8 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea->uid, count, timeoutPtr, false, "lwmutex waited");
 
 			// Return value will be overwritten by wait.
-			return 0;
+			return hleLogVerbose(Log::sceKernel, 0);
 		}
-		else
-			return error;
 	}
 }
 
@@ -993,8 +964,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	VERBOSE_LOG(Log::sceKernel, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
 	if (!Memory::IsValidAddress(workareaPtr)) {
-		ERROR_LOG(Log::sceKernel, "Bad workarea pointer for LwMutex");
-		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
@@ -1002,14 +972,15 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-		return 0;
+		return hleLogVerbose(Log::sceKernel, 0);
 	else if (error)
-		return error;
+		return hleLogVerbose(Log::sceKernel, error);
 	else
 	{
 		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
-		if (mutex)
-		{
+		if (!mutex) {
+			return hleLogError(Log::sceKernel, error);
+		} else {
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
@@ -1018,35 +989,32 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea->uid, count, timeoutPtr, true, "lwmutex cb waited");
 
 			// Return value will be overwritten by wait.
-			return 0;
+			return hleLogVerbose(Log::sceKernel, 0);
 		}
-		else
-			return error;
 	}
 }
 
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
-	VERBOSE_LOG(Log::sceKernel, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
-
 	if (!Memory::IsValidAddress(workareaPtr)) {
-		ERROR_LOG(Log::sceKernel, "Bad workarea pointer for LwMutex");
-		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	hleEatCycles(28);
 
 	if (workarea->uid == -1)
-		return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
+		return hleLogError(Log::sceKernel, SCE_LWMUTEX_ERROR_NO_SUCH_LWMUTEX);
 	else if (count <= 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	else if ((workarea->attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	else if (workarea->lockLevel == 0 || workarea->lockThread != __KernelGetCurThread())
-		return PSP_LWMUTEX_ERROR_NOT_LOCKED;
+		return hleLogDebug(Log::sceKernel, SCE_LWMUTEX_ERROR_NOT_LOCKED);
 	else if (workarea->lockLevel < count)
-		return PSP_LWMUTEX_ERROR_UNLOCK_UNDERFLOW;
+		return hleLogDebug(Log::sceKernel, SCE_LWMUTEX_ERROR_UNLOCK_UNDERFLOW);
+
+	VERBOSE_LOG(Log::sceKernel, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
 
 	workarea->lockLevel -= count;
 
@@ -1057,9 +1025,10 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 			hleReSchedule("lwmutex unlocked");
 	}
 
-	return 0;
+	return hleNoLog(0);
 }
 
+// Logs like a HLE function
 static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr) {
 	u32 error;
 	LwMutex *m = kernelObjects.Get<LwMutex>(uid, error);
@@ -1094,7 +1063,7 @@ int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr) {
 int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr) {
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	if (!workarea.IsValid()) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "bad workarea pointer for LwMutex");
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
 	return __KernelReferLwMutexStatus(workarea->uid, infoPtr);

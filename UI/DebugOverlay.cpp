@@ -3,6 +3,9 @@
 #include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
+#include "Common/Data/Text/Parsers.h"
+
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
@@ -292,25 +295,36 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	bool checkingISO = false;
 	bool isoOK = false;
-
 	char crcStr[50]{};
-	if (Reporting::HasCRC(gamePath)) {
-		u32 crc = Reporting::RetrieveCRC(gamePath);
-		std::vector<GameDBInfo> dbInfos;
-		if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
-			for (auto &dbInfo : dbInfos) {
-				if (dbInfo.crc == crc) {
-					isoOK = true;
+
+	switch (PSP_CoreParameter().fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	{
+		if (Reporting::HasCRC(gamePath)) {
+			u32 crc = Reporting::RetrieveCRC(gamePath);
+			std::vector<GameDBInfo> dbInfos;
+			if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
+				for (auto &dbInfo : dbInfos) {
+					if (dbInfo.crc == crc) {
+						isoOK = true;
+					}
 				}
 			}
+			snprintf(crcStr, sizeof(crcStr), "CRC: %08x %s\n", crc, isoOK ? "(Known good!)" : "(not identified)");
+		} else {
+			// Queue it for calculation, we want it!
+			// It's OK to call this repeatedly until we have it, which is natural here.
+			Reporting::QueueCRC(gamePath);
+			checkingISO = true;
 		}
-		snprintf(crcStr, sizeof(crcStr), "CRC: %08x %s\n", crc, isoOK ? "(Known good!)" : "(not identified)");
-	} else {
-		// Queue it for calculation, we want it!
-		// It's OK to call this repeatedly until we have it, which is natural here.
-		Reporting::QueueCRC(gamePath);
-		checkingISO = true;
+		break;
 	}
+	default:
+		// Don't show ISO warning for other file types.
+		isoOK = true;
+		break;
+	};
 
 	// TODO: Draw a lot more information. Full register set, and so on.
 
@@ -402,19 +416,29 @@ Invalid / Unknown (%d)
 
 	ctx->PopScissor();
 
-	// Draw some additional stuff to the right.
+	// Draw some additional stuff to the right, explaining why the background is purple, if it is.
+	// Should try to be in sync with Reporting::IsSupported().
 
 	std::string tips;
 	if (CheatsInEffect()) {
 		tips += "* Turn off cheats.\n";
+	}
+	if (HLEPlugins::HasEnabled()) {
+		tips += "* Turn off plugins.\n";
+	}
+	if (g_Config.uJitDisableFlags) {
+		tips += StringFromFormat("* Don't use JitDisableFlags: %08x\n", g_Config.uJitDisableFlags);
 	}
 	if (GetLockedCPUSpeedMhz()) {
 		tips += "* Set CPU clock to default (0)\n";
 	}
 	if (checkingISO) {
 		tips += "* (waiting for CRC...)\n";
-	} else if (!isoOK) {  // TODO: Should check that it actually is an ISO and not a homebrew
+	} else if (!isoOK) {
 		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
+	}
+	if (g_paramSFO.GetValueString("DISC_VERSION").empty()) {
+		tips += "\n(DISC_VERSION is empty)\n";
 	}
 	if (!tips.empty()) {
 		tips = "Things to try:\n" + tips;
@@ -441,32 +465,33 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
 
-	char fpsbuf[256];
-	fpsbuf[0] = '\0';
+	char temp[256];
+	StringWriter w(temp);
+
 	if ((g_Config.iShowStatusFlags & ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
-		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / ((g_Config.iDisplayRefreshRate / 60.0f * 59.94f) / 100.0f));
+		// Both at the same time gets a shorter formulation.
+		w.F("%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / ((g_Config.iDisplayRefreshRate / 60.0f * 59.94f) / 100.0f));
 	} else {
 		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) {
-			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps);
+			w.F("FPS: %0.1f", actual_fps);
 		} else if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) {
-			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f));
+			w.F("Speed: %0.1f%%", vps / (59.94f / 100.0f));
 		}
 	}
-
 	if (System_GetPropertyBool(SYSPROP_CAN_READ_BATTERY_PERCENTAGE)) {
 		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
-			char temp[256];
 			const int percentage = System_GetPropertyInt(SYSPROP_BATTERY_PERCENTAGE);
-			snprintf(temp, sizeof(temp), "%s Battery: %d%%", fpsbuf, percentage);
-			snprintf(fpsbuf, sizeof(fpsbuf), "%s", temp);
+			// Just plain append battery. Add linebreak?
+			w.F(" Battery: %d%%", percentage);
 		}
 	}
 
 	ctx->Flush();
+
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.7f, 0.7f);
-	ctx->Draw()->DrawText(ubuntu24, fpsbuf, bounds.x2() - 8, 20, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(ubuntu24, fpsbuf, bounds.x2() - 10, 19, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 8, 20, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 10, 19, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();

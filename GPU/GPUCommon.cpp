@@ -22,9 +22,9 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/MemMapHelpers.h"
@@ -35,6 +35,8 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
+
+bool __KernelIsDispatchEnabled();
 
 void GPUCommon::Flush() {
 	drawEngineCommon_->Flush();
@@ -358,7 +360,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 
 	// If args->size is below 16, it's the old struct without stack info.
 	if (args.IsValid() && args->size >= 16 && args->numStacks >= 256) {
-		return hleLogError(Log::G3D, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stack depth %d", args->numStacks);
+		ERROR_LOG(Log::G3D, "invalid stack depth %d", args->numStacks);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	}
 
 	int id = -1;
@@ -529,7 +532,7 @@ u32 GPUCommon::Continue(bool *runList) {
 	else
 	{
 		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
-			return 0x80000004;
+			return 0x80000004;  // matches SCE_KERNEL_ERROR_BAD_ARGUMENT but doesn't really seem like it. Maybe that error code is more general.
 		return -1;
 	}
 
@@ -623,31 +626,30 @@ bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {
 		GPUDebug::NotifyResult result = NotifyCommand(list.pc, &breakpoints_);
-
-		if (result == GPUDebug::NotifyResult::Execute) {
-			recorder_.NotifyCommand(list.pc);
-			u32 op = Memory::ReadUnchecked_U32(list.pc);
-			u32 cmd = op >> 24;
-
-			u32 diff = op ^ gstate.cmdmem[cmd];
-			PreExecuteOp(op, diff);
-			if (dumpThisFrame) {
-				char temp[256];
-				u32 prev;
-				if (Memory::IsValidAddress(list.pc - 4)) {
-					prev = Memory::ReadUnchecked_U32(list.pc - 4);
-				} else {
-					prev = 0;
-				}
-				GeDisassembleOp(list.pc, op, prev, temp, 256);
-				NOTICE_LOG(Log::G3D, "%08x: %s", op, temp);
-			}
-			gstate.cmdmem[cmd] = op;
-
-			ExecuteOp(op, diff);
-		} else if (result == GPUDebug::NotifyResult::Break) {
+		if (result == GPUDebug::NotifyResult::Break) {
 			return false;
 		}
+
+		recorder_.NotifyCommand(list.pc);
+		u32 op = Memory::ReadUnchecked_U32(list.pc);
+		u32 cmd = op >> 24;
+
+		u32 diff = op ^ gstate.cmdmem[cmd];
+		PreExecuteOp(op, diff);
+		if (dumpThisFrame) {
+			char temp[256];
+			u32 prev;
+			if (Memory::IsValidAddress(list.pc - 4)) {
+				prev = Memory::ReadUnchecked_U32(list.pc - 4);
+			} else {
+				prev = 0;
+			}
+			GeDisassembleOp(list.pc, op, prev, temp, 256);
+			NOTICE_LOG(Log::G3D, "%08x: %s", op, temp);
+		}
+		gstate.cmdmem[cmd] = op;
+
+		ExecuteOp(op, diff);
 
 		list.pc += 4;
 		--downcount;
@@ -1195,8 +1197,10 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Approximate based on timings of several counts on a PSP.
 	cyclesExecuted += count * 22;
 
-	const bool useInds = (gstate.vertType & GE_VTYPE_IDX_MASK) != 0;
-	VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(gstate.vertType);
+	const u32 vertType = gstate.vertType;
+
+	const bool useInds = (vertType & GE_VTYPE_IDX_MASK) != 0;
+	const VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(vertType);
 	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
@@ -1205,23 +1209,17 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		currentList->bboxResult = true;
 		return;
 	}
-
-	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	if (!control_points) {
-		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Invalid verts in bounding box check");
-		currentList->bboxResult = true;
-		return;
-	}
+	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);  // we checked the range above.
 
 	const void *inds = nullptr;
 	if (useInds) {
-		int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
-		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-		if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+		const int indexSizeShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+		if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexSizeShift)) {
 			ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
+		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	// Test if the bounding box is within the drawing region.
@@ -1229,12 +1227,12 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	if (count > 0x200) {
 		// The second to last set of 0x100 is checked (even for odd counts.)
 		size_t skipSize = (count - 0x200) * dec->VertexSize();
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, dec, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, dec, vertType);
 	} else if (count > 0x100) {
 		int checkSize = count - 0x100;
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, dec, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, dec, vertType);
 	} else {
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, vertType);
 	}
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
@@ -2116,11 +2114,6 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
 
-		if (coreState == CORE_POWERDOWN) {
-			breakNext_ = BreakNext::NONE;
-			return process ? NotifyResult::Execute : NotifyResult::Skip;
-		}
-
 		u32 op = Memory::Read_U32(pc);
 		auto info = DisassembleOp(pc, op);
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
@@ -2141,6 +2134,10 @@ void GPUCommon::NotifyFlush() {
 		if (primAfterDraw_) {
 			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
 			primAfterDraw_ = false;
+
+			// We've got one to rewind.
+			primsThisFrame_--;
+
 			// Switch to PRIM mode.
 			SetBreakNext(BreakNext::PRIM);
 		}

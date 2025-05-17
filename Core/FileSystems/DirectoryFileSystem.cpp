@@ -69,16 +69,17 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path &
 	static const std::string_view upperCase = "WJPCZSBNNZFXSGOS";
 
 	// Check for case sensitivity
+	bool checkSucceeded = false;
 	File::CreateEmptyFile(basePath / mixedCase);
 	if (File::Exists(basePath / mixedCase)) {
-		INFO_LOG(Log::IO, "File system probably writable, so case sensitivity check should be reliable.");
+		checkSucceeded = true;
 		if (!File::Exists(basePath / upperCase)) {
 			flags |= FileSystemFlags::CASE_SENSITIVE;
 		}
 	}
 	File::Delete(basePath / mixedCase);
 
-	INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: %s)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str());
+	INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: '%s') (checkOK: %d)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str(), checkSucceeded);
 
 	hAlloc = _hAlloc;
 }
@@ -431,21 +432,21 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	return replay_ ? (size_t)ReplayApplyDisk64(ReplayAction::FILE_SEEK, result, CoreTiming::GetGlobalTimeUs()) : result;
 }
 
-void DirectoryFileHandle::Close()
-{
+void DirectoryFileHandle::Close() {
 	if (needsTrunc_ != -1) {
 #ifdef _WIN32
 		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
 		if (SetEndOfFile(hFile) == 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file.");
+			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
 		}
 #elif !PPSSPP_PLATFORM(SWITCH)
 		// Note: it's not great that Switch cannot truncate appropriately...
 		if (ftruncate(hFile, (off_t)needsTrunc_) != 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file.");
+			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
 		}
 #endif
 	}
+
 #ifdef _WIN32
 	if (hFile != (HANDLE)-1)
 		CloseHandle(hFile);
@@ -648,7 +649,7 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &use
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		if (size < 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
+			ERROR_LOG(Log::FileSystem, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
 			return 0;
 		}
 
@@ -724,6 +725,11 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	localtime_r((time_t*)&mtime, &x.mtime);
 
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
+}
+
+PSPFileInfo DirectoryFileSystem::GetFileInfoByHandle(u32 handle) {
+	WARN_LOG(Log::FileSystem, "GetFileInfoByHandle not yet implemented for DirectoryFileSystem");
+	return PSPFileInfo();
 }
 
 #ifdef _WIN32
@@ -1063,6 +1069,11 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	}
 	return x;
 }
+
+PSPFileInfo VFSFileSystem::GetFileInfoByHandle(u32 handle) {
+	return PSPFileInfo();
+}
+
 
 void VFSFileSystem::CloseFile(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);

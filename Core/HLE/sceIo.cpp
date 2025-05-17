@@ -141,7 +141,7 @@ static MemStickFatState lastMemStickFatState;
 
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
-static std::thread *ioManagerThread;
+static std::thread ioManagerThread;
 
 // TODO: Is it better to just put all on the thread?
 // Let's try. (was 256)
@@ -582,10 +582,12 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 static void __IoManagerThread() {
 	SetCurrentThreadName("IO");
+	INFO_LOG(Log::sceIo, "Entering __IoManagerThread");
 	AndroidJNIThreadContext jniContext;
-	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
+	while (ioManagerThreadEnabled) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
+	INFO_LOG(Log::sceIo, "Leaving __IoManagerThread");
 }
 
 static void __IoWakeManager(CoreLifecycle stage) {
@@ -690,7 +692,7 @@ void __IoInit() {
 	ioManagerThreadEnabled = true;
 	ioManager.SetThreadEnabled(true);
 	Core_ListenLifecycle(&__IoWakeManager);
-	ioManagerThread = new std::thread(&__IoManagerThread);
+	ioManagerThread = std::thread(&__IoManagerThread);
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
@@ -772,10 +774,8 @@ void __IoShutdown() {
 	ioManagerThreadEnabled = false;
 	ioManager.SyncThread();
 	ioManager.FinishEventLoop();
-	if (ioManagerThread != nullptr) {
-		ioManagerThread->join();
-		delete ioManagerThread;
-		ioManagerThread = nullptr;
+	if (ioManagerThread.joinable()) {
+		ioManagerThread.join();
 		ioManager.Shutdown();
 	}
 
@@ -968,7 +968,7 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 			return hleDelayResult(hleLogError(Log::sceIo, -1, "bad address"), "io getstat", usec);
 		}
 	} else {
-		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "FILE NOT FOUND"), "io getstat", usec);
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "FILE NOT FOUND"), "io getstat", usec);
 	}
 }
 
@@ -977,11 +977,13 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (!iostat.IsValid())
 		return hleReportError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
 
-	ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
+	ERROR_LOG(Log::sceIo, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
 	if (changebits & SCE_CST_MODE)
 		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change mode to %03o requested", iostat->st_mode);
-	if (changebits & SCE_CST_ATTR)
+	if (changebits & SCE_CST_ATTR) {
+		// These are pretty much all of the reported calls: https://report.ppsspp.org/logs/kind/1115
 		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change attr to %04x requested", iostat->st_attr);
+	}
 	if (changebits & SCE_CST_SIZE)
 		ERROR_LOG(Log::sceIo, "sceIoChstat: change size requested");
 	if (changebits & SCE_CST_CT)
@@ -1171,6 +1173,15 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	}
 }
 
+void SanitizeControlChars(std::string &buf) {
+	for (auto &c : buf) {
+		// Eat BEL characters and other bad ones before echoing.
+		if (c < 32 && c != 10 && c != 13) {
+			c = ' ';
+		}
+	}
+}
+
 static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the WriteFile result.
@@ -1185,7 +1196,10 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
 		const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
-		INFO_LOG(Log::Printf, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
+		// buffer so we can edit the string.
+		std::string buf(str, str_size);
+		SanitizeControlChars(buf);
+		INFO_LOG(Log::Printf, "%s: %.*s", id == 1 ? "stdout" : "stderr", (int)buf.size(), buf.data());
 		result = validSize;
 		return true;
 	}
@@ -1211,7 +1225,9 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		if (f->isTTY) {
 			const char *str = (const char *)data_ptr;
 			const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
-			INFO_LOG(Log::Printf, "%s: %.*s", "tty", str_size, str);
+			std::string buf(str, str_size);
+			SanitizeControlChars(buf);
+			INFO_LOG(Log::Printf, "%s: %.*s", "tty", (int)buf.size(), buf.data());
 			result = validSize;
 			return true;
 		}
@@ -1516,7 +1532,7 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 
 		isTTY = true;
 	} else {
-		h = pspFileSystem.OpenFile(filename, (FileAccess)access);
+		h = pspFileSystem.OpenFile(filename, (FileAccess)(access | (int)FileAccess::FILEACCESS_PPSSPP_QUIET));
 		if (h < 0) {
 			error = h;
 			return nullptr;
@@ -2178,7 +2194,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	FileNode *f = __IoOpen(error, filename, flags, mode);
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
-	if (f == nullptr) {
+	if (!f) {
 		_assert_(error != 0);
 		if (error == SCE_KERNEL_ERROR_NODEV)
 			return hleLogError(Log::sceIo, error, "device not found");
@@ -2207,7 +2223,8 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 
 	if (error != 0) {
 		f->asyncResult = (s64)error;
-		return hleLogError(Log::sceIo, fd, "file not found");
+		// This is not necessarily an error, a lot of games check for the presence of files and are fine with no.
+		return hleLogWarning(Log::sceIo, fd, "file not found");
 	}
 
 	f->asyncResult = fd;
@@ -2390,7 +2407,7 @@ static u32 sceIoDopen(const char *path) {
 	auto listing = pspFileSystem.GetDirListing(path, &listingExists);
 
 	if (!listingExists) {
-		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND);
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND);
 	}
 
 	DirListing *dir = new DirListing();
@@ -2996,7 +3013,7 @@ const HLEFunction IoFileMgrForUser[] = {
 };
 
 void Register_IoFileMgrForUser() {
-	RegisterModule("IoFileMgrForUser", ARRAY_SIZE(IoFileMgrForUser), IoFileMgrForUser);
+	RegisterHLEModule("IoFileMgrForUser", ARRAY_SIZE(IoFileMgrForUser), IoFileMgrForUser);
 }
 
 const HLEFunction IoFileMgrForKernel[] = {
@@ -3036,7 +3053,7 @@ const HLEFunction IoFileMgrForKernel[] = {
 };
 
 void Register_IoFileMgrForKernel() {
-	RegisterModule("IoFileMgrForKernel", ARRAY_SIZE(IoFileMgrForKernel), IoFileMgrForKernel);
+	RegisterHLEModule("IoFileMgrForKernel", ARRAY_SIZE(IoFileMgrForKernel), IoFileMgrForKernel);
 }
 
 const HLEFunction StdioForUser[] = {
@@ -3054,7 +3071,7 @@ const HLEFunction StdioForUser[] = {
 };
 
 void Register_StdioForUser() {
-	RegisterModule("StdioForUser", ARRAY_SIZE(StdioForUser), StdioForUser);
+	RegisterHLEModule("StdioForUser", ARRAY_SIZE(StdioForUser), StdioForUser);
 }
 
 const HLEFunction StdioForKernel[] = {
@@ -3069,5 +3086,5 @@ const HLEFunction StdioForKernel[] = {
 };
 
 void Register_StdioForKernel() {
-	RegisterModule("StdioForKernel", ARRAY_SIZE(StdioForKernel), StdioForKernel);
+	RegisterHLEModule("StdioForKernel", ARRAY_SIZE(StdioForKernel), StdioForKernel);
 }

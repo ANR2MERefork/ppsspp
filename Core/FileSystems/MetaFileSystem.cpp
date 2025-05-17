@@ -162,7 +162,7 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	return true;
 }
 
-IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
+IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle) const
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (size_t i = 0; i < fileSystems.size(); i++)
@@ -273,19 +273,19 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 
 void MetaFileSystem::Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-
-	MountPoint x;
-	x.prefix = prefix;
-	x.system = system;
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
-			// Overwrite the old mount. Don't create a new one.
-			it = x;
+			// Overwrite the old mount.
+			// shared_ptr makes sure there's no leak.
+			it.system = system;
 			return;
 		}
 	}
 
 	// Prefix not yet mounted, do so.
+	MountPoint x;
+	x.prefix = prefix;
+	x.system = system;
 	fileSystems.push_back(x);
 }
 
@@ -303,17 +303,6 @@ void MetaFileSystem::Unmount(const std::string &prefix) {
 			return;
 		}
 	}
-}
-
-bool MetaFileSystem::Remount(const std::string &prefix, std::shared_ptr<IFileSystem> system) {
-	std::lock_guard<std::recursive_mutex> guard(lock);
-	for (auto &it : fileSystems) {
-		if (it.prefix == prefix) {
-			it.system = system;
-			return true;
-		}
-	}
-	return false;
 }
 
 IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
@@ -366,6 +355,14 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 		PSPFileInfo bogus;
 		return bogus; 
 	}
+}
+
+PSPFileInfo MetaFileSystem::GetFileInfoByHandle(u32 handle) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	IFileSystem *sys = GetHandleOwner(handle);
+	if (sys)
+		return sys->GetFileInfoByHandle(handle);
+	return PSPFileInfo();
 }
 
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(const std::string &path, bool *exists) {
@@ -649,7 +646,7 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
 	u64 result = 0;
 	auto allFiles = GetDirListing(dirPath);
-	for (auto file : allFiles) {
+	for (const auto &file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
 		if (file.type == FILETYPE_DIRECTORY) {

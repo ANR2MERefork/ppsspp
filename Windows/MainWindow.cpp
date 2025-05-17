@@ -113,7 +113,8 @@ struct VerySleepy_AddrInfo {
 	wchar_t name[256];
 };
 
-static std::wstring windowTitle;
+static std::mutex g_windowTitleLock;
+static std::wstring g_windowTitle;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -469,7 +470,11 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		std::wstring title = windowTitle;
+		std::wstring title;
+		{
+			std::lock_guard<std::mutex> lock(g_windowTitleLock);
+			title = g_windowTitle;
+		}
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
 			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
 		}
@@ -477,7 +482,11 @@ namespace MainWindow
 	}
 
 	void SetWindowTitle(const wchar_t *title) {
-		windowTitle = title;
+		{
+			std::lock_guard<std::mutex> lock(g_windowTitleLock);
+			g_windowTitle = title;
+		}
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 	}
 
 	BOOL Show(HINSTANCE hInstance) {
@@ -816,7 +825,7 @@ namespace MainWindow
 		};
 	}
 
-	bool ConfirmExit(HWND hWnd) {
+	bool ConfirmAction(HWND hWnd, bool actionIsReset) {
 		const GlobalUIState state = GetUIState();
 		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
 			return true;
@@ -828,8 +837,12 @@ namespace MainWindow
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		confirmExitMessage += '\n';
-		confirmExitMessage += di->T("Are you sure you want to exit?");
+		if (!actionIsReset) {
+			confirmExitMessage += '\n';
+			confirmExitMessage += di->T("Are you sure you want to exit?");
+		} else {
+			// Reset is bit rarer, let's just omit the extra message for now.
+		}
 		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
@@ -848,6 +861,7 @@ namespace MainWindow
 			if (g_darkModeSupported) {
 				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
 			}
+			SetAssertDialogParent(hWnd);
 			break;
 
 		case WM_USER_RUN_CALLBACK:
@@ -1112,7 +1126,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 		{
-			if (ConfirmExit(hWnd)) {
+			if (ConfirmAction(hWnd, false)) {
 				DestroyWindow(hWnd);
 			}
 			return 0;
@@ -1152,7 +1166,6 @@ namespace MainWindow
 			NativeSetRestarting();
 			InputDevice::StopPolling();
 			MainThread_Stop();
-			coreState = CORE_POWERUP;
 			UpdateUIState(UISTATE_MENU);
 			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
 			InputDevice::BeginPolling();

@@ -64,17 +64,25 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 	}
 	if (touch.flags & TOUCH_DOWN) {
 		io.AddMousePosEvent(x, y);
-		if (touch.buttons & 1)
+		if (touch.flags & TOUCH_MOUSE) {
+			if (touch.buttons & 1)
+				io.AddMouseButtonEvent(0, true);
+			if (touch.buttons & 2)
+				io.AddMouseButtonEvent(1, true);
+		} else {
 			io.AddMouseButtonEvent(0, true);
-		if (touch.buttons & 2)
-			io.AddMouseButtonEvent(1, true);
+		}
 	}
 	if (touch.flags & TOUCH_UP) {
 		io.AddMousePosEvent(x, y);
-		if (touch.buttons & 1)
+		if (touch.flags & TOUCH_MOUSE) {
+			if (touch.buttons & 1)
+				io.AddMouseButtonEvent(0, false);
+			if (touch.buttons & 2)
+				io.AddMouseButtonEvent(1, false);
+		} else {
 			io.AddMouseButtonEvent(0, false);
-		if (touch.buttons & 2)
-			io.AddMouseButtonEvent(1, false);
+		}
 	}
 }
 
@@ -181,6 +189,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_COMMA: return ImGuiKey_Comma;
 	case NKCODE_PERIOD: return ImGuiKey_Period;
 	case NKCODE_MINUS: return ImGuiKey_Minus;
+	case NKCODE_PLUS: return ImGuiKey_Equal;  // Hmm
 	case NKCODE_EQUALS: return ImGuiKey_Equal;
 	case NKCODE_LEFT_BRACKET: return ImGuiKey_LeftBracket;
 	case NKCODE_RIGHT_BRACKET: return ImGuiKey_RightBracket;

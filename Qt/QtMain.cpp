@@ -87,7 +87,7 @@ static void InitSDLAudioDevice() {
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 256;
+	fmt.samples = std::max(g_Config.iSDLAudioBufferSize, 128);
 	fmt.callback = &mixaudio;
 	fmt.userdata = nullptr;
 
@@ -325,6 +325,9 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 			break;
 		case BrowseFileType::ZIP:
 			filter = "ZIP files (*.zip)";
+			break;
+		case BrowseFileType::ATRAC3:
+			filter = "AT3 files (*.at3)";
 			break;
 		case BrowseFileType::ANY:
 			break;
@@ -613,7 +616,7 @@ bool MainUI::event(QEvent *e) {
 		case Qt::LeftButton:
 			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale * xscale;
 			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale * yscale;
-			input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
+			input.flags = ((e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP) | TOUCH_MOUSE;
 			input.id = 0;
 			NativeTouch(input);
 			break;
@@ -636,7 +639,7 @@ bool MainUI::event(QEvent *e) {
 	case QEvent::MouseMove:
 		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale * xscale;
 		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale * yscale;
-		input.flags = TOUCH_MOVE;
+		input.flags = TOUCH_MOVE | TOUCH_MOUSE;
 		input.id = 0;
 		NativeTouch(input);
 		break;

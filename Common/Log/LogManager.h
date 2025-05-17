@@ -56,9 +56,8 @@ ENUM_CLASS_BITOPS(LogOutput);
 class RingbufferLog {
 public:
 	void Log(const LogMessage &msg);
-
 	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
-	const char *TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg.c_str(); }
+	std::string_view TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg; }
 	LogLevel LevelAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level; }
 
 	void Clear() {
@@ -67,25 +66,17 @@ public:
 	}
 
 private:
-	enum { MAX_LOGS = 128 };
+	enum { MAX_LOGS = 256 };
 	LogMessage messages_[MAX_LOGS];
 	int curMessage_ = 0;
 	int count_ = 0;
-};
-
-struct LogChannel {
-#if defined(_DEBUG)
-	LogLevel level = LogLevel::LDEBUG;
-#else
-	LogLevel level = LogLevel::LDEBUG;
-#endif
-	bool enabled = true;
 };
 
 class Section;
 class ConsoleListener;
 
 typedef void (*LogCallback)(const LogMessage &message, void *userdata);
+extern bool *g_bLogEnabledSetting;
 
 class LogManager {
 public:
@@ -111,33 +102,26 @@ public:
 	void LogLine(LogLevel level, Log type,
 				 const char *file, int line, const char *fmt, va_list args);
 
-	bool IsEnabled(LogLevel level, Log type) const {
-		const LogChannel &log = log_[(size_t)type];
-		if (level > log.level || !log.enabled)
-			return false;
-		return true;
-	}
-
 	LogChannel *GetLogChannel(Log type) {
-		return &log_[(size_t)type];
+		return &g_log[(size_t)type];
 	}
 
 	void SetLogLevel(Log type, LogLevel level) {
-		log_[(size_t)type].level = level;
+		g_log[(size_t)type].level = level;
 	}
 
 	void SetAllLogLevels(LogLevel level) {
 		for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
-			log_[i].level = level;
+			g_log[i].level = level;
 		}
 	}
 
 	void SetEnabled(Log type, bool enable) {
-		log_[(size_t)type].enabled = enable;
+		g_log[(size_t)type].enabled = enable;
 	}
 
 	LogLevel GetLogLevel(Log type) {
-		return log_[(size_t)type].level;
+		return g_log[(size_t)type].level;
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -172,7 +156,6 @@ private:
 
 	bool initialized_ = false;
 
-	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *consoleLog_ = nullptr;
 #endif

@@ -343,9 +343,6 @@ struct GPUgstate {
 	bool isPointLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_POINT; }
 	bool isSpotLight(int chan) const { return getLightType(chan) >= GE_LIGHTTYPE_SPOT; }
 	GEShadeMode getShadeMode() const { return static_cast<GEShadeMode>(shademodel & 1); }
-	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
-	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
-	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
 	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
 	unsigned int getAmbientRGBA() const { return (ambientcolor&0xFFFFFF) | ((ambientalpha&0xFF)<<24); }
 	unsigned int getMaterialUpdate() const { return materialupdate & 7; }
@@ -354,30 +351,12 @@ struct GPUgstate {
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
 	unsigned int getMaterialAmbientA() const { return materialalpha&0xFF; }
 	unsigned int getMaterialAmbientRGBA() const { return (materialambient & 0x00FFFFFF) | (materialalpha << 24); }
-	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
-	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
-	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
 	unsigned int getMaterialDiffuse() const { return materialdiffuse & 0xffffff; }
-	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
-	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
-	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
 	unsigned int getMaterialEmissive() const { return materialemissive & 0xffffff; }
-	unsigned int getMaterialSpecularR() const { return materialspecular&0xFF; }
-	unsigned int getMaterialSpecularG() const { return (materialspecular>>8)&0xFF; }
-	unsigned int getMaterialSpecularB() const { return (materialspecular>>16)&0xFF; }
 	unsigned int getMaterialSpecular() const { return materialspecular & 0xffffff; }
 	float getMaterialSpecularCoef() const { return getFloat24(materialspecularcoef); }
-	unsigned int getLightAmbientColorR(int chan) const { return lcolor[chan*3]&0xFF; }
-	unsigned int getLightAmbientColorG(int chan) const { return (lcolor[chan*3]>>8)&0xFF; }
-	unsigned int getLightAmbientColorB(int chan) const { return (lcolor[chan*3]>>16)&0xFF; }
 	unsigned int getLightAmbientColor(int chan) const { return lcolor[chan*3]&0xFFFFFF; }
-	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
-	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
-	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
 	unsigned int getDiffuseColor(int chan) const { return lcolor[1+chan*3]&0xFFFFFF; }
-	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
-	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
-	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
 	unsigned int getSpecularColor(int chan) const { return lcolor[2+chan*3]&0xFFFFFF; }
 
 	int getPatchDivisionU() const { return patchdivision & 0x7F; }
@@ -441,7 +420,6 @@ struct GPUgstate {
 	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
 	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
-
 	void FastLoadBoneMatrix(u32 addr);
 
 	// Real data in the context ends here
@@ -501,6 +479,7 @@ enum {
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
 	GPU_USE_CULL_DISTANCE = FLAG_BIT(25),
+	GPU_USE_SHADER_BLENDING = FLAG_BIT(26),  // This is set to false when skip buffer effects is enabled and GPU_USE_FRAMEBUFFER_FETCH is not.
 
 	// VR flags (reserved or in-use)
 	GPU_USE_VIRTUAL_REALITY = FLAG_BIT(29),
@@ -599,13 +578,7 @@ struct GPUStateCache {
 			Dirty(DIRTY_UVSCALEOFFSET);
 		}
 	}
-	void SetUseFlags(u32 newFlags) {
-		if (newFlags != useFlags_) {
-			if (useFlags_ != 0)
-				useFlagsChanged = true;
-			useFlags_ = newFlags;
-		}
-	}
+	bool SetUseFlags(u32 newFlags);
 
 	// When checking for a single flag, use Use()/UseAll().
 	u32 GetUseFlags() const {

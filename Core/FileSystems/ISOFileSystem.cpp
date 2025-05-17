@@ -478,7 +478,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		OpenFileEntry &e = iter->second;
 
 		if (size < 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			ERROR_LOG(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
 			return 0;
 		}
 		
@@ -515,11 +515,11 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			// Clamp to the remaining size, but read what we can.
 			const s64 newSize = fileSize - (s64)e.seekPos;
 			// Reading beyond the file is really quite normal behavior (if return value handled correctly), so
-			// not doing WARN here. Still, can potentially be useful to see so leaving at INFO.
+			// not doing WARN here.
 			if (newSize == 0) {
-				INFO_LOG(Log::FileSystem, "Attempted read at end of file, 0-size read simulated");
+				DEBUG_LOG(Log::FileSystem, "Attempted read at end of file, 0-size read simulated");
 			} else {
-				INFO_LOG(Log::FileSystem, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
+				DEBUG_LOG(Log::FileSystem, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
 			}
 			size = newSize;
 		}
@@ -626,6 +626,23 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 	TreeEntry *entry = GetFromPath(filename, false);
 	PSPFileInfo x; 
 	if (entry) {
+		x.name = entry->name;
+		// Strangely, it seems to be executable even for files.
+		x.access = 0555;
+		x.size = entry->size;
+		x.exists = true;
+		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+		x.isOnSectorSystem = true;
+		x.startSector = entry->startingPosition / 2048;
+	}
+	return x;
+}
+
+PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
+	auto iter = entries.find(handle);
+	PSPFileInfo x;
+	if (iter != entries.end()) {
+		const TreeEntry *entry = iter->second.file;
 		x.name = entry->name;
 		// Strangely, it seems to be executable even for files.
 		x.access = 0555;

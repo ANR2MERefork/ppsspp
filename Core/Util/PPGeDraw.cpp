@@ -251,6 +251,8 @@ void __PPGeInit() {
 	int height[12]{};
 	int flags = 0;
 
+	// TODO: Load the atlas on a thread!
+
 	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
 	if (!skipZIM && !loadedZIM) {
 		ERROR_LOG(Log::sceGe, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");
@@ -1343,12 +1345,17 @@ void PPGeDisableTexture()
 
 std::vector<PPGeImage *> PPGeImage::loadedTextures_;
 
+constexpr size_t MAX_VALID_IMAGE_SIZE = 16 * 1024 * 1024;
+
 PPGeImage::PPGeImage(std::string_view pspFilename)
 	: filename_(pspFilename) {
 }
 
 PPGeImage::PPGeImage(u32 pngPointer, size_t pngSize)
 	: filename_(""), png_(pngPointer), size_(pngSize) {
+	if (!Memory::IsValidRange(this->png_, (u32)this->size_)) {
+		WARN_LOG(Log::sceGe, "Created PPGeImage from invalid memory range %08x (%08x bytes). Will not be drawn.", this->png_, (int)this->size_);
+	}
 }
 
 PPGeImage::~PPGeImage() {
@@ -1363,10 +1370,16 @@ bool PPGeImage::Load() {
 	width_ = 0;
 	height_ = 0;
 
-	unsigned char *textureData;
+	unsigned char *textureData = nullptr;
 	int success;
 	if (filename_.empty()) {
-		success = pngLoadPtr(Memory::GetPointerRange(png_, (u32)size_), size_, &width_, &height_, &textureData);
+		_dbg_assert_(size_ < MAX_VALID_IMAGE_SIZE);
+		const u8 *srcPtr = Memory::GetPointerRange(png_, (u32)size_);
+		if (!srcPtr) {
+			ERROR_LOG(Log::sceGe, "Trying to load PPGeImage from invalid range: %08x, %08x bytes", png_, (int)size_);
+			return false;
+		}
+		success = pngLoadPtr(srcPtr, size_, &width_, &height_, &textureData);
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
@@ -1405,6 +1418,10 @@ bool PPGeImage::Load() {
 bool PPGeImage::IsValid() {
 	if (loadFailed_)
 		return false;
+
+	if (!Memory::IsValidRange(this->png_, (u32)this->size_)) {
+		return false;
+	}
 
 	if (texture_ == 0) {
 		Decimate();

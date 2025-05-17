@@ -25,6 +25,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -74,6 +75,7 @@
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
+#include "sceReg.h"
 #include "sceRtc.h"
 #include "sceSsl.h"
 #include "sceSas.h"
@@ -163,6 +165,7 @@ void __KernelInit()
 	__OpenPSIDInit();
 	__HttpInit();
 	__NpInit();
+	__RegInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -177,9 +180,8 @@ void __KernelInit()
 
 void __KernelShutdown()
 {
-	if (!kernelRunning)
-	{
-		ERROR_LOG(Log::sceKernel, "Can't shut down kernel - not running");
+	if (!kernelRunning) {
+		INFO_LOG(Log::sceKernel, "Can't shut down kernel - not running");
 		return;
 	}
 	kernelObjects.List();
@@ -187,6 +189,7 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__RegShutdown();
 	__HttpShutdown();
 	__OpenPSIDShutdown();
 	__UsbCamShutdown();
@@ -302,6 +305,7 @@ void __KernelDoState(PointerWrap &p)
 		__AACDoState(p);
 		__UsbGpsDoState(p);
 		__UsbMicDoState(p);
+		__RegDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
@@ -325,9 +329,7 @@ std::string __KernelStateSummary() {
 	return __KernelThreadingSummary();
 }
 
-
-void sceKernelExitGame()
-{
+void sceKernelExitGame() {
 	INFO_LOG(Log::sceKernel, "sceKernelExitGame");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
@@ -358,22 +360,22 @@ u32 sceKernelDevkitVersion()
 }
 
 u32 sceKernelRegisterKprintfHandler() {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
 int sceKernelRegisterDefaultExceptionHandler() {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
-void sceKernelSetGPO(u32 ledBits)
-{
+void sceKernelSetGPO(u32 ledBits) {
 	// Sets debug LEDs. Some games do interesting stuff with this, like a metronome in Parappa.
 	// Shows up as a vertical strip of LEDs at the side of the screen, if enabled.
 	g_GPOBits = ledBits;
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetGPO: %08x", ledBits);
+	return hleNoLogVoid();
 }
 
-u32 sceKernelGetGPI()
-{
+u32 sceKernelGetGPI() {
 	// Always returns 0 on production systems.
 	// On developer systems, there are 8 switches that control the lower 8 bits of the return value.
 	return hleLogDebug(Log::sceKernel, g_GPIBits);
@@ -486,6 +488,10 @@ u32 sceKernelIcacheClearAll()
 }
 
 void KernelObject::GetQuickInfo(char *ptr, int size) {
+	strcpy(ptr, "-");
+}
+
+void KernelObject::GetLongInfo(char *ptr, int size) const {
 	strcpy(ptr, "-");
 }
 
@@ -650,7 +656,6 @@ struct SystemStatus {
 };
 
 static int sceKernelReferSystemStatus(u32 statusPtr) {
-	DEBUG_LOG(Log::sceKernel, "sceKernelReferSystemStatus(%08x)", statusPtr);
 	auto status = PSPPointer<SystemStatus>::Create(statusPtr);
 	if (status.IsValid()) {
 		memset((SystemStatus *)status, 0, sizeof(SystemStatus));
@@ -658,7 +663,7 @@ static int sceKernelReferSystemStatus(u32 statusPtr) {
 		// TODO: Fill in the struct!
 		status.NotifyWrite("SystemStatus");
 	}
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 // Unused - believed to be the returned struct from sceKernelReferThreadProfiler.
@@ -944,7 +949,7 @@ const HLEFunction ThreadManForKernel[] =
 
 void Register_ThreadManForUser()
 {
-	RegisterModule("ThreadManForUser", ARRAY_SIZE(ThreadManForUser), ThreadManForUser);
+	RegisterHLEModule("ThreadManForUser", ARRAY_SIZE(ThreadManForUser), ThreadManForUser);
 }
 
 
@@ -960,7 +965,7 @@ const HLEFunction LoadExecForUser[] =
 
 void Register_LoadExecForUser()
 {
-	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
+	RegisterHLEModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
  
 const HLEFunction LoadExecForKernel[] =
@@ -973,7 +978,7 @@ const HLEFunction LoadExecForKernel[] =
  
 void Register_LoadExecForKernel()
 {
-	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
+	RegisterHLEModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }
 
 const HLEFunction ExceptionManagerForKernel[] =
@@ -990,7 +995,7 @@ const HLEFunction ExceptionManagerForKernel[] =
 
 void Register_ExceptionManagerForKernel()
 {
-	RegisterModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
+	RegisterHLEModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
 }
 
 // Seen in some homebrew
@@ -1019,18 +1024,18 @@ const HLEFunction UtilsForKernel[] = {
 
 void Register_UtilsForKernel()
 {
-	RegisterModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
+	RegisterHLEModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
 }
 
 void Register_ThreadManForKernel()
 {
-	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);
+	RegisterHLEModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);
 }
 
 const char *KernelErrorToString(u32 err) {
 	switch (err) {
-	case (u32)-1: return "-1";
 	case 0x00000000: return "ERROR_OK";
+	case SCE_KERNEL_ERROR_BAD_ARGUMENT: "BAD_ARGUMENT";
 	case 0x80000020: return "ALREADY";
 	case 0x80000021: return "BUSY";
 	case 0x80000022: return "OUT_OF_MEMORY";
@@ -1237,19 +1242,7 @@ const char *KernelErrorToString(u32 err) {
 	case 0x800201c0: return "ILLEGAL_KTLSID";
 	case 0x800201c1: return "KTLS_FULL";
 	case 0x800201c2: return "KTLS_BUSY";
-	case 0x800201c3: return "MUTEX_NOT_FOUND";
-	case 0x800201c4: return "MUTEX_LOCKED";
-	case 0x800201c5: return "MUTEX_UNLOCKED";
-	case 0x800201c6: return "MUTEX_LOCK_OVERFLOW";
-	case 0x800201c7: return "MUTEX_UNLOCK_UNDERFLOW";
-	case 0x800201c8: return "MUTEX_RECURSIVE_NOT_ALLOWED";
 	case 0x800201c9: return "MESSAGEBOX_DUPLICATE_MESSAGE";
-	case 0x800201ca: return "LWMUTEX_NOT_FOUND";
-	case 0x800201cb: return "LWMUTEX_LOCKED";
-	case 0x800201cc: return "LWMUTEX_UNLOCKED";
-	case 0x800201cd: return "LWMUTEX_LOCK_OVERFLOW";
-	case 0x800201ce: return "LWMUTEX_UNLOCK_UNDERFLOW";
-	case 0x800201cf: return "LWMUTEX_RECURSIVE_NOT_ALLOWED";
 	case SCE_KERNEL_ERROR_UNKNOWN_TLSPL_ID: return "UNKNOWN_TLSPL_ID";
 	case SCE_KERNEL_ERROR_TOO_MANY_TLSPL: return "TOO_MANY_TLSPL";
 	case SCE_KERNEL_ERROR_TLSPL_IN_USE: return "TLSPL_IN_USE";
@@ -1398,6 +1391,161 @@ const char *KernelErrorToString(u32 err) {
 
 	case SCE_ERROR_PGD_INVALID_HEADER: return "PGD_INVALID_HEADER";
 
+	case SCE_ERROR_ATRAC_API_FAIL: return "SCE_ERROR_ATRAC_API_FAIL";
+	case SCE_ERROR_ATRAC_NO_ATRACID: return "SCE_ERROR_ATRAC_NO_ATRACID";
+	case SCE_ERROR_ATRAC_INVALID_CODECTYPE: return "SCE_ERROR_ATRAC_INVALID_CODECTYPE";
+	case SCE_ERROR_ATRAC_BAD_ATRACID: return "SCE_ERROR_ATRAC_BAD_ATRACID";
+	case SCE_ERROR_ATRAC_UNKNOWN_FORMAT: return "SCE_ERROR_ATRAC_UNKNOWN_FORMAT";
+	case SCE_ERROR_ATRAC_WRONG_CODECTYPE: return "SCE_ERROR_ATRAC_WRONG_CODECTYPE";
+	case SCE_ERROR_ATRAC_BAD_CODEC_PARAMS: return "SCE_ERROR_ATRAC_BAD_CODEC_PARAMS";
+	case SCE_ERROR_ATRAC_ALL_DATA_LOADED: return "SCE_ERROR_ATRAC_ALL_DATA_LOADED";
+	case SCE_ERROR_ATRAC_NO_DATA: return "SCE_ERROR_ATRAC_NO_DATA";
+	case SCE_ERROR_ATRAC_SIZE_TOO_SMALL: return "SCE_ERROR_ATRAC_SIZE_TOO_SMALL";
+	case SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED: return "SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED";
+	case SCE_ERROR_ATRAC_INCORRECT_READ_SIZE: return "SCE_ERROR_ATRAC_INCORRECT_READ_SIZE";
+	case SCE_ERROR_ATRAC_BAD_SAMPLE: return "SCE_ERROR_ATRAC_BAD_SAMPLE";
+	case SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE: return "SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE";
+	case SCE_ERROR_ATRAC_BAD_SECOND_RESET_SIZE: return "SCE_ERROR_ATRAC_BAD_SECOND_RESET_SIZE";
+	case SCE_ERROR_ATRAC_ADD_DATA_IS_TOO_BIG: return "SCE_ERROR_ATRAC_ADD_DATA_IS_TOO_BIG";
+	case SCE_ERROR_ATRAC_NOT_MONO: return "SCE_ERROR_ATRAC_NOT_MONO";
+	case SCE_ERROR_ATRAC_NO_LOOP_INFORMATION: return "SCE_ERROR_ATRAC_NO_LOOP_INFORMATION";
+	case SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED: return "SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED";
+	case SCE_ERROR_ATRAC_BUFFER_IS_EMPTY: return "SCE_ERROR_ATRAC_BUFFER_IS_EMPTY";
+	case SCE_ERROR_ATRAC_ALL_DATA_DECODED: return "SCE_ERROR_ATRAC_ALL_DATA_DECODED";
+	case SCE_ERROR_ATRAC_IS_LOW_LEVEL: return "SCE_ERROR_ATRAC_IS_LOW_LEVEL";
+	case SCE_ERROR_ATRAC_IS_FOR_SCESAS: return "SCE_ERROR_ATRAC_IS_FOR_SCESAS";
+	case SCE_ERROR_ATRAC_AA3_INVALID_DATA: return "SCE_ERROR_ATRAC_AA3_INVALID_DATA";
+	case SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL: return "SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL";
+	case SCE_ERROR_ATRAC_BAD_ALIGNMENT: return "SCE_ERROR_ATRAC_BAD_ALIGNMENT";
+
+	case SCE_MPEG_ERROR_BAD_VERSION: return "SCE_MPEG_ERROR_BAD_VERSION";
+	case SCE_MPEG_ERROR_NO_MEMORY: return "SCE_MPEG_ERROR_NO_MEMORY";
+	case SCE_MPEG_ERROR_INVALID_ADDR: return "SCE_MPEG_ERROR_INVALID_ADDR";
+	case SCE_MPEG_ERROR_INVALID_VALUE: return "SCE_MPEG_ERROR_INVALID_VALUE";
+	case SCE_MPEG_ERROR_NO_DATA: return "SCE_MPEG_ERROR_NO_DATA";
+	case SCE_MPEG_ERROR_ALREADY_INIT: return "SCE_MPEG_ERROR_ALREADY_INIT";
+	case SCE_MPEG_ERROR_NOT_YET_INIT: return "SCE_MPEG_ERROR_NOT_YET_INIT";
+	case SCE_MPEG_ERROR_AVC_INVALID_VALUE: return "SCE_MPEG_ERROR_AVC_INVALID_VALUE";
+	case SCE_MPEG_ERROR_AVC_DECODE_FATAL: return "SCE_MPEG_ERROR_AVC_DECODE_FATAL";
+
+	case SCE_PSMF_ERROR_NOT_INITIALIZED: return "SCE_PSMF_ERROR_NOT_INITIALIZED";
+	case SCE_PSMF_ERROR_BAD_VERSION: return "SCE_PSMF_ERROR_BAD_VERSION";
+	case SCE_PSMF_ERROR_NOT_FOUND: return "SCE_PSMF_ERROR_NOT_FOUND";
+	case SCE_PSMF_ERROR_INVALID_ID: return "SCE_PSMF_ERROR_INVALID_ID";
+	case SCE_PSMF_ERROR_INVALID_VALUE: return "SCE_PSMF_ERROR_INVALID_VALUE";
+	case SCE_PSMF_ERROR_INVALID_TIMESTAMP: return "SCE_PSMF_ERROR_INVALID_TIMESTAMP";
+	case SCE_PSMF_ERROR_INVALID_PSMF: return "SCE_PSMF_ERROR_INVALID_PSMF";
+
+	case SCE_PSMFPLAYER_ERROR_INVALID_STATUS: return "SCE_PSMFPLAYER_ERROR_INVALID_STATUS";
+	case SCE_PSMFPLAYER_ERROR_INVALID_STREAM: return "SCE_PSMFPLAYER_ERROR_INVALID_STREAM";
+	case SCE_PSMFPLAYER_ERROR_BUFFER_SIZE: return "SCE_PSMFPLAYER_ERROR_BUFFER_SIZE";
+	case SCE_PSMFPLAYER_ERROR_INVALID_CONFIG: return "SCE_PSMFPLAYER_ERROR_INVALID_CONFIG";
+	case SCE_PSMFPLAYER_ERROR_INVALID_PARAM: return "SCE_PSMFPLAYER_ERROR_INVALID_PARAM";
+	case SCE_PSMFPLAYER_ERROR_NO_MORE_DATA: return "SCE_PSMFPLAYER_ERROR_NO_MORE_DATA";
+
+	case SCE_FONT_ERROR_OUT_OF_MEMORY: return "SCE_FONT_ERROR_OUT_OF_MEMORY";
+	case SCE_FONT_ERROR_INVALID_LIBID: return "SCE_FONT_ERROR_INVALID_LIBID";
+	case SCE_FONT_ERROR_INVALID_PARAMETER: return "SCE_FONT_ERROR_INVALID_PARAMETER";
+	case SCE_FONT_ERROR_HANDLER_OPEN_FAILED: return "SCE_FONT_ERROR_HANDLER_OPEN_FAILED";
+	case SCE_FONT_ERROR_TOO_MANY_OPEN_FONTS: return "SCE_FONT_ERROR_TOO_MANY_OPEN_FONTS";
+	case SCE_FONT_ERROR_INVALID_FONT_DATA: return "SCE_FONT_ERROR_INVALID_FONT_DATA";
+
+	case SCE_MUTEX_ERROR_NO_SUCH_MUTEX: return "SCE_MUTEX_ERROR_NO_SUCH_MUTEX";
+	case SCE_MUTEX_ERROR_TRYLOCK_FAILED: return "SCE_MUTEX_ERROR_TRYLOCK_FAILED";
+	case SCE_MUTEX_ERROR_NOT_LOCKED: return "SCE_MUTEX_ERROR_NOT_LOCKED";
+	case SCE_MUTEX_ERROR_LOCK_OVERFLOW: return "SCE_MUTEX_ERROR_LOCK_OVERFLOW";
+	case SCE_MUTEX_ERROR_UNLOCK_UNDERFLOW: return "SCE_MUTEX_ERROR_UNLOCK_UNDERFLOW";
+	case SCE_MUTEX_ERROR_ALREADY_LOCKED: return "SCE_MUTEX_ERROR_ALREADY_LOCKED";
+
+	case SCE_LWMUTEX_ERROR_NO_SUCH_LWMUTEX: return "SCE_LWMUTEX_ERROR_NO_SUCH_LWMUTEX";
+	case SCE_LWMUTEX_ERROR_TRYLOCK_FAILED: return "SCE_LWMUTEX_ERROR_TRYLOCK_FAILED";
+	case SCE_LWMUTEX_ERROR_NOT_LOCKED: return "SCE_LWMUTEX_ERROR_NOT_LOCKED";
+	case SCE_LWMUTEX_ERROR_LOCK_OVERFLOW: return "SCE_LWMUTEX_ERROR_LOCK_OVERFLOW";
+	case SCE_LWMUTEX_ERROR_UNLOCK_UNDERFLOW: return "SCE_LWMUTEX_ERROR_UNLOCK_UNDERFLOW";
+	case SCE_LWMUTEX_ERROR_ALREADY_LOCKED: return "SCE_LWMUTEX_ERROR_ALREADY_LOCKED";
+
+	case SCE_SSL_ERROR_NOT_INIT: return "SCE_SSL_ERROR_NOT_INIT";
+	case SCE_SSL_ERROR_ALREADY_INIT: return "SCE_SSL_ERROR_ALREADY_INIT";
+	case SCE_SSL_ERROR_OUT_OF_MEMORY: return "SCE_SSL_ERROR_OUT_OF_MEMORY";
+	case SCE_SSL_ERROR_INVALID_PARAMETER: return "SCE_SSL_ERROR_INVALID_PARAMETER";
+
+	case SCE_SAS_ERROR_INVALID_GRAIN: return "SCE_SAS_ERROR_INVALID_GRAIN";
+	case SCE_SAS_ERROR_INVALID_MAX_VOICES: return "SCE_SAS_ERROR_INVALID_MAX_VOICES";
+	case SCE_SAS_ERROR_INVALID_OUTPUT_MODE: return "SCE_SAS_ERROR_INVALID_OUTPUT_MODE";
+	case SCE_SAS_ERROR_INVALID_SAMPLE_RATE: return "SCE_SAS_ERROR_INVALID_SAMPLE_RATE";
+	case SCE_SAS_ERROR_BAD_ADDRESS: return "SCE_SAS_ERROR_BAD_ADDRESS";
+	case SCE_SAS_ERROR_INVALID_VOICE: return "SCE_SAS_ERROR_INVALID_VOICE";
+	case SCE_SAS_ERROR_INVALID_NOISE_FREQ: return "SCE_SAS_ERROR_INVALID_NOISE_FREQ";
+	case SCE_SAS_ERROR_INVALID_PITCH: return "SCE_SAS_ERROR_INVALID_PITCH";
+	case SCE_SAS_ERROR_INVALID_ADSR_CURVE_MODE: return "SCE_SAS_ERROR_INVALID_ADSR_CURVE_MODE";
+	case SCE_SAS_ERROR_INVALID_PARAMETER: return "SCE_SAS_ERROR_INVALID_PARAMETER";
+	case SCE_SAS_ERROR_INVALID_LOOP_POS: return "SCE_SAS_ERROR_INVALID_LOOP_POS";
+	case SCE_SAS_ERROR_VOICE_PAUSED: return "SCE_SAS_ERROR_VOICE_PAUSED";
+	case SCE_SAS_ERROR_INVALID_VOLUME: return "SCE_SAS_ERROR_INVALID_VOLUME";
+	case SCE_SAS_ERROR_INVALID_ADSR_RATE: return "SCE_SAS_ERROR_INVALID_ADSR_RATE";
+	case SCE_SAS_ERROR_INVALID_PCM_SIZE: return "SCE_SAS_ERROR_INVALID_PCM_SIZE";
+	case SCE_SAS_ERROR_REV_INVALID_TYPE: return "SCE_SAS_ERROR_REV_INVALID_TYPE";
+	case SCE_SAS_ERROR_REV_INVALID_FEEDBACK: return "SCE_SAS_ERROR_REV_INVALID_FEEDBACK";
+	case SCE_SAS_ERROR_REV_INVALID_DELAY: return "SCE_SAS_ERROR_REV_INVALID_DELAY";
+	case SCE_SAS_ERROR_REV_INVALID_VOLUME: return "SCE_SAS_ERROR_REV_INVALID_VOLUME";
+	case SCE_SAS_ERROR_BUSY: return "SCE_SAS_ERROR_BUSY";
+	case SCE_SAS_ERROR_ATRAC3_ALREADY_SET: return "SCE_SAS_ERROR_ATRAC3_ALREADY_SET";
+	case SCE_SAS_ERROR_ATRAC3_NOT_SET: return "SCE_SAS_ERROR_ATRAC3_NOT_SET";
+	case SCE_SAS_ERROR_NOT_INIT: return "SCE_SAS_ERROR_NOT_INIT";
+
+	case SCE_AVCODEC_ERROR_INVALID_DATA: return "SCE_AVCODEC_ERROR_INVALID_DATA";
+
+	case SCE_REG_ERROR_MALLOC_FAILURE: return "SCE_REG_ERROR_MALLOC_FAILURE";
+	case SCE_REG_ERROR_CATEGORY_NOT_FOUND: return "SCE_REG_ERROR_CATEGORY_NOT_FOUND";
+	case SCE_REG_ERROR_REGISTRY_NOT_FOUND: return "SCE_REG_ERROR_REGISTRY_NOT_FOUND";
+	case SCE_REG_ERROR_INVALID_PATH: return "SCE_REG_ERROR_INVALID_PATH";
+	case SCE_REG_ERROR_INVALID_NAME: return "SCE_REG_ERROR_INVALID_NAME";
+	case SCE_REG_ERROR_PERMISSION_FAILURE: return "SCE_REG_ERROR_PERMISSION_FAILURE";
+
+	case SCE_MP3_ERROR_INVALID_HANDLE: return "SCE_MP3_ERROR_INVALID_HANDLE";
+	case SCE_MP3_ERROR_UNRESERVED_HANDLE: return "SCE_MP3_ERROR_UNRESERVED_HANDLE";
+	case SCE_MP3_ERROR_NOT_YET_INIT_HANDLE: return "SCE_MP3_ERROR_NOT_YET_INIT_HANDLE";
+	case SCE_MP3_ERROR_NO_RESOURCE_AVAIL: return "SCE_MP3_ERROR_NO_RESOURCE_AVAIL";
+	case SCE_MP3_ERROR_BAD_SAMPLE_RATE: return "SCE_MP3_ERROR_BAD_SAMPLE_RATE";
+	case SCE_MP3_ERROR_BAD_RESET_FRAME: return "SCE_MP3_ERROR_BAD_RESET_FRAME";
+	case SCE_MP3_ERROR_BAD_ADDR: return "SCE_MP3_ERROR_BAD_ADDR";
+	case SCE_MP3_ERROR_BAD_SIZE: return "SCE_MP3_ERROR_BAD_SIZE";
+
+	case SCE_NET_RESOLVER_ERROR_NOT_TERMINATED: return "SCE_NET_RESOLVER_ERROR_NOT_TERMINATED";
+	case SCE_NET_RESOLVER_ERROR_NO_DNS_SERVER: return "SCE_NET_RESOLVER_ERROR_NO_DNS_SERVER";
+	case SCE_NET_RESOLVER_ERROR_INVALID_PTR: return "SCE_NET_RESOLVER_ERROR_INVALID_PTR";
+	case SCE_NET_RESOLVER_ERROR_INVALID_BUFLEN: return "SCE_NET_RESOLVER_ERROR_INVALID_BUFLEN";
+	case SCE_NET_RESOLVER_ERROR_INVALID_ID: return "SCE_NET_RESOLVER_ERROR_INVALID_ID";
+	case SCE_NET_RESOLVER_ERROR_ID_MAX: return "SCE_NET_RESOLVER_ERROR_ID_MAX";
+	case SCE_NET_RESOLVER_ERROR_NO_MEM: return "SCE_NET_RESOLVER_ERROR_NO_MEM";
+	case SCE_NET_RESOLVER_ERROR_BAD_ID: return "SCE_NET_RESOLVER_ERROR_BAD_ID";
+	case SCE_NET_RESOLVER_ERROR_CTX_BUSY: return "SCE_NET_RESOLVER_ERROR_CTX_BUSY";
+	case SCE_NET_RESOLVER_ERROR_ALREADY_STOPPED: return "SCE_NET_RESOLVER_ERROR_ALREADY_STOPPED";
+	case SCE_NET_RESOLVER_ERROR_NOT_SUPPORTED: return "SCE_NET_RESOLVER_ERROR_NOT_SUPPORTED";
+	case SCE_NET_RESOLVER_ERROR_BUF_NO_SPACE: return "SCE_NET_RESOLVER_ERROR_BUF_NO_SPACE";
+	case SCE_NET_RESOLVER_ERROR_INVALID_PACKET: return "SCE_NET_RESOLVER_ERROR_INVALID_PACKET";
+	case SCE_NET_RESOLVER_ERROR_STOPPED: return "SCE_NET_RESOLVER_ERROR_STOPPED";
+	case SCE_NET_RESOLVER_ERROR_SOCKET: return "SCE_NET_RESOLVER_ERROR_SOCKET";
+	case SCE_NET_RESOLVER_ERROR_TIMEOUT: return "SCE_NET_RESOLVER_ERROR_TIMEOUT";
+	case SCE_NET_RESOLVER_ERROR_NO_RECORD: return "SCE_NET_RESOLVER_ERROR_NO_RECORD";
+	case SCE_NET_RESOLVER_ERROR_RES_PACKET_FORMAT: return "SCE_NET_RESOLVER_ERROR_RES_PACKET_FORMAT";
+	case SCE_NET_RESOLVER_ERROR_RES_SERVER_FAILURE: return "SCE_NET_RESOLVER_ERROR_RES_SERVER_FAILURE";
+	case SCE_NET_RESOLVER_ERROR_INVALID_HOST: return "SCE_NET_RESOLVER_ERROR_INVALID_HOST";
+	case SCE_NET_RESOLVER_ERROR_RES_NOT_IMPLEMENTED: return "SCE_NET_RESOLVER_ERROR_RES_NOT_IMPLEMENTED";
+	case SCE_NET_RESOLVER_ERROR_RES_SERVER_REFUSED: return "SCE_NET_RESOLVER_ERROR_RES_SERVER_REFUSED";
+	case SCE_NET_RESOLVER_ERROR_INTERNAL: return "SCE_NET_RESOLVER_ERROR_INTERNAL";
+
+	case SCE_NET_APCTL_ERROR_ALREADY_INITIALIZED: return "SCE_NET_APCTL_ERROR_ALREADY_INITIALIZED";
+	case SCE_NET_APCTL_ERROR_INVALID_CODE: return "SCE_NET_APCTL_ERROR_INVALID_CODE";
+	case SCE_NET_APCTL_ERROR_INVALID_IP: return "SCE_NET_APCTL_ERROR_INVALID_IP";
+	case SCE_NET_APCTL_ERROR_NOT_DISCONNECTED: return "SCE_NET_APCTL_ERROR_NOT_DISCONNECTED";
+	case SCE_NET_APCTL_ERROR_NOT_IN_BSS: return "SCE_NET_APCTL_ERROR_NOT_IN_BSS";
+	case SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF: return "SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF";
+	case SCE_NET_APCTL_ERROR_WLAN_BEACON_LOST: return "SCE_NET_APCTL_ERROR_WLAN_BEACON_LOST";
+	case SCE_NET_APCTL_ERROR_WLAN_DISASSOCIATION: return "SCE_NET_APCTL_ERROR_WLAN_DISASSOCIATION";
+	case SCE_NET_APCTL_ERROR_INVALID_ID: return "SCE_NET_APCTL_ERROR_INVALID_ID";
+	case SCE_NET_APCTL_ERROR_WLAN_SUSPENDED: return "SCE_NET_APCTL_ERROR_WLAN_SUSPENDED";
+	case SCE_NET_APCTL_ERROR_TIMEOUT: return "SCE_NET_APCTL_ERROR_TIMEOUT";
 	default:
 		return nullptr;
 	}

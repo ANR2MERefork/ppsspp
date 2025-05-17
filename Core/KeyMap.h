@@ -31,7 +31,7 @@
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
 
 // Don't change any of these - it'll break backwards compatibility with configs.
-enum {
+enum VirtKey {
 	VIRTKEY_FIRST = 0x40000001,
 	VIRTKEY_AXIS_X_MIN = 0x40000001,
 	VIRTKEY_AXIS_Y_MIN = 0x40000002,
@@ -213,7 +213,6 @@ namespace KeyMap {
 	bool IsNvidiaShield(const std::string &name);
 	bool IsNvidiaShieldTV(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
-	bool IsOuya(const std::string &name);
 	bool IsMOQII7S(const std::string &name);
 	bool IsRetroid(const std::string &name);
 	bool HasBuiltinController(const std::string &name);

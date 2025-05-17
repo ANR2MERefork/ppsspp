@@ -20,6 +20,7 @@
 #include <fstream>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <time.h>
 #include <cstdint>
 
@@ -55,8 +56,11 @@ enum OpenFlag {
 // of DirectoryFileSystem::Open here eventually for symmetry.
 int OpenFD(const Path &filename, OpenFlag flags);
 
+// Cross-platform way to close FDs, corresponsing in platform support with OpenFD above.
+void CloseFD(int fd);
+
 // Resolves symlinks and similar.
-std::string ResolvePath(const std::string &path);
+std::string ResolvePath(std::string_view path);
 
 // Returns true if file filename exists
 bool Exists(const Path &path);
