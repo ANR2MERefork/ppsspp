@@ -104,7 +104,7 @@ jobs:
         if: ${{ github.event.inputs.buildPlatform == 'Bundle' }}
         run: |
           echo "include symbols = ${{ env.INCLUDE_SYMBOLS }}"
-          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=x64 /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Always /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="x64|ARM64|ARM" /p:CLToolExe=clang-cl.exe /p:CLToolPath="%VCINSTALLDIR%\Tools\Llvm\x64\bin\"
+          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=x64 /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Always /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="x64|ARM64|ARM" /p:CLToolExe=clang-cl.exe /p:CLToolPath="${{ env.VCINSTALLDIR }}\Tools\Llvm\x64\bin\"
           
       - name: Package build
         working-directory: ${{ github.workspace }}
