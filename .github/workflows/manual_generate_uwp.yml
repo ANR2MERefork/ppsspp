@@ -33,7 +33,7 @@ jobs:
 
   build-uwp:
     name: Generate ${{ github.event.inputs.buildConfiguration }} ${{ github.event.inputs.buildPlatform }} UWP
-    runs-on: windows-latest
+    runs-on: windows-2019
 
     steps:
       - uses: actions/checkout@v4
