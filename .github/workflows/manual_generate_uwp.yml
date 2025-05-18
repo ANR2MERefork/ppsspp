@@ -53,9 +53,16 @@ jobs:
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+
+      - name: Set up Visual Studio shell
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x64
         
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
           
       #- name: Setup cache # We probably need something like MSBuildCache for MSBuild to be able to use cache properly
       #  id: cache-uwp
@@ -68,7 +75,7 @@ jobs:
       - name: Testing values
         run: |
           # Testing values ...
-          call "vcvarsall.bat"
+          #call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           env
           echo "Content of [env.GITHUB_WORKSPACE] = ${env.GITHUB_WORKSPACE}"
           echo "Content of [[env.GITHUB_WORKSPACE]] = ${{env.GITHUB_WORKSPACE}}"
