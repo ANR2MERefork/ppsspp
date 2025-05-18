@@ -68,6 +68,7 @@ jobs:
       - name: Testing values
         run: |
           # Testing values ...
+          call "vcvarsall.bat"
           env
           echo "Content of [env.GITHUB_WORKSPACE] = ${env.GITHUB_WORKSPACE}"
           echo "Content of [[env.GITHUB_WORKSPACE]] = ${{env.GITHUB_WORKSPACE}}"
