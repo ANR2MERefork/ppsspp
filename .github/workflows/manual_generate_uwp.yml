@@ -87,7 +87,7 @@ jobs:
         if: ${{ github.event.inputs.buildPlatform != 'Bundle' }}
         run: |
           echo "include symbols = ${{ env.INCLUDE_SYMBOLS }}"
-          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=${{ github.event.inputs.buildPlatform }} /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Never /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="${{ github.event.inputs.buildPlatform }}" /p:CLToolExe=clang-cl.exe /p:CLToolPath=${{ env:VCINSTALLDIR }}\Tools\Llvm\bin\
+          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=${{ github.event.inputs.buildPlatform }} /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Never /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="${{ github.event.inputs.buildPlatform }}" /p:CLToolExe=clang-cl.exe /p:CLToolPath=${ env:VCINSTALLDIR }\Tools\Llvm\bin\
 
       - name: Execute MSIXBundle build
         working-directory: ${{ github.workspace }}
