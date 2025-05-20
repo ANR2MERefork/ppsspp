@@ -207,6 +207,10 @@ jobs:
             if [ -e build*/PPSSPPUnitTest ]; then
               cp build*/PPSSPPUnitTest artifacts/
             fi
+
+            # Testing cmd line
+            ps aux
+            
             # Create AppImage package
             echo "Creating AppImage..."
             if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
