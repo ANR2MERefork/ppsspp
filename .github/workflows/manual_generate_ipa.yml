@@ -97,7 +97,7 @@ jobs:
           # Mount the artifacts directory as /artifacts in the container
           dockerRunArgs: |
             --volume "${PWD}/artifacts:/artifacts"
-            -m 8192M
+            #-m 8192M
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
