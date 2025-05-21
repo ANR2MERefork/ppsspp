@@ -269,6 +269,7 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
+          sudo su # Why is this needed?
           apt-get update -y -qq
           apt-get install -q -y sdl2 libstdc++6 glu ffmpeg #build-essential
 
@@ -276,7 +277,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
-          path: artifacts/
+          path: build/
           
       - name: Create AppImage
         shell: bash
@@ -286,7 +287,8 @@ jobs:
             if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
               #pacman -S --noconfirm zsyncmake patchelf xvfb-run
               apt-get install -q -y zsync patchelf xvfb strace
-              cd artifacts
+              cd build
+              chmod +x ./PPSSPPSDL
               chmod +x ./../scripts/makeappimage_64-bit.sh
               ./../scripts/makeappimage_64-bit.sh
             fi
