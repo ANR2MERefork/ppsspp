@@ -287,7 +287,7 @@ jobs:
             echo "Creating AppImage..."
             if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
               #pacman -S --noconfirm zsyncmake patchelf xvfb-run
-              apt-get install -q -y zsync patchelf xvfb strace
+              sudo apt-get install -q -y zsync patchelf xvfb strace
               cd build
               chmod +x ./PPSSPPSDL
               chmod +x ./../scripts/makeappimage_64-bit.sh
