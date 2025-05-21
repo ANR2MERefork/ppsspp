@@ -227,23 +227,6 @@ jobs:
           find . -name PPSSPPUnitTest -exec file {} \;
           find . -name "PPSSPPSDL" -exec ldd {} \;
         shell: bash
-      
-      - name: Package build
-        run: |
-          find . -name "PPSSPPSDL"
-          find . -name "PPSSPP*.AppImage"
-          find . -name "PPSSPP*.AppBundle"
-          find . -name "PPSSPP*.zsync"
-          #mkdir artifacts
-          if [ -e */PPSSPP*.AppImage ]; then
-            cp */PPSSPP*.AppImage artifacts/
-          fi
-          if [ -e */PPSSPP*.AppBundle ]; then
-            cp */PPSSPP*.AppBundle artifacts/
-          fi
-          if [ -e */PPSSPP*.zsync ]; then
-            cp */PPSSPP*.zsync artifacts/
-          fi
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -272,7 +255,7 @@ jobs:
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg #libglu1-mesa #libsdl2-dev #build-essential
+          sudo apt-get install -q -y libstdc++6 ffmpeg libsdl2-dev #libglu1-mesa #build-essential
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -293,3 +276,26 @@ jobs:
               chmod +x ./scripts/makeappimage_64-bit.sh
               ./scripts/makeappimage_64-bit.sh
             fi
+
+      - name: Prepare artifacts
+        run: |
+          find . -name "PPSSPPSDL"
+          find . -name "PPSSPP*.AppImage"
+          find . -name "PPSSPP*.AppBundle"
+          find . -name "PPSSPP*.zsync"
+          mkdir artifacts
+          if [ -e */PPSSPP*.AppImage ]; then
+            cp */PPSSPP*.AppImage artifacts/
+          fi
+          if [ -e */PPSSPP*.AppBundle ]; then
+            cp */PPSSPP*.AppBundle artifacts/
+          fi
+          if [ -e */PPSSPP*.zsync ]; then
+            cp */PPSSPP*.zsync artifacts/
+          fi
+            
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} AppImage
+          path: artifacts/
