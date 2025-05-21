@@ -197,28 +197,12 @@ jobs:
             
             # Build ppsspp
             ./b.sh --${{ inputs.buildVariant }} --headless --unittest
-            # Copy artifacts
-            if [ -e build*/PPSSPPSDL ]; then
-              #mkdir artifacts/ppsspp
-              cp -a build*/PPSSPPSDL artifacts/
-              chmod +x artifacts/PPSSPPSDL
-              cp -r assets artifacts/assets
-            fi
-            
-            if [ -e build*/PPSSPPHeadless ]; then
-              cp build*/PPSSPPHeadless artifacts/
-              #cp -r assets artifacts/assets
-            fi
-            
-            if [ -e build*/PPSSPPUnitTest ]; then
-              cp build*/PPSSPPUnitTest artifacts/
-            fi
 
             # Testing cmd line
             ps aux
             cat /proc/meminfo
             
-      - name: Run script on the Host system
+      - name: Prepare artifacts
         run: |
           uname -m
           # Checking binaries arch
@@ -226,6 +210,23 @@ jobs:
           find . -name PPSSPPHeadless -exec file {} \;
           find . -name PPSSPPUnitTest -exec file {} \;
           find . -name "PPSSPPSDL" -exec ldd {} \;
+
+          # Copy artifacts
+          if [ -e build*/PPSSPPSDL ]; then
+            #mkdir artifacts/ppsspp
+            cp -a build*/PPSSPPSDL artifacts/
+            chmod +x artifacts/PPSSPPSDL
+            cp -r assets artifacts/assets
+          fi
+          
+          if [ -e build*/PPSSPPHeadless ]; then
+            cp build*/PPSSPPHeadless artifacts/
+            #cp -r assets artifacts/assets
+          fi
+          
+          if [ -e build*/PPSSPPUnitTest ]; then
+            cp build*/PPSSPPUnitTest artifacts/
+          fi
         shell: bash
           
       - name: Upload artifact
@@ -255,7 +256,7 @@ jobs:
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg libsdl2-dev #libglu1-mesa #build-essential
+          sudo apt-get install -q -y libstdc++6 ffmpeg libsdl2-ttf-dev #libsdl2-dev #libglu1-mesa #build-essential
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
