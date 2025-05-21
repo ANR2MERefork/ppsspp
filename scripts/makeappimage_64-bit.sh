@@ -56,7 +56,7 @@ echo "Generating AppImage..."
 ./uruntime --appimage-mkdwarfs -f \
 	--set-owner 0 --set-group 0 \
 	--no-history --no-create-timestamp \
-	--compression zstd:level=22 -S21 -B8 \
+	--compression zstd:level=19 -S21 -B8 \
  	--memory-limit=512M \
   	--num-workers=1 \
    	--num-scanner-workers=$(nproc) \
