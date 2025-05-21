@@ -270,7 +270,7 @@ jobs:
         shell: bash
         run: |
           #sudo su # Why sudo is needed?
-          sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
+          #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
           sudo apt-get install -q -y libstdc++6 ffmpeg #libglu1-mesa #libsdl2-dev #build-essential
 
@@ -288,8 +288,8 @@ jobs:
             if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
               #pacman -S --noconfirm zsyncmake patchelf xvfb-run
               sudo apt-get install -q -y zsync patchelf xvfb strace
-              cd build
-              chmod +x ./PPSSPPSDL
-              chmod +x ./../scripts/makeappimage_64-bit.sh
-              ./../scripts/makeappimage_64-bit.sh
+              #cd build
+              chmod +x ./build/PPSSPPSDL
+              chmod +x ./scripts/makeappimage_64-bit.sh
+              ./scripts/makeappimage_64-bit.sh
             fi
