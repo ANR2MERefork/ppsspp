@@ -14,9 +14,11 @@ enable_language(ASM)
 add_compile_definitions(__STDC_CONSTANT_MACROS)
 
 # Include AppleClang and Clang.
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "AppleClang")
 	set(CLANG ON)
 	message("Clang enabled")
+else()
+	message("Non-Clang compiler detected: ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 if(FORCED_CPU)
@@ -1506,7 +1508,6 @@ if(NOT LIBRETRO)
 endif()
 
 list(APPEND NativeAppSource
-	android/jni/TestRunner.cpp
 	UI/ImDebugger/ImDebugger.cpp
 	UI/ImDebugger/ImDebugger.h
 	UI/ImDebugger/ImGe.cpp
