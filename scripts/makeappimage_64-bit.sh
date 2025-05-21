@@ -57,9 +57,9 @@ echo "Generating AppImage..."
 	--set-owner 0 --set-group 0 \
 	--no-history --no-create-timestamp \
 	--compression zstd:level=19 -S21 -B8 \
- 	--memory-limit=256M \
-  	--num-workers=2 \
-   	--num-scanner-workers=2 \
+ 	--memory-limit=128M \
+  	--num-workers=1 \
+   	--num-scanner-workers=1 \
 	--header uruntime \
 	-i ./AppDir -o PPSSPP-"$VERSION"-anylinux-"$ARCH".AppImage
 
