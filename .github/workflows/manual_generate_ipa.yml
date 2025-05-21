@@ -249,20 +249,20 @@ jobs:
         with:
           submodules: false
           ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
-          
-      - name: Install dependencies
-        shell: bash
-        run: |
-          #sudo su # Why sudo is needed?
-          #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
-          sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg libsdl2-ttf-dev #libsdl2-dev #libglu1-mesa #build-essential
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
           path: build/
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          #sudo su # Why sudo is needed?
+          #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
+          sudo apt-get update -y -qq
+          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev #libsdl2-dev #libglu1-mesa #build-essential
           
       - name: Create AppImage
         shell: bash
