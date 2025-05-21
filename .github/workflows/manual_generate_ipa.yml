@@ -270,6 +270,7 @@ jobs:
         shell: bash
         run: |
           #sudo su # Why sudo is needed?
+          sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
           sudo apt-get install -q -y libstdc++6 ffmpeg #libglu1-mesa #libsdl2-dev #build-essential
 
