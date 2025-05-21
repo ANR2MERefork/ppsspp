@@ -269,9 +269,9 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          sudo su # Why is this needed?
-          apt-get update -y -qq
-          apt-get install -q -y sdl2 libstdc++6 glu ffmpeg #build-essential
+          #sudo su # Why is this needed?
+          sudo apt-get update -y -qq
+          sudo apt-get install -q -y sdl2 libstdc++6 glu ffmpeg #build-essential
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
