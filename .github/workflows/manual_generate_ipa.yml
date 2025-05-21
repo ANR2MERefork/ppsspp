@@ -69,12 +69,14 @@ jobs:
         shell: bash
         run: |
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+          
       - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
         if: ${{ steps.valid-tags.outputs.count == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+          
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
@@ -121,8 +123,10 @@ jobs:
             #apt-get install -q -y --reinstall ca-certificates
             #apt-get install -q -y software-properties-common
             apt-get install -q -y git file 
+            
             # Prerequisites to build PPSSPP
             apt install -q -y build-essential libgl1-mesa-dev libglu1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev cmake
+            
             # Prerequisites to build CMake
             apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
             # TODO: Install gcc-9 or newer, because building using gcc-8 (Debian 10) on arm64v8 could get Segmentation fault (works good on arm32v tho)
@@ -141,6 +145,7 @@ jobs:
               #export CC=clang
               #export CXX=clang++
             #fi
+            
             # Check if CMake is installed
             required_cmake_version="3.16"
             installed_cmake_version="0.00"
@@ -149,6 +154,7 @@ jobs:
                 installed_cmake_version=$(cmake --version | grep -oP '\d+\.\d+\.\d+')
                 echo "Installed CMake version is $installed_cmake_version"
             fi
+            
             # Compare versions
             if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
                 echo "CMake version is lower than $required_cmake_version, or not installed. Installing a newer version..."
@@ -254,9 +260,15 @@ jobs:
     needs: build
     
     steps:
+      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
+        with:
+          submodules: false
+          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
+          
       - name: Install dependencies
         shell: bash
         run: |
+          apt-get update -y -qq
           apt-get install -q -y sdl2 libstdc++6 glu ffmpeg #build-essential
 
       - name: Download build artifacts
