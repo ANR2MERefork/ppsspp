@@ -212,15 +212,6 @@ jobs:
             ps aux
             cat /proc/meminfo
             
-            # Create AppImage package
-            echo "Creating AppImage..."
-            if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-              #pacman -S --noconfirm zsyncmake patchelf xvfb-run
-              apt-get install -q -y zsync patchelf xvfb strace
-              #cd scripts
-              chmod +x ./scripts/makeappimage_64-bit.sh
-              ./scripts/makeappimage_64-bit.sh
-            fi
       - name: Run script on the Host system
         run: |
           uname -m
@@ -247,8 +238,42 @@ jobs:
           if [ -e */PPSSPP*.zsync ]; then
             cp */PPSSPP*.zsync artifacts/
           fi
+          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
           path: artifacts/
+          
+  appimage:
+    name: Generate AppImage package
+    #continue-on-error: true
+    strategy:
+      fail-fast: false
+    runs-on: 'ubuntu-22.04' # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
+    needs: build
+    
+    steps:
+      - name: Install dependencies
+        shell: bash
+        run: |
+          apt-get install -q -y sdl2 libstdc++6 glu ffmpeg #build-essential
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
+          path: artifacts/
+          
+      - name: Create AppImage
+        shell: bash
+        run: |
+           # Create AppImage package
+            echo "Creating AppImage..."
+            if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
+              #pacman -S --noconfirm zsyncmake patchelf xvfb-run
+              apt-get install -q -y zsync patchelf xvfb strace
+              cd artifacts
+              chmod +x ./../scripts/makeappimage_64-bit.sh
+              ./../scripts/makeappimage_64-bit.sh
+            fi
