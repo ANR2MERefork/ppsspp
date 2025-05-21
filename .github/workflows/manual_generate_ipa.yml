@@ -253,11 +253,12 @@ jobs:
           
   appimage:
     name: Generate AppImage package
+    runs-on: ubuntu-latest # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
+    #container: ghcr.io/pkgforge-dev/archlinux:latest
+    needs: build
     #continue-on-error: true
     strategy:
       fail-fast: false
-    runs-on: 'ubuntu-22.04' # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
-    needs: build
     
     steps:
       - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
