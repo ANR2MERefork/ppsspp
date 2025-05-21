@@ -6,10 +6,21 @@ if [ ! -f appimagetool-x86_64.AppImage ]; then
     chmod +x appimagetool-x86_64.AppImage
 fi
 
-if [ ! -f linuxdeploy-x86_64.AppImage ]; then
-    wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-    chmod +x linuxdeploy-x86_64.AppImage
-fi
+mkdir ./AppDir/
+mkdir ./AppDir/usr/
+mkdir ./AppDir/usr/bin/
+mkdir ./AppDir/usr/share/
+mkdir ./AppDir/usr/share/applications/
+mkdir ./AppDir/usr/share/icons/
+mkdir ./AppDir/usr/share/icons/hicolor/
+mkdir ./AppDir/usr/share/icons/hicolor/256x256/
+mkdir ./AppDir/usr/share/icons/hicolor/256x256/apps/
+
+cp ./../SDL/PPSSPPSDL.desktop ./AppDir/
+cp ./../SDL/PPSSPPSDL.desktop ./AppDir/usr/share/applications/
+cp ./../build/PPSSPPSDL ./AppDir/usr/bin/
+cp -R ./../build/assets ./AppDir/usr/bin/
+cp ./../icons/hicolor/256x256/apps/ppsspp.png ./AppDir/usr/share/icons/hicolor/256x256/apps/
 
 mkdir ./AppDir/
 mkdir ./AppDir/usr/
@@ -28,22 +39,11 @@ cp -R ~/ppsspp/build/assets ./AppDir/usr/bin/
 cp ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./AppDir/usr/share/icons/hicolor/256x256/apps/
 
 DESTDIR=AppDir make install
-./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir=AppDir \
-	--exclude-library="libX*" \
-	--exclude-library="libglib*" \
-	--exclude-library="libgobject*" \
-	--exclude-library="libgdk_pixbuf*" \
-	--exclude-library="libwayland*" \
-	--exclude-library="libgmodule*" \
-	--exclude-library="libgio*" \
-	--exclude-library="libxcb*" \
-	--exclude-library="libxkbcommon*" \
-	--exclude-library="libdb*"
+chmod +x AppDir/AppRun
+./appimagetool-x86_64.AppImage --appimage-extract-and-run deploy AppDir/usr/share/applications/*.desktop
 
 rm AppDir/ppsspp.png
 pushd AppDir
 ln -s usr/share/icons/hicolor/256x256/apps/ppsspp.png
-chmod +x AppRun
 popd
-ARCH=x86_64
-VERSION=$(./AppDir/AppRun --version) ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
+ARCH=x86_64 VERSION=$(./AppDir/AppRun --version) ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
