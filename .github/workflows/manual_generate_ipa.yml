@@ -36,6 +36,8 @@ on:
         - s390x # type conversion issue? wrong ffmpeg arch too (x64)
 
 env:
+  SDL_VIDEODRIVER: "dummy"
+  SDL_AUDIODRIVER: "disk"
   PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
     ${{ fromJSON('{
       "amd64" : "amd64 amd64/debian:stable",
