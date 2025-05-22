@@ -271,7 +271,7 @@ jobs:
         shell: bash
         run: |
           # Use dummy soundcard
-          sudo locate snd-dummy
+          #sudo locate snd-dummy
           sudo modprobe snd-dummy fake_buffer=0
           
           # Create AppImage package
