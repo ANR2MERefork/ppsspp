@@ -37,7 +37,7 @@ on:
 
 env:
   #SDL_VIDEODRIVER: "dummy"
-  SDL_AUDIODRIVER: "disk"
+  #SDL_AUDIODRIVER: "dummy" #"disk"
   PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
     ${{ fromJSON('{
       "amd64" : "amd64 amd64/debian:stable",
@@ -269,16 +269,19 @@ jobs:
       - name: Create AppImage
         shell: bash
         run: |
-           # Create AppImage package
-            echo "Creating AppImage..."
-            if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-              #pacman -S --noconfirm zsyncmake patchelf xvfb-run
-              sudo apt-get install -q -y zsync patchelf xvfb strace
-              #cd build
-              chmod +x ./build/PPSSPPSDL
-              chmod +x ./scripts/makeappimage_64-bit.sh
-              ./scripts/makeappimage_64-bit.sh
-            fi
+          # Use dummy soundcard
+          sudo modprobe snd-dummy fake_buffer=0
+          
+          # Create AppImage package
+          echo "Creating AppImage..."
+          if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
+            #pacman -S --noconfirm zsyncmake patchelf xvfb-run
+            sudo apt-get install -q -y zsync patchelf xvfb strace
+            #cd build
+            chmod +x ./build/PPSSPPSDL
+            chmod +x ./scripts/makeappimage_64-bit.sh
+            ./scripts/makeappimage_64-bit.sh
+          fi
 
       - name: Prepare artifacts
         run: |
