@@ -205,16 +205,16 @@ jobs:
             cat /proc/meminfo
 
             # Create AppImage package
-            echo "Creating AppImage..."
-            if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-              #pacman -S --noconfirm zsyncmake patchelf xvfb-run
-              apt-get install -q -y zsync patchelf xvfb strace
-              modprobe fuse
-              #cd build
-              chmod +x ./build/PPSSPPSDL
-              chmod +x ./scripts/makeappimage_64-bit.sh
-              ./scripts/makeappimage_64-bit.sh
-            fi
+            #echo "Creating AppImage..."
+            #if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
+            #  #pacman -S --noconfirm zsyncmake patchelf xvfb-run
+            #  apt-get install -q -y zsync patchelf xvfb strace
+            #  #modprobe fuse
+            #  #cd build
+            #  chmod +x ./build/PPSSPPSDL
+            #  chmod +x ./scripts/makeappimage_64-bit.sh
+            #  ./scripts/makeappimage_64-bit.sh
+            #fi
             
       - name: Prepare artifacts
         run: |
