@@ -2,11 +2,11 @@
 
 set -ex
 
-export ARCH="$(uname -m)"
+ARCH="$(uname -m)"
 LIB4BN="https://raw.githubusercontent.com/VHSgunzo/sharun/refs/heads/main/lib4bin"
-APPIMAGETOOL="https://github.com/pkgforge-dev/appimagetool-uruntime/releases/download/continuous/appimagetool-$ARCH.AppImage"
+URUNTIME="https://github.com/VHSgunzo/uruntime/releases/latest/download/uruntime-appimage-dwarfs-$ARCH"
 UPINFO="gh-releases-zsync|$(echo "$GITHUB_REPOSITORY" | tr '/' '|')|latest|*$ARCH.AppImage.zsync"
-export VERSION=test
+VERSION=test
 
 SYS_LIB_DIR="/usr/lib"
 if [ -d /usr/lib/"$ARCH"-linux-gnu ]; then
@@ -45,9 +45,22 @@ ln -s ./bin/PPSSPPSDL ./AppRun
 
 # Make AppImage with uruntime
 cd ..
-wget "$APPIMAGETOOL" -O ./appimagetool
-chmod +x ./appimagetool
+wget "$URUNTIME" -O ./uruntime
+chmod +x ./uruntime
 
-./appimagetool -n -u "$UPINFO" ./AppDir
+#Add udpate info to runtime
+echo "Adding update information \"$UPINFO\" to runtime..."
+./uruntime --appimage-addupdinfo "$UPINFO"
+
+echo "Generating AppImage..."
+./uruntime --appimage-mkdwarfs -f \
+	--set-owner 0 --set-group 0 \
+	--no-history --no-create-timestamp \
+	--compression zstd:level=22 -S26 -B8 \
+	--header uruntime \
+	-i ./AppDir -o PPSSPP-"$VERSION"-anylinux-"$ARCH".AppImage
+
+echo "Generating zsync file..."
+zsyncmake ./*.AppImage -u ./*.AppImage
 
 echo "All Done!"
