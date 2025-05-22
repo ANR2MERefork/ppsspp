@@ -37,7 +37,7 @@ on:
 
 env:
   #SDL_VIDEODRIVER: "dummy"
-  #SDL_AUDIODRIVER: "dummy" #"disk"
+  SDL_AUDIODRIVER: "dummy" #"disk"
   PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
     ${{ fromJSON('{
       "amd64" : "amd64 amd64/debian:stable",
@@ -272,7 +272,7 @@ jobs:
         run: |
           # Use dummy soundcard
           #sudo locate snd-dummy
-          sudo modprobe snd-dummy fake_buffer=0
+          #sudo modprobe snd-dummy fake_buffer=0
           
           # Create AppImage package
           echo "Creating AppImage..."
