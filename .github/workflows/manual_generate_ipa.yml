@@ -264,7 +264,8 @@ jobs:
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev #libglu1-mesa linux-modules-extra-$(uname -r) #pulseaudio  #build-essential
+          sudo apt-get install -q -y plocate libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev #libglu1-mesa linux-modules-extra-$(uname -r) #pulseaudio  #build-essential
+          sudo updatedb # to update locate database
           
       - name: Create AppImage
         shell: bash
