@@ -36,7 +36,7 @@ on:
         - s390x # type conversion issue? wrong ffmpeg arch too (x64)
 
 env:
-  SDL_VIDEODRIVER: "dummy"
+  #SDL_VIDEODRIVER: "dummy"
   SDL_AUDIODRIVER: "disk"
   PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
     ${{ fromJSON('{
@@ -264,7 +264,7 @@ jobs:
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev alsa pulseaudio libsdl2-ttf-dev #libsdl2-dev #libglu1-mesa #build-essential
+          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev #libglu1-mesa #pulseaudio  #build-essential
           
       - name: Create AppImage
         shell: bash
