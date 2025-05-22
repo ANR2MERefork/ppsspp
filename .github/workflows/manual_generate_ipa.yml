@@ -239,7 +239,7 @@ jobs:
           
   appimage:
     name: Generate AppImage package
-    runs-on: ubuntu-22.04 # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
+    runs-on: ubuntu-latest # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
     #container: ghcr.io/pkgforge-dev/archlinux:latest
     needs: build
     #continue-on-error: true
