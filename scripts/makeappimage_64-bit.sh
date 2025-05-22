@@ -7,6 +7,7 @@ LIB4BN="https://raw.githubusercontent.com/VHSgunzo/sharun/refs/heads/main/lib4bi
 URUNTIME="https://github.com/VHSgunzo/uruntime/releases/latest/download/uruntime-appimage-dwarfs-$ARCH"
 UPINFO="gh-releases-zsync|$(echo "$GITHUB_REPOSITORY" | tr '/' '|')|latest|*$ARCH.AppImage.zsync"
 VERSION=test
+export MALLOC_CONF="narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0"
 
 SYS_LIB_DIR="/usr/lib"
 if [ -d /usr/lib/"$ARCH"-linux-gnu ]; then
@@ -57,7 +58,7 @@ echo "Generating AppImage..."
 	--set-owner 0 --set-group 0 \
 	--no-history --no-create-timestamp \
 	--compression zstd:level=19 -S21 -B8 \
- 	--memory-limit=128M \
+ 	--memory-limit=64M \
   	--num-workers=1 \
    	--num-scanner-workers=1 \
 	--header uruntime \
