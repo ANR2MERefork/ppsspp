@@ -35,7 +35,7 @@ xvfb-run -a -- ./lib4bin -p -v -e -s -k \
 	"$SYS_LIB_DIR"/pipewire-0.3/* \
 	"$SYS_LIB_DIR"/spa-0.2/*/*
 
-# copy assets dir needs to be next oteh binary
+# copy assets dir needs to be next to the binary
 cp -vr ../build/assets ./bin
 
 # Prepare sharun
