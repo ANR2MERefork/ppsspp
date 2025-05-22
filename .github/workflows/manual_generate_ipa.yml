@@ -40,7 +40,7 @@ env:
   SDL_AUDIODRIVER: "dummy" #"disk"
   PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
     ${{ fromJSON('{
-      "amd64" : "amd64 amd64/debian:stable",
+      "amd64" : "amd64 amd64/debian:latest",
       "i386" : "386 i386/debian:bullseye",
       "arm64v8" : "arm64 arm64v8/debian:bullseye",
       "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
