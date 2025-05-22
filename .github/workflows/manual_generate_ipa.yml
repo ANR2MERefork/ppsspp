@@ -229,7 +229,7 @@ jobs:
           fi
         shell: bash
           
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
@@ -262,7 +262,7 @@ jobs:
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
           sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev #libsdl2-dev #libglu1-mesa #build-essential
+          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev pulseaudio libsdl2-ttf-dev #libsdl2-dev #libglu1-mesa #build-essential
           
       - name: Create AppImage
         shell: bash
@@ -281,21 +281,21 @@ jobs:
       - name: Prepare artifacts
         run: |
           find . -name "PPSSPPSDL"
-          find . -name "PPSSPP*.AppImage"
-          find . -name "PPSSPP*.AppBundle"
+          find . -name "PPSSPP*.AppImage" -exec chmod +x  {} \;
+          find . -name "PPSSPP*.AppBundle" -exec chmod +x  {} \;
           find . -name "PPSSPP*.zsync"
           mkdir artifacts
-          if [ -e */PPSSPP*.AppImage ]; then
-            cp */PPSSPP*.AppImage artifacts/
+          if [ -e ./PPSSPP*.AppImage ]; then
+            cp -a ./PPSSPP*.AppImage artifacts/
           fi
-          if [ -e */PPSSPP*.AppBundle ]; then
-            cp */PPSSPP*.AppBundle artifacts/
+          if [ -e ./PPSSPP*.AppBundle ]; then
+            cp -a ./PPSSPP*.AppBundle artifacts/
           fi
-          if [ -e */PPSSPP*.zsync ]; then
-            cp */PPSSPP*.zsync artifacts/
+          if [ -e ./PPSSPP*.zsync ]; then
+            cp ./PPSSPP*.zsync artifacts/
           fi
             
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} AppImage
