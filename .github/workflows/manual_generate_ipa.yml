@@ -255,7 +255,7 @@ jobs:
   appimage:
     name: Generate AppImage package
     runs-on: ubuntu-latest # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
-    #container: ghcr.io/pkgforge-dev/archlinux:latest
+    container: ghcr.io/pkgforge-dev/archlinux:latest
     needs: build
     #continue-on-error: true
     if: ${{ inputs.cpuArch == 'amd64' || inputs.cpuArch == 'arm64v8' }}
@@ -279,9 +279,22 @@ jobs:
         run: |
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
-          sudo apt-get update -y -qq
-          sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils linux-modules-extra-$(uname -r) #libglu1-mesa #pulseaudio  #build-essential #plocate
+
+          # Debian-based
+          #sudo apt-get update -y -qq
+          #sudo apt-get install -q -y zsync patchelf xvfb strace 
+          #sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils linux-modules-extra-$(uname -r) #libglu1-mesa #pulseaudio  #build-essential #plocate
           #sudo updatedb # to update locate database
+
+          # Archlinux
+          pacman -S --noconfirm zsyncmake patchelf xvfb-run
+          pacman -S --noconfirm vulkan-radeon vulkan-nouveau
+          if [[ "${{ inputs.cpuArch }}" == "amd64" ]]; then
+            pacman -S --noconfirm vulkan-intel
+          fi
+          if [[ "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
+            pacman -S --noconfirm vulkan-freedreno vulkan-panfrost vulkan-broadcom
+          fi
           
       - name: Create AppImage
         shell: bash
@@ -292,14 +305,9 @@ jobs:
           
           # Create AppImage package
           echo "Creating AppImage..."
-          if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-            #pacman -S --noconfirm zsyncmake patchelf xvfb-run
-            sudo apt-get install -q -y zsync patchelf xvfb strace
-            #cd build
-            chmod +x ./build/PPSSPPSDL
-            chmod +x ./scripts/makeappimage_64-bit.sh
-            ./scripts/makeappimage_64-bit.sh
-          fi
+          chmod +x ./build/PPSSPPSDL
+          chmod +x ./scripts/makeappimage_64-bit.sh
+          ./scripts/makeappimage_64-bit.sh
 
       - name: Prepare artifacts
         run: |
