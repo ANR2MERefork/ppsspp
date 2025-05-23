@@ -287,13 +287,13 @@ jobs:
           #sudo updatedb # to update locate database
 
           # Archlinux
-          pacman -S --noconfirm zsyncmake patchelf xvfb-run
-          pacman -S --noconfirm vulkan-radeon vulkan-nouveau
+          pacman -Syu --noconfirm zsync patchelf xvfb-run
+          pacman -Syu --noconfirm vulkan-radeon vulkan-nouveau
           if [[ "${{ inputs.cpuArch }}" == "amd64" ]]; then
-            pacman -S --noconfirm vulkan-intel
+            pacman -Syu --noconfirm vulkan-intel
           fi
           if [[ "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-            pacman -S --noconfirm vulkan-freedreno vulkan-panfrost vulkan-broadcom
+            pacman -Syu --noconfirm vulkan-freedreno vulkan-panfrost vulkan-broadcom
           fi
           
       - name: Create AppImage
