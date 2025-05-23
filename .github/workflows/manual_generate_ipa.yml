@@ -312,7 +312,6 @@ jobs:
           	mesa \
           	patchelf \
           	pipewire-audio \
-          	ppsspp \
           	pulseaudio \
           	pulseaudio-alsa \
           	strace \
