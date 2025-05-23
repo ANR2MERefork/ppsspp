@@ -282,12 +282,12 @@ jobs:
 
           # Debian-based
           #sudo apt-get update -y -qq
-          #sudo apt-get install -q -y zsync patchelf xvfb strace 
+          #sudo apt-get install -q -y zsync patchelf xvfb strace
           #sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils linux-modules-extra-$(uname -r) #libglu1-mesa #pulseaudio  #build-essential #plocate
           #sudo updatedb # to update locate database
 
           # Archlinux
-          pacman -Syu --noconfirm zsync patchelf xorg-server-xvfb wget
+          pacman -Syu --noconfirm zsync patchelf xorg-server-xvfb wget file binutils patchelf findutils grep sed coreutils strace
           pacman -Syu --noconfirm vulkan-radeon vulkan-nouveau
           if [[ "${{ inputs.cpuArch }}" == "amd64" ]]; then
             pacman -Syu --noconfirm vulkan-intel
