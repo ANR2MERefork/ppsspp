@@ -283,18 +283,57 @@ jobs:
           # Debian-based
           #sudo apt-get update -y -qq
           #sudo apt-get install -q -y zsync patchelf xvfb strace
-          #sudo apt-get install -q -y libstdc++6 ffmpeg libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils linux-modules-extra-$(uname -r) #libglu1-mesa #pulseaudio  #build-essential #plocate
+          #sudo apt-get install -q -y libstdc++6 ffmpeg libvulkan-dev libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils libglu1-mesa pulseaudio linux-modules-extra-$(uname -r) #build-essential #plocate
           #sudo updatedb # to update locate database
 
           # Archlinux
-          pacman -Syu --noconfirm zsync patchelf xorg-server-xvfb wget file binutils patchelf findutils grep sed coreutils strace
-          pacman -Syu --noconfirm vulkan-radeon vulkan-nouveau
-          if [[ "${{ inputs.cpuArch }}" == "amd64" ]]; then
-            pacman -Syu --noconfirm vulkan-intel
+          set -ex
+
+          sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
+          
+          if [ "$(uname -m)" = 'x86_64' ]; then
+          	PKG_TYPE='x86_64.pkg.tar.zst'
+          else
+          	PKG_TYPE='aarch64.pkg.tar.xz'
           fi
-          if [[ "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-            pacman -Syu --noconfirm vulkan-freedreno vulkan-panfrost vulkan-broadcom
-          fi
+          
+          LLVM_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/llvm-libs-nano-$PKG_TYPE"
+          LIBXML_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/libxml2-iculess-$PKG_TYPE"
+          OPUS_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/opus-nano-$PKG_TYPE"
+          
+          echo "Installing build dependencies..."
+          echo "---------------------------------------------------------------"
+          pacman -Syu --noconfirm \
+          	base-devel \
+          	curl \
+          	desktop-file-utils \
+          	git \
+          	libxss \
+          	mesa \
+          	patchelf \
+          	pipewire-audio \
+          	ppsspp \
+          	pulseaudio \
+          	pulseaudio-alsa \
+          	strace \
+          	vulkan-intel \
+          	vulkan-nouveau \
+          	vulkan-radeon \
+          	wget \
+          	xorg-server-xvfb \
+          	zsync
+          
+          echo "Installing debloated pckages..."
+          echo "---------------------------------------------------------------"
+          wget --retry-connrefused --tries=30 "$LLVM_URL" -O   ./llvm-libs.pkg.tar.zst
+          wget --retry-connrefused --tries=30 "$LIBXML_URL" -O ./libxml2.pkg.tar.zst
+          wget --retry-connrefused --tries=30 "$OPUS_URL" -O   ./opus-nano.pkg.tar.zst
+          
+          pacman -U --noconfirm ./*.pkg.tar.zst
+          rm -f ./*.pkg.tar.zst
+          
+          echo "All done!"
+          echo "---------------------------------------------------------------"
           
       - name: Create AppImage
         shell: bash
