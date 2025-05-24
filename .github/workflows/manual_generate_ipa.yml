@@ -312,8 +312,10 @@ jobs:
           	mesa \
             fontconfig \
             gcc-libs \
-            glew \
             glibc \
+            glew \
+            sdl2 \
+            sdl2_ttf \
           	patchelf \
           	pipewire-audio \
           	pulseaudio \
