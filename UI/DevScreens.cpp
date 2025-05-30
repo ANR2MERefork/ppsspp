@@ -719,7 +719,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
 			std::string deviceApiVersion = draw->GetInfoString(InfoField::DEVICE_API_VERSION);
-			versionInfo->Add(new InfoItem(si->T("Device API Version"), deviceApiVersion));
+			versionInfo->Add(new InfoItem(si->T("Device API version"), deviceApiVersion));
 		}
 	}
 	versionInfo->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
@@ -946,8 +946,10 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 
 	internals->Add(new ItemHeader(si->T("Font cache")));
 	const TextDrawer *text = screenManager()->getUIContext()->Text();
-	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
-	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	if (text) {
+		internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+		internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	}
 
 	internals->Add(new ItemHeader(si->T("Slider test")));
 	internals->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -1374,13 +1376,13 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 	snprintf(buffer, sizeof(buffer),
 		"display_res: %dx%d\n"
 		"dp_res: %dx%d pixel_res: %dx%d\n"
-		"dpi_scale: %0.3f\n"
-		"dpi_scale_real: %0.3f\n"
+		"dpi_scale: %0.3fx%0.3f\n"
+		"dpi_scale_real: %0.3fx%0.3f\n"
 		"delta: %0.2f ms fps: %0.3f\n%s",
 		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
 		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi_scale,
-		g_display.dpi_scale_real,
+		g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y,
 		delta * 1000.0, 1.0 / delta,
 		extra_debug);
 

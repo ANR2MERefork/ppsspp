@@ -329,6 +329,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		BrowseFileType fileType = BrowseFileType::IMAGE;
+		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
@@ -342,6 +355,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #else
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		// TODO: Add non-blocking support.
+		const std::string &title = param1;
+		std::vector<std::string> filters;
+		InitializeFilters(filters, BrowseFileType::IMAGE);
+		std::vector<std::string> result = pfd::open_file(title, "", filters).result();
+		if (!result.empty()) {
+			g_requestManager.PostSystemSuccess(requestId, result[0]);
+		} else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FILE:
 	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
 	{
@@ -453,7 +480,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
+		INFO_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
+		return true;
 	default:
+		INFO_LOG(Log::UI, "Unhandled system request %s", RequestTypeAsString(type));
 		return false;
 	}
 }
@@ -724,6 +755,10 @@ case SYSPROP_HAS_FILE_BROWSER:
 #else
 		return true;
 #endif
+
+	// hack for testing - do not commit
+	case SYSPROP_USE_IAP:
+		return false;
 	default:
 		return false;
 	}
@@ -882,8 +917,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	// - SDL gives us motion events in "system DPI" points
 	// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
 	// - The UI code expects motion events in "logical DPI" points
-	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale;
-	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale;
+	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
+	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
 
 	switch (event.type) {
 	case SDL_QUIT:
@@ -999,6 +1034,15 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 					Core_Resume();
 				}
+				/*
+				// TODO: Enable this?
+				if (k == SDLK_F11) {
+#if !defined(MOBILE_DEVICE)
+					g_Config.bFullScreen = !g_Config.bFullScreen;
+					System_ToggleFullscreenState("");
+#endif
+				}
+				*/
 			}
 			break;
 		}
@@ -1034,10 +1078,10 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1047,15 +1091,15 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
-			KeyInput key;
+			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 			key.flags = KEY_DOWN;
@@ -1066,10 +1110,10 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1134,7 +1178,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		break;
 	case SDL_MOUSEWHEEL:
 		{
-			KeyInput key;
+			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.flags = KEY_DOWN;
 #if SDL_VERSION_ATLEAST(2, 0, 18)

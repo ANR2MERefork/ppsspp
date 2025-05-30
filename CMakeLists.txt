@@ -14,9 +14,11 @@ enable_language(ASM)
 add_compile_definitions(__STDC_CONSTANT_MACROS)
 
 # Include AppleClang and Clang.
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "AppleClang")
 	set(CLANG ON)
 	message("Clang enabled")
+else()
+	message("Non-Clang compiler detected: ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 if(FORCED_CPU)
@@ -132,8 +134,22 @@ endif()
 if(GOLD)
 	add_compile_definitions(GOLD)
 	message("Gold Build")
+	if(IOS_APP_STORE)
+		message("WARNING: Gold build for iOS is deprecated")
+	endif()
 else()
 	message("Non-gold Build")
+endif()
+
+if(USE_IAP)
+	if(GOLD)
+		message(FATAL_ERROR "USE_IAP and GOLD can't be enabled together")
+	endif()
+	if(NOT IOS_APP_STORE)
+		message(FATAL_ERROR "USE_IAP can only be enabled in app store builds")
+	endif()
+	message("USE_IAP for iOS enabled")
+	add_compile_definitions(USE_IAP)
 endif()
 
 if(IOS_APP_STORE)
@@ -189,6 +205,8 @@ option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 option(USE_CCACHE "Use ccache if detected" ON)
 option(USE_NO_MMAP "Disable mmap usage" OFF)
+option(USE_IAP "IAP enabled" OFF)
+option(GOLD "Gold build" OFF)
 
 if(USE_CCACHE)
 	include(ccache)
@@ -920,7 +938,11 @@ if(IOS)
 	target_compile_definitions(Common PUBLIC GLES_SILENCE_DEPRECATION)
 endif()
 
-target_link_libraries(Common Ext::Snappy cpu_features imgui)
+target_link_libraries(Common Ext::Snappy cpu_features)
+
+if(NOT LIBRETRO)
+    target_link_libraries(Common imgui)
+endif()
 
 if(ARM64)
 	if(ANDROID)
@@ -1208,6 +1230,7 @@ else()
 			ext/libzip/zip_random_unix.c
 		)
 	endif()
+	target_compile_definitions(libzip PRIVATE HAVE_STDBOOL_H)
 	target_link_libraries(libzip)
 	include_directories(ext/libzip)
 	set(LIBZIP_LIBRARY libzip)
@@ -1332,6 +1355,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
+		ios/IAPManager.mm
+		ios/IAPManager.h
 		ios/CameraHelper.mm
 		ios/CameraHelper.h
 		ios/LocationHelper.mm
@@ -1506,7 +1531,6 @@ if(NOT LIBRETRO)
 endif()
 
 list(APPEND NativeAppSource
-	android/jni/TestRunner.cpp
 	UI/ImDebugger/ImDebugger.cpp
 	UI/ImDebugger/ImDebugger.h
 	UI/ImDebugger/ImGe.cpp
@@ -1535,6 +1559,8 @@ list(APPEND NativeAppSource
 	UI/EmuScreen.cpp
 	UI/GameInfoCache.h
 	UI/GameInfoCache.cpp
+	UI/IAPScreen.cpp
+	UI/IAPScreen.h
 	UI/MainScreen.h
 	UI/MainScreen.cpp
 	UI/MiscScreens.h
@@ -2882,7 +2908,7 @@ if(TargetBin)
 
 		if(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
 				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 			endif()
@@ -2946,13 +2972,14 @@ if(IOS AND NOT LIBRETRO)
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
 	set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	set(BUNDLE_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ios/App.entitlements")
 	if(GOLD)
 		if(IOS_APP_STORE)
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-gold")
 		else()
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppssppgold")
 		endif()
-		set(ICON_NAME "AppIconGold")
+		set(ICON_NAME "GoldIcon")
 		set(DISPLAY_NAME "PPSSPP Gold")
 	else()
 		if(IOS_APP_STORE)
@@ -2964,7 +2991,7 @@ if(IOS AND NOT LIBRETRO)
 		set(DISPLAY_NAME "PPSSPP")
 	endif()
 	if(IOS_APP_STORE)
-		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
+		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin} Gold: ${GOLD} IAP: ${USE_IAP}")
 		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 
 		# This is for injecting the version into the plist, and also copying resources.
@@ -2983,7 +3010,6 @@ if(IOS AND NOT LIBRETRO)
 		target_link_libraries(${TargetBin}
 			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
 		)
-
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
 			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
@@ -2995,10 +3021,10 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
 			BUILD_WITH_INSTALL_RPATH YES
 			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-				# Some sources say we should generate the PLIST. There's stuff in it that
-				# I don't know how to generate, though.
-				#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
-				#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+			# Some sources say we should generate the PLIST. There's stuff in it that
+			# I don't know how to generate, though.
+			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
 			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
 			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
 			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
@@ -3009,6 +3035,9 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+			# The following one was hallucinated by ChatGPT
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS "YES"
+			#XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${BUNDLE_ENTITLEMENTS}
 			XCODE_ATTRIBUTE_SKIP_INSTALL NO
 						XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 		)

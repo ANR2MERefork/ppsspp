@@ -85,6 +85,8 @@ public:
 	bool bDumpAudio;
 	bool bSaveLoadResetsAVdumping;
 	bool bEnableLogging;
+	bool bEnableFileLogging;
+	int iLogOutputTypes;  // enum class LogOutput
 	int iDumpFileTypes;  // DumpFileType bitflag enum
 	bool bFullscreenOnDoubleclick;
 
@@ -316,7 +318,6 @@ public:
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
-	bool bShowOnScreenMessages;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
 

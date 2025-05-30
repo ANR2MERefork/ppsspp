@@ -57,6 +57,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/IAPScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
@@ -1090,7 +1091,7 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	bool vertical = UseVerticalLayout();
+	const bool vertical = UseVerticalLayout();
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -1252,7 +1253,7 @@ void MainScreen::CreateViews() {
 		if (versionString[0] == 'v' && isdigit(versionString[1])) {
 			versionString = versionString.substr(1);
 		}
-		if (countChar(versionString, '-') == 2) {
+		if (CountChar(versionString, '-') == 2) {
 			// Shorten the commit hash.
 			size_t cutPos = versionString.find_last_of('-') + 8;
 			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
@@ -1309,8 +1310,13 @@ void MainScreen::CreateViews() {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
 			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-			gold->OnClick.Handle(this, &MainScreen::OnSupport);
+			ScreenManager *sm = screenManager();
+			gold->OnClick.Add([sm](UI::EventParams &) {
+				LaunchBuyGold(sm);
+				return UI::EVENT_DONE;
+			});
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+			gold->SetShine(true);
 		}
 	}
 
@@ -1421,9 +1427,8 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 	UIScreenWithBackground::sendMessage(message, value);
 
 	if (message == UIMessage::REQUEST_GAME_BOOT) {
-		if (screenManager()->topScreen() == this) {
-			LaunchFile(screenManager(), Path(std::string(value)));
-		}
+		screenManager()->cancelScreensAbove(this);
+		LaunchFile(screenManager(), Path(std::string(value)));
 	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
 		RecreateViews();
 	} else if (message == UIMessage::RECENT_FILES_CHANGED) {
@@ -1575,15 +1580,18 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
+void LaunchBuyGold(ScreenManager *screenManager) {
+	if (System_GetPropertyBool(SYSPROP_USE_IAP)) {
+		screenManager->push(new IAPScreen());
+	} else {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
-	return UI::EVENT_DONE;
+	}
 }
 
 UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
@@ -1614,8 +1622,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (tag == "Store") {
 		backFromStore_ = true;
 		RecreateViews();
-	}
-	if (tag == "Game") {
+	} else if (tag == "Game") {
 		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			highlightedGamePath_ = restoreFocusGamePath_;
@@ -1633,12 +1640,14 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			// Not refocusing, so we need to stop the audio.
 			g_BackgroundAudio.SetGame(Path());
 		}
-	}
-	if (tag == "InstallZip") {
+	} else if (tag == "InstallZip") {
 		INFO_LOG(Log::System, "InstallZip finished, refreshing");
 		if (gameBrowsers_.size() >= 2) {
 			gameBrowsers_[1]->RequestRefresh();
 		}
+	} else if (tag == "IAP") {
+		// Gold status may have changed.
+		RecreateViews();
 	}
 }
 

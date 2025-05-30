@@ -483,7 +483,6 @@ EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(GPU_VULKAN_FILES) \
   $(SRC)/ext/xxhash.c \
-  TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
   $(SRC)/Core/MIPS/MIPSDis.cpp \
@@ -909,6 +908,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/TabbedDialogScreen.cpp \
   $(SRC)/UI/MemStickScreen.cpp \
+  $(SRC)/UI/IAPScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/RemoteISOScreen.cpp \
   $(SRC)/UI/ReportScreen.cpp \

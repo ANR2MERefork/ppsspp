@@ -230,10 +230,12 @@ void TextureCacheVulkan::DeviceLost() {
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
-	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	draw_ = draw;
 
 	_assert_(!allocator_);
+
+	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	_assert_(vulkan);
 
 	samplerCache_.DeviceRestore(vulkan);
 	textureShaderCache_->DeviceRestore(draw);
@@ -270,6 +272,11 @@ static std::string ReadShaderSrc(const Path &filename) {
 }
 
 void TextureCacheVulkan::CompileScalingShader() {
+	if (!draw_) {
+		// Something is very wrong.
+		return;
+	}
+
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {

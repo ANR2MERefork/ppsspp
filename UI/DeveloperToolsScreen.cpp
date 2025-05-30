@@ -17,7 +17,6 @@
 
 #include <string>
 
-#include "android/jni/TestRunner.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/System/OSD.h"
@@ -38,6 +37,8 @@
 #include "UI/DevScreens.h"
 #include "UI/DriverManagerScreen.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/GameSettingsScreen.h"
+#include "UI/OnScreenDisplay.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -123,6 +124,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	list->Add(new ItemHeader(sy->T("CPU Core")));
 
@@ -156,12 +158,11 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
+	list->Add(new CheckBox(&g_Config.bEnableFileLogging, dev->T("Log to file")))->SetEnabledPtr(&g_Config.bEnableLogging);
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
 	}
-
-	list->Add(new CheckBox(&g_Config.bShowOnScreenMessages, dev->T("Show on-screen messages")));
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
@@ -184,7 +185,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 #endif
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#if PPSSPP_PLATFORM(IOS)
 	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""));
 	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
 		[=](UI::EventParams &) {
@@ -212,23 +213,21 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 		return UI::EVENT_DONE;
 	});
 	frameDumpTests->SetEnabled(!PSP_IsInited());
-#if !PPSSPP_PLATFORM(UWP)
-	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
-	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-	cpuTests->SetEnabled(TestsAvailable() && !PSP_IsInited());
-#endif
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
 	// because the D3D drivers are generally solid enough to not need this type of investigation.
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
 
+	// Not useful enough to be made visible.
+	/*
 	auto memmapTest = list->Add(new Choice(dev->T("Memory map test")));
 	memmapTest->OnClick.Add([this](UI::EventParams &e) {
 		MemoryMapTest();
 		return UI::EVENT_DONE;
 	});
 	memmapTest->SetEnabled(PSP_IsInited());
+	*/
 }
 
 void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
@@ -490,14 +489,6 @@ void DeveloperToolsScreen::onFinish(DialogResult result) {
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
-	// TODO: If game is loaded, don't do anything.
-#if !PPSSPP_PLATFORM(UWP)
-	RunTests();
-#endif
 	return UI::EVENT_DONE;
 }
 
