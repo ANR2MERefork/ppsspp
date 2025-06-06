@@ -88,7 +88,7 @@ jobs:
 
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
-          CPU_ARCH = $(uname -m)
+          CPU_ARCH = "$(uname -m)"
           if [ "$CPU_ARCH" = 'x86_64' ]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
