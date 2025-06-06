@@ -127,7 +127,7 @@ jobs:
           	wget \
           	xorg-server-xvfb \
           	zsync \
-            ldd
+            lld
           
           echo "Installing debloated pckages..."
           echo "---------------------------------------------------------------"
