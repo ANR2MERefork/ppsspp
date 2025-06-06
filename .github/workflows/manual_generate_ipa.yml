@@ -39,7 +39,7 @@ jobs:
         - os: ubuntu-24.04-arm
           id: arm64
         
-    runs-on: '{{ matrix.os }}'
+    runs-on: '${{ matrix.os }}'
     container: ghcr.io/pkgforge-dev/archlinux:latest
     
     steps:
