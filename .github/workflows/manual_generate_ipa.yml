@@ -225,10 +225,10 @@ jobs:
           files: |
             artifacts/*.AppImage
             artifacts/*.AppImage.zsync
-          body: >
-            PPSSPP is a cross-platform PSP emulator.
-            Visit PPSSPP [official website](https://ppsspp.org)
-            for a [full changelog](https://ppsspp.org/index.html#news)
-            as well as the [downloads section](https://ppsspp.org/downloads.html)
-            for other platforms.
+          #body: >
+          #  PPSSPP is a cross-platform PSP emulator.
+          #  Visit PPSSPP [official website](https://ppsspp.org)
+          #  for a [full changelog](https://ppsspp.org/index.html#news)
+          #  as well as the [downloads section](https://ppsspp.org/downloads.html)
+          #  for other platforms.
         
