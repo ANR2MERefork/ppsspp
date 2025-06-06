@@ -119,6 +119,7 @@ jobs:
             glew \
             sdl2 \
             sdl2_ttf \
+            python \
           	patchelf \
           	pipewire-audio \
           	pulseaudio \
