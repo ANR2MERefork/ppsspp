@@ -113,6 +113,7 @@ jobs:
             gcc-libs \
             glibc \
             libc++ \
+            libc++abi \
             glew \
             sdl2 \
             sdl2_ttf \
