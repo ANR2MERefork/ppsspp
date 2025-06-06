@@ -189,7 +189,7 @@ option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
-option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
+option(USE_LIBNX "Set to ON to build for Switch (libnx)" OFF)
 option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
@@ -243,6 +243,17 @@ if(LIBRETRO)
 	if(NOT MSVC)
 		add_compile_options(-fPIC)
 	endif()
+endif()
+
+if (USE_LIBNX)
+	add_definitions(-DHAVE_LIBNX -D__SWITCH__)
+	add_compile_options(-fPIC)
+	set(GLEW_NO_GLU ON)
+ 	set(USE_MINIUPNPC OFF)
+endif()
+
+if (GLEW_NO_GLU)
+	add_definitions(-DGLEW_NO_GLU)
 endif()
 
 if(ANDROID)
@@ -946,7 +957,7 @@ if(ARM64)
 	endif()
 endif()
 
-if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
+if((USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV)) AND NOT USE_LIBNX)
 	find_package(X11)
 endif()
 
@@ -1091,7 +1102,7 @@ endif()
 
 
 find_package(LIBZIP)
-if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
+if(NOT USE_LIBNX AND LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	include_directories(${LIBZIP_INCLUDE_DIRS})
 	add_compile_definitions(SHARED_LIBZIP)
 else()
@@ -1233,7 +1244,7 @@ else()
 endif()
 
 # Arm platforms require at least libpng17.
-if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
+if(ANDROID OR ARMV7 OR (ARM64 AND NOT USE_LIBNX) OR ARM OR IOS)
 	set(PNG_REQUIRED_VERSION 1.7)
 else()
 	set(PNG_REQUIRED_VERSION 1.6)
@@ -1471,7 +1482,17 @@ else()
 		message(WARNING "Found SDL2_ttf <2.0.18 - this is too old, falling back to atlas")
 	endif()
 	if(SDL2_ttf_FOUND)
-		set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
+		if(TARGET SDL2_ttf::SDL2_ttf)
+			set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
+		else()
+			set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf-static)
+			if (USE_LIBNX)
+				# devkitpro switch portlibs SDL2_ttf is pulling -lpng16. Remove it to use libpng17
+				get_target_property(SDL2_ttf_extra_libs SDL2_ttf::SDL2_ttf-static INTERFACE_LINK_LIBRARIES)
+				string(REPLACE "png16" "" SDL2_ttf_extra_libs_fixed "${SDL2_ttf_extra_libs}")
+				set_target_properties(SDL2_ttf::SDL2_ttf-static PROPERTIES INTERFACE_LINK_LIBRARIES "${SDL2_ttf_extra_libs_fixed}")
+			endif()
+		endif()
 	elseif(SDL2_ttf_PKGCONFIG_FOUND)
 		set(nativeExtraLibs ${nativeExtraLibs} PkgConfig::SDL2_ttf_PKGCONFIG)
 	endif()
@@ -1641,7 +1662,7 @@ add_library(native STATIC
 	ext/jpge/jpge.h
 )
 
-if(LINUX AND NOT ANDROID)
+if(LINUX AND NOT ANDROID AND NOT USE_LIBNX)
 	set(RT_LIB rt)
 endif()
 
@@ -1908,7 +1929,10 @@ set(GPU_D3D11
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
-set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
+set(GPU_IMPLS ${GPU_GLES})
+if(NOT USE_LIBNX)
+	list(APPEND GPU_IMPLS ${GPU_VULKAN})
+endif()
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
 endif()
@@ -2468,6 +2492,14 @@ else()
 	add_compile_definitions(NO_ARMIPS=1)
 endif()
 
+if(USE_LIBNX)
+	set(MOBILE_DEVICE ON)
+	add_definitions(-DGLEW_NO_GLU)
+	add_compile_options(-fcommon)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+	set(CoreExtraLibs ${CoreExtraLibs} EGL glapi drm_nouveau nx)
+endif()
+
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)
 #	target_link_libraries(native X11-xcb X11)
@@ -2500,7 +2532,7 @@ endif()
 include_directories(ext/libchdr/include)
 
 target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua ${GlslangLibs}
-	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} $<$<NOT:$<BOOL:${USE_LIBNX}>>:${CMAKE_DL_LIBS}>)
 
 # Winsock
 if(WIN32)
@@ -2531,7 +2563,7 @@ if(FFmpeg_FOUND)
 endif()
 
 # Discord integration
-if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
+if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO AND NOT USE_LIBNX)
 	add_compile_definitions(USE_DISCORD=1)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
