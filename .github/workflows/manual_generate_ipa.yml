@@ -112,6 +112,7 @@ jobs:
             fontconfig \
             gcc-libs \
             glibc \
+            libc++ \
             glew \
             sdl2 \
             sdl2_ttf \
@@ -125,7 +126,8 @@ jobs:
           	vulkan-radeon \
           	wget \
           	xorg-server-xvfb \
-          	zsync
+          	zsync \
+            ldd
           
           echo "Installing debloated pckages..."
           echo "---------------------------------------------------------------"
@@ -144,7 +146,8 @@ jobs:
           CC: clang
           CXX: clang++
           CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-          LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-static
+          CXXFLAGS: -stdlib=libc++
+          LDFLAGS: -no-pie -static-libgcc -static-libstdc++ -fuse-ld=lld #-static
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
