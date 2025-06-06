@@ -52,7 +52,8 @@ jobs:
         id: valid-tags
         shell: bash
         run: |
-          pacman -Syu --noconfirm git # The archlinux container doesn't seems to have git installed?
+          # The archlinux container doesn't seems to have git installed?
+          pacman -Syu --noconfirm git
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
@@ -64,11 +65,11 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
           
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: "linux-appimage-${{ matrix.id }}"
-          create-symlink: true
+      #- name: Setup ccache # Doesn't support archlinux container?
+      #  uses: hendrikmuhs/ccache-action@v1.2
+      #  with:
+      #    key: "linux-appimage-${{ matrix.id }}"
+      #    create-symlink: true
 
       - name: Install dependencies
         shell: bash
