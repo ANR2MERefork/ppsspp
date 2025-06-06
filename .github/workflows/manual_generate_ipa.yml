@@ -134,7 +134,7 @@ jobs:
           echo "---------------------------------------------------------------"
       
       - name: Build
-        env: | # YAML, but pipe character is necessary
+        env:
           CC: clang
           CXX: clang++
           CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
