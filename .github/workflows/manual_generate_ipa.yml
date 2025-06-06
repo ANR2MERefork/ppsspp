@@ -89,7 +89,7 @@ jobs:
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
           CPU_ARCH = "$(uname -m)"
-          if [ "$CPU_ARCH" = 'x86_64' ]; then
+          if [[ "$CPU_ARCH" == "x86_64" ]]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
           	PKG_TYPE='aarch64.pkg.tar.xz'
@@ -130,7 +130,7 @@ jobs:
           	vulkan-nouveau \
           	vulkan-radeon 
 
-          if [ "$CPU_ARCH" = 'x86_64' ]; then
+          if [[ "$CPU_ARCH" == "x86_64" ]]; then
           	pacman -Syu --noconfirm vulkan-intel
           fi
           
