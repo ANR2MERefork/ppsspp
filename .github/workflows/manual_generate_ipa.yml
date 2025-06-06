@@ -1,70 +1,52 @@
-name: Manual Generate Linux Package
+name: Generate Linux AppImage
 on:
-  workflow_dispatch:
-    inputs:
-      refToBuild:
-        description: 'Commit SHA1 to build (optional)'
-        type: string
-        default: ''
-        
-      buildVariant:
-        type: choice
-        description: 'Build Variant'
-        required: true
-        default: 'release'
-        options: 
-        - release
-        - debug
-
-      cpuArch:
-        type: choice
-        description: 'CPU Architecture'
-        required: true
-        default: 'amd64'
-        options: 
-        - amd64
-        - i386
-        - arm64v8
-        - arm32v7 # SDL2/EGL issue?
-        - arm32v6 # missing ffmpeg?
-        - arm32v5 # doesn't support "ssat" assembly instruction
-        - riscv64
-        - loong64
-        #- mips32
-        - mips64le # type conversion issue? wrong ffmpeg arch too (mips32)
-        - ppc64le
-        - s390x # type conversion issue? wrong ffmpeg arch too (x64)
+  push:
+    branches:
+    - master
+    # For testing.
+    #- actions
+    tags:
+      - "v*.*"
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+  pull_request:
+    branches:
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
 
 env:
-  #SDL_VIDEODRIVER: "dummy"
   SDL_AUDIODRIVER: "dummy" #"disk"
-  PLATFORM_ARCH: >- # reference: https://github.com/docker-library/bashbrew/blob/master/architecture/oci-platform.go
-    ${{ fromJSON('{
-      "amd64" : "amd64 amd64/debian:latest",
-      "i386" : "386 i386/debian:bullseye",
-      "arm64v8" : "arm64 arm64v8/debian:bullseye",
-      "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
-      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:bullseye",
-      "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
-      "riscv64" : "riscv64 riscv64/ubuntu:focal",
-      "loong64" : "loong64 ghcr.io/loong64/debian:trixie",
-      "mips32" : "mips lpenz/debian-buster-mips:latest",
-      "mips64le" : "mips64le mips64le/debian:bullseye",
-      "ppc64le" : "ppc64le ppc64le/debian:bullseye",
-      "s390x" : "s390x s390x/debian:bullseye"
-    }')[inputs.cpuArch] }}
+  #SDL_VIDEODRIVER: "dummy"
+  #BUILD_CONFIGURATION: Release
+  
 jobs:
 
   build:
-    name: Generate ${{ inputs.buildVariant }} ${{ inputs.cpuArch }} build
-    runs-on: 'ubuntu-22.04' # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
-      
+    name: Building AppImage
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-24.04
+          id: x64
+        - os: ubuntu-24.04-arm
+          id: arm64
+        
+    runs-on: '{{ matrix.os }}'
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+    
     steps:
-      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
-          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
 
       - name: Check Valid Version Tags
         id: valid-tags
@@ -82,197 +64,8 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: linux-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
+          key: "linux-appimage-${{ matrix.id }}"
           create-symlink: true
-      
-      - name: Setup and Run Guest Container for ${{ inputs.cpuArch }} (target arch)
-        id: debian-target
-        uses: uraimo/run-on-arch-action@v3
-        with:
-          arch: none # ${{ github.event.inputs.cpuArch }}
-          distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
-          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:trixie
-          # Not required, but speeds up builds
-          githubToken: ${{ github.token }}
-          
-          # Create an artifacts directory
-          setup: |
-            mkdir -p "${PWD}/artifacts"
-          # Mount the artifacts directory as /artifacts in the container
-          dockerRunArgs: |
-            --volume "${PWD}/artifacts:/artifacts"
-            #-m 8192M
-          # Pass some environment variables to the container
-          env: | # YAML, but pipe character is necessary
-            artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
-            CC: gcc #clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
-            CXX: g++ #clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
-            CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-            LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-static
-            USE_CCACHE: 1
-            APPIMAGE_EXTRACT_AND_RUN: 1
-          # The shell to run commands with in the container
-          shell: /bin/bash
-
-          # Install some dependencies in the container. This speeds up builds if
-          # you are also using githubToken. Any dependencies installed here will
-          # be part of the container image that gets cached, so subsequent
-          # builds don't have to re-install them. The image layer is cached
-          # publicly in your project's package repository, so it is vital that
-          # no secrets are present in the container state or logs.
-          install: |
-            apt-get update -y -qq
-            #apt-get install -q -y --reinstall ca-certificates
-            #apt-get install -q -y software-properties-common
-            apt-get install -q -y git file #linux-modules-extra-$(uname -r)
-            
-            # Prerequisites to build PPSSPP
-            apt install -q -y build-essential libgl1-mesa-dev libglu1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev cmake
-            
-            # Prerequisites to build CMake
-            apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
-            # TODO: Install gcc-9 or newer, because building using gcc-8 (Debian 10) on arm64v8 could get Segmentation fault (works good on arm32v tho)
-            #if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
-              # Install gcc/g++ debs from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
-              #echo "Installing GCC-10"
-              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
-              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/g++-10_10.2.1-6_arm64.deb -O g++_arm64.deb
-              #apt install -y -f ./gcc_arm64.deb ./g++_arm64.deb # need more dependencies tho
-              #apt-get install -y -q --reinstall lsb-release
-              #apt-get install -y -q software-properties-common
-              #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free"
-              #add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
-              #apt update -y -q
-              apt install -y -q gcc g++ clang # lldb lld
-              #export CC=clang
-              #export CXX=clang++
-            #fi
-            
-            # Check if CMake is installed
-            required_cmake_version="3.16"
-            installed_cmake_version="0.00"
-            if command -v cmake &> /dev/null; then
-                # Get the installed version of CMake
-                installed_cmake_version=$(cmake --version | grep -oP '\d+\.\d+\.\d+')
-                echo "Installed CMake version is $installed_cmake_version"
-            fi
-            
-            # Compare versions
-            if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
-                echo "CMake version is lower than $required_cmake_version, or not installed. Installing a newer version..."
-                # Remove old CMake
-                apt purge cmake -y
-                # Install a newer version of CMake (need v3.16+)
-                #export CC=clang
-                #export CXX=clang++
-                cmake_version=3.31.6 # 3.26.6
-                #if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
-                #  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version-linux-aarch64.sh -O cmake.sh
-                #  chmod +x cmake.sh
-                #  ./cmake.sh --skip-license --exclude-subdir --prefix=/usr/local
-                #else
-                  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
-                  tar -xzf cmake-$cmake_version.tar.gz
-                  cd cmake-$cmake_version/
-                  ./bootstrap #./configure
-                  make -j$(nproc)
-                  make install
-                  cd -
-                #fi
-            fi
-            
-          run: |
-            echo "Running inside container!"
-            uname -m
-            #gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags, might not works on raspbian
-            gcc --version
-            g++ --version
-            ld -v
-            cmake --version
-            
-            # Fix dubious ownership issue when running git describe inside a container
-            git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
-            
-            # Export ccache env var(s)
-            export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-            export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-            
-            # Build ppsspp
-            ./b.sh --${{ inputs.buildVariant }} --headless --unittest
-
-            # Testing cmd line
-            ps aux
-            cat /proc/meminfo
-
-            # Create AppImage package
-            #echo "Creating AppImage..."
-            #if [[ "${{ inputs.cpuArch }}" == "amd64" || "${{ inputs.cpuArch }}" == "arm64v8" ]]; then
-            #  #pacman -S --noconfirm zsyncmake patchelf xvfb-run
-            #  apt-get install -q -y zsync patchelf xvfb strace
-            #  #modprobe fuse
-            #  #cd build
-            #  chmod +x ./build/PPSSPPSDL
-            #  chmod +x ./scripts/makeappimage_64-bit.sh
-            #  ./scripts/makeappimage_64-bit.sh
-            #fi
-            
-      - name: Prepare artifacts
-        run: |
-          uname -m
-          ps aux
-          cat /proc/meminfo
-            
-          # Checking binaries arch
-          find . -name "PPSSPPSDL" -exec file {} \;
-          find . -name PPSSPPHeadless -exec file {} \;
-          find . -name PPSSPPUnitTest -exec file {} \;
-          find . -name "PPSSPPSDL" -exec ldd {} \;
-
-          # Copy artifacts
-          if [ -e build*/PPSSPPSDL ]; then
-            #mkdir artifacts/ppsspp
-            cp -a build*/PPSSPPSDL artifacts/
-            chmod +x artifacts/PPSSPPSDL
-            cp -r assets artifacts/assets
-          fi
-          
-          if [ -e build*/PPSSPPHeadless ]; then
-            cp build*/PPSSPPHeadless artifacts/
-            #cp -r assets artifacts/assets
-          fi
-          
-          if [ -e build*/PPSSPPUnitTest ]; then
-            cp build*/PPSSPPUnitTest artifacts/
-          fi
-        shell: bash
-          
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
-          path: artifacts/
-          
-  appimage:
-    name: Generate AppImage package
-    runs-on: ubuntu-latest # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
-    container: ghcr.io/pkgforge-dev/archlinux:latest
-    needs: build
-    #continue-on-error: true
-    if: ${{ inputs.cpuArch == 'amd64' || inputs.cpuArch == 'arm64v8' }}
-    strategy:
-      fail-fast: false
-    
-    steps:
-      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
-        with:
-          submodules: false
-          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
-          path: build/
 
       - name: Install dependencies
         shell: bash
@@ -339,7 +132,29 @@ jobs:
           
           echo "All done!"
           echo "---------------------------------------------------------------"
+      
+      - name: Build
+        env: | # YAML, but pipe character is necessary
+          CC: clang
+          CXX: clang++
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-static
+          USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          echo "Building..."
+          uname -m
           
+          # Fix dubious ownership issue when running git describe inside a container
+          git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+          
+          # Export ccache env var(s)
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+          
+          # Build ppsspp
+          ./b.sh --release
+            
       - name: Create AppImage
         shell: bash
         run: |
@@ -376,5 +191,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} AppImage
+          name: linux-${{ matrix.id }} AppImage
           path: artifacts/
+          
