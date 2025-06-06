@@ -217,7 +217,8 @@ static float DefaultUISaturation() {
 static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", &g_Config.bFirstRun, true, CfgFlag::DEFAULT),
 	ConfigSetting("RunCount", &g_Config.iRunCount, 0, CfgFlag::DEFAULT),
-	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true, CfgFlag::DEFAULT),
+	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true, CfgFlag::PER_GAME),
+	ConfigSetting("FileLogging", &g_Config.bEnableFileLogging, false, CfgFlag::PER_GAME),
 	ConfigSetting("AutoRun", &g_Config.bAutoRun, true, CfgFlag::DEFAULT),
 	ConfigSetting("Browse", &g_Config.bBrowse, false, CfgFlag::DEFAULT),
 	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, CfgFlag::DEFAULT),
@@ -1579,7 +1580,7 @@ void Config::DismissUpgrade() {
 // The GUID part changes on each launch.
 bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
-	INFO_LOG(Log::Loader, "Original path: %s", path->c_str());
+	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
 
 	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";

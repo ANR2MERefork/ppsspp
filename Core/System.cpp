@@ -39,6 +39,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/AndroidContentURI.h"
+#include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/GraphicsContext.h"
@@ -93,6 +94,7 @@ static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
+static bool g_fileLoggingWasEnabled;
 
 static BootState g_bootState = BootState::Off;
 
@@ -373,6 +375,32 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		return false;
 	}
 
+	// If it was forced on the command line. We don't want to override that.
+	g_fileLoggingWasEnabled = g_logManager.GetOutputsEnabled() & LogOutput::File;
+	g_logManager.EnableOutput(LogOutput::File, g_Config.bEnableFileLogging || g_fileLoggingWasEnabled);
+
+	if ((g_logManager.GetOutputsEnabled() & LogOutput::File) && !g_logManager.GetLogFilePath().empty()) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+
+		std::string logPath = g_logManager.GetLogFilePath().ToString();
+
+		// TODO: Really need a cleaner way to make clickable path notifications.
+		char *path = new char[logPath.size() + 1];
+		strcpy(path, logPath.data());
+
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", dev->T("Log to file"), g_logManager.GetLogFilePath().ToVisualString()), 0.0f, "log_to_file");
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			g_OSD.SetClickCallback("log_to_file", [](bool clicked, void *userdata) {
+				char *path = (char *)userdata;
+				if (clicked) {
+					System_ShowFileInFolder(Path(path));
+				} else {
+					delete[] path;
+				}
+			}, path);
+		}
+	}
+
 	InitVFPU();
 
 	LoadSymbolsIfSupported();
@@ -482,6 +510,8 @@ void CPU_Shutdown(bool success) {
 	g_symbolMap = nullptr;
 
 	g_lua.Shutdown();
+
+	g_logManager.EnableOutput(LogOutput::File, g_fileLoggingWasEnabled);
 }
 
 // Used for UMD switching only.
@@ -532,6 +562,8 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		ERROR_LOG(Log::Loader, "Can't start loader thread - already on.");
 		return false;
 	}
+
+	IncrementDebugCounter(DebugCounter::GAME_BOOT);
 
 	g_bootState = BootState::Booting;
 
@@ -665,6 +697,7 @@ void PSP_Shutdown(bool success) {
 
 	// Do nothing if we never inited.
 	if (g_bootState == BootState::Off) {
+		ERROR_LOG(Log::Loader, "Unexpected PSP_Shutdown");
 		return;
 	}
 
@@ -697,8 +730,11 @@ void PSP_Shutdown(bool success) {
 	if (success) {
 		g_bootState = BootState::Off;
 	}
+
+	IncrementDebugCounter(DebugCounter::GAME_SHUTDOWN);
 }
 
+// Do not use. Currently only used from the websocket debugger
 BootState PSP_Reboot(std::string *error_string) {
 	if (g_bootState != BootState::Complete) {
 		return g_bootState;

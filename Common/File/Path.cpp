@@ -251,6 +251,27 @@ bool Path::StartsWith(const Path &other) const {
 	return startsWith(path_, other.path_);
 }
 
+bool Path::StartsWithGlobalAndNotEqual(const Path &other) const {
+	if (other.empty()) {
+		return true;
+	}
+	if (type_ != other.type_) {
+		// Bad
+		return false;
+	}
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI a(path_);
+		AndroidContentURI b(other.path_);
+		std::string aLast = a.GetLastPart();
+		std::string bLast = b.GetLastPart();
+		if (aLast == bLast) {
+			return false;
+		}
+		return CountChar(aLast, '/') != CountChar(bLast, '/') && startsWith(aLast, bLast);
+	}
+	return *this != other && StartsWith(other);
+}
+
 const std::string &Path::ToString() const {
 	return path_;
 }

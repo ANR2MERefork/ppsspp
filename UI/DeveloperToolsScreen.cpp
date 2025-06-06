@@ -158,6 +158,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
+	list->Add(new CheckBox(&g_Config.bEnableFileLogging, dev->T("Log to file")))->SetEnabledPtr(&g_Config.bEnableLogging);
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
@@ -184,7 +185,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 #endif
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#if PPSSPP_PLATFORM(IOS)
 	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""));
 	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
 		[=](UI::EventParams &) {
@@ -218,12 +219,15 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
 
+	// Not useful enough to be made visible.
+	/*
 	auto memmapTest = list->Add(new Choice(dev->T("Memory map test")));
 	memmapTest->OnClick.Add([this](UI::EventParams &e) {
 		MemoryMapTest();
 		return UI::EVENT_DONE;
 	});
 	memmapTest->SetEnabled(PSP_IsInited());
+	*/
 }
 
 void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
@@ -574,12 +578,18 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	System_BrowseForFile(GetRequesterToken(), dev->T("Select the log file"), BrowseFileType::ANY,
+	System_BrowseForFileSave(
+		GetRequesterToken(),
+		dev->T("Select the log file"),
+		"trace.txt",
+		BrowseFileType::ANY,
 		[this](const std::string &value, int) {
-		mipsTracer.set_logging_path(value);
-		MIPSTracerPath_ = value;
-		MIPSTracerPath->SetRightText(MIPSTracerPath_);
-	});
+			mipsTracer.set_logging_path(value);
+			MIPSTracerPath_ = value;
+			MIPSTracerPath->SetRightText(MIPSTracerPath_);
+		}
+	);
+
 	return UI::EVENT_DONE;
 }
 

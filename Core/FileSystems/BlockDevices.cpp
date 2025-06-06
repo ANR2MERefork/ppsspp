@@ -381,7 +381,6 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader)
 {
-	std::lock_guard<std::mutex> guard(mutex_);
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
@@ -404,17 +403,20 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	kirk_init();
+	std::lock_guard<std::mutex> guard(mutex_);
+
+	// Local kirk instance to not clash with other block devices and other decryption things.
+	kirk_init(&kirk_);
 
 	// getkey
 	sceDrmBBMacInit(&mkey, 3);
-	sceDrmBBMacUpdate(&mkey, np_header, 0xc0);
-	bbmac_getkey(&mkey, np_header+0xc0, vkey);
+	sceDrmBBMacUpdate(&kirk_, &mkey, np_header, 0xc0);
+	bbmac_getkey(&kirk_, &mkey, np_header+0xc0, vkey);
 
 	// decrypt NP header
 	memcpy(hkey, np_header+0xa0, 0x10);
-	sceDrmBBCipherInit(&ckey, 1, 2, hkey, vkey, 0);
-	sceDrmBBCipherUpdate(&ckey, np_header+0x40, 0x60);
+	sceDrmBBCipherInit(&kirk_, &ckey, 1, 2, hkey, vkey, 0);
+	sceDrmBBCipherUpdate(&kirk_, &ckey, np_header+0x40, 0x60);
 	sceDrmBBCipherFinal(&ckey);
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
@@ -523,14 +525,14 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	if ((table_[block].flag & 4) == 0) {
 		CIPHER_KEY ckey;
-		sceDrmBBCipherInit(&ckey, 1, 2, hkey, vkey, table_[block].offset>>4);
-		sceDrmBBCipherUpdate(&ckey, readBuf, table_[block].size);
+		sceDrmBBCipherInit(&kirk_, &ckey, 1, 2, hkey, vkey, table_[block].offset>>4);
+		sceDrmBBCipherUpdate(&kirk_, &ckey, readBuf, table_[block].size);
 		sceDrmBBCipherFinal(&ckey);
 	}
 
 	if (table_[block].size < blockSize_) {
 		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
-		if(lzsize!=blockSize_){
+		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();
 			return false;

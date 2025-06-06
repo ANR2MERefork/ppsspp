@@ -57,6 +57,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/IAPScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
@@ -381,24 +382,23 @@ void GameButton::Draw(UIContext &dc) {
 			}
 		}
 	}
-	const int region = ginfo->region;
-	if (g_Config.bShowRegionOnGameIcon && region >= 0 && region < GAMEREGION_COUNT && region != GAMEREGION_OTHER) {
-		const ImageID regionIcons[GAMEREGION_COUNT] = {
+	const int regionIndex = (int)ginfo->region;
+	if (g_Config.bShowRegionOnGameIcon && regionIndex >= 0 && regionIndex < (int)GameRegion::COUNT) {
+		const ImageID regionIcons[(int)GameRegion::COUNT] = {
 			ImageID("I_FLAG_JP"),
 			ImageID("I_FLAG_US"),
 			ImageID("I_FLAG_EU"),
 			ImageID("I_FLAG_HK"),
 			ImageID("I_FLAG_AS"),
 			ImageID("I_FLAG_KO"),
-			ImageID::invalid(),
 		};
-		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[region]);
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
 		if (image) {
 			if (gridStyle_) {
-				dc.Draw()->DrawImage(regionIcons[region], x + w - (image->w + 5)*g_Config.fGameGridScale,
+				dc.Draw()->DrawImage(regionIcons[regionIndex], x + w - (image->w + 5)*g_Config.fGameGridScale,
 							y + h - (image->h + 5)*g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(regionIcons[region], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
+				dc.Draw()->DrawImage(regionIcons[regionIndex], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
 			}
 		}
 	}
@@ -957,7 +957,10 @@ void GameBrowser::Refresh() {
 }
 
 bool GameBrowser::IsCurrentPathPinned() {
-	const auto paths = g_Config.vPinnedPaths;
+	const auto &paths = g_Config.vPinnedPaths;
+	if (paths.empty()) {
+		return false;
+	}
 	std::string resolved = File::ResolvePath(path_.GetPath().ToString());
 	return std::find(paths.begin(), paths.end(), resolved) != paths.end();
 }
@@ -1252,7 +1255,7 @@ void MainScreen::CreateViews() {
 		if (versionString[0] == 'v' && isdigit(versionString[1])) {
 			versionString = versionString.substr(1);
 		}
-		if (countChar(versionString, '-') == 2) {
+		if (CountChar(versionString, '-') == 2) {
 			// Shorten the commit hash.
 			size_t cutPos = versionString.find_last_of('-') + 8;
 			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
@@ -1315,6 +1318,7 @@ void MainScreen::CreateViews() {
 				return UI::EVENT_DONE;
 			});
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+			gold->SetShine(true);
 		}
 	}
 
@@ -1425,9 +1429,8 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 	UIScreenWithBackground::sendMessage(message, value);
 
 	if (message == UIMessage::REQUEST_GAME_BOOT) {
-		if (screenManager()->topScreen() == this) {
-			LaunchFile(screenManager(), Path(std::string(value)));
-		}
+		screenManager()->cancelScreensAbove(this);
+		LaunchFile(screenManager(), Path(std::string(value)));
 	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
 		RecreateViews();
 	} else if (message == UIMessage::RECENT_FILES_CHANGED) {
@@ -1580,13 +1583,17 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 }
 
 void LaunchBuyGold(ScreenManager *screenManager) {
+	if (System_GetPropertyBool(SYSPROP_USE_IAP)) {
+		screenManager->push(new IAPScreen());
+	} else {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
+	}
 }
 
 UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
@@ -1617,8 +1624,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (tag == "Store") {
 		backFromStore_ = true;
 		RecreateViews();
-	}
-	if (tag == "Game") {
+	} else if (tag == "Game") {
 		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			highlightedGamePath_ = restoreFocusGamePath_;
@@ -1636,12 +1642,14 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			// Not refocusing, so we need to stop the audio.
 			g_BackgroundAudio.SetGame(Path());
 		}
-	}
-	if (tag == "InstallZip") {
+	} else if (tag == "InstallZip") {
 		INFO_LOG(Log::System, "InstallZip finished, refreshing");
 		if (gameBrowsers_.size() >= 2) {
 			gameBrowsers_[1]->RequestRefresh();
 		}
+	} else if (tag == "IAP") {
+		// Gold status may have changed.
+		RecreateViews();
 	}
 }
 

@@ -350,6 +350,8 @@ static void ClearFailedGPUBackends() {
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
+	IncrementDebugCounter(DebugCounter::APP_BOOT);
+
 	// Probably an excessive timeout. it only causes delays on shutdown, though.
 	__UPnPInit(2000);
 
@@ -643,6 +645,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
 #if defined(_WIN32) || defined(__ANDROID__)
 						// Ignore and proceed.
+						boot_filename.clear();
 #else
 						// Bail.
 						exit(1);
@@ -663,11 +666,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	if (fileToLog) {
 		g_logManager.EnableOutput(LogOutput::File);
-		g_logManager.ChangeFileLog(Path(fileToLog));
+		g_logManager.SetFileLogPath(Path(fileToLog));
+	} else {
+		// Set a default file logging path, in case the user enables it with the checkbox later.
+		g_logManager.SetFileLogPath(GetSysDirectory(DIRECTORY_DUMP) / "log.txt");
 	}
 
-	if (forceLogLevel)
+	if (forceLogLevel) {
 		g_logManager.SetAllLogLevels(logLevel);
+	}
 
 	PostLoadConfig();
 
@@ -756,7 +763,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else if (gotoDeveloperTools) {
 		g_screenManager->switchScreen(new MainScreen());
 		g_screenManager->push(new DeveloperToolsScreen(Path()));
-	} else if (skipLogo) {
+	} else if (skipLogo && !boot_filename.empty()) {
+		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
@@ -1579,8 +1587,8 @@ bool Native_IsWindowHidden() {
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_display.dpi_scale_real);
-	int h = (int)(pixelHeight * g_display.dpi_scale_real);
+	int w = (int)(pixelWidth * g_display.dpi_scale_real_x);
+	int h = (int)(pixelHeight * g_display.dpi_scale_real_y);
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
@@ -1603,7 +1611,7 @@ bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customSca
 		customScale = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
 	}
 
-	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, customScale)) {
+	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, g_logical_dpi / dpi, customScale)) {
 		NativeResized();
 		return true;
 	} else {

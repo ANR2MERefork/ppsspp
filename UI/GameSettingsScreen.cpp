@@ -1120,7 +1120,8 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	PopupSliderChoice *uiScale = systemSettings->Add(new PopupSliderChoice(&g_Config.iUIScaleFactor, -8, 8, 0, sy->T("UI size adjustment (DPI)"), screenManager()));
 	uiScale->SetZeroLabel(sy->T("Off"));
 	uiScale->OnChange.Add([](UI::EventParams &e) {
-		g_display.Recalculate(-1, -1, -1, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
+		g_display.Recalculate(-1, -1, -1, -1, dpiMul);
 		NativeResized();
 		return UI::EVENT_DONE;
 	});
@@ -1516,6 +1517,7 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		INFO_LOG(Log::UI, "Clearing background image.");
 		// The button is in clear mode.
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
