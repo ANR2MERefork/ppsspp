@@ -107,6 +107,8 @@ jobs:
           	git \
             cmake \
             clang \
+            lld \
+            llvm \
           	libxss \
           	mesa \
             fontconfig \
@@ -122,13 +124,12 @@ jobs:
           	pulseaudio \
           	pulseaudio-alsa \
           	strace \
-          	vulkan-intel \
-          	vulkan-nouveau \
-          	vulkan-radeon \
           	wget \
           	xorg-server-xvfb \
           	zsync \
-            lld
+          	vulkan-nouveau \
+          	vulkan-radeon 
+            #vulkan-intel \
           
           echo "Installing debloated pckages..."
           echo "---------------------------------------------------------------"
