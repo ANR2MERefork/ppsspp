@@ -43,7 +43,7 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
     
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -52,6 +52,7 @@ jobs:
         id: valid-tags
         shell: bash
         run: |
+          pacman -Syu --noconfirm git # The archlinux container doesn't seems to have got installed?
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
           
       - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
