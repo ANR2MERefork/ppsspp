@@ -106,6 +106,7 @@ jobs:
           	desktop-file-utils \
           	git \
             cmake \
+            clang \
           	libxss \
           	mesa \
             fontconfig \
