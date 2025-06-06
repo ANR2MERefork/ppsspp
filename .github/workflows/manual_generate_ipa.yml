@@ -1,10 +1,13 @@
 name: Generate Linux AppImage
 on:
+  release:
+    types:
+      - created
   push:
     branches:
     - master
     # For testing.
-    #- actions
+    #- test_arch
     tags:
       - "v*.*"
     paths-ignore:
@@ -218,6 +221,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             artifacts/*.AppImage
             artifacts/*.AppImage.zsync
