@@ -87,8 +87,9 @@ jobs:
           set -ex
 
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
-          
-          if [ "$(uname -m)" = 'x86_64' ]; then
+
+          CPU_ARCH = $(uname -m)
+          if [ "$CPU_ARCH" = 'x86_64' ]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
           	PKG_TYPE='aarch64.pkg.tar.xz'
@@ -108,7 +109,6 @@ jobs:
             cmake \
             clang \
             lld \
-            llvm \
           	libxss \
           	mesa \
             fontconfig \
@@ -129,7 +129,10 @@ jobs:
           	zsync \
           	vulkan-nouveau \
           	vulkan-radeon 
-            #vulkan-intel \
+
+          if [ "$CPU_ARCH" = 'x86_64' ]; then
+          	pacman -Syu --noconfirm vulkan-intel
+          fi
           
           echo "Installing debloated pckages..."
           echo "---------------------------------------------------------------"
@@ -145,8 +148,8 @@ jobs:
       
       - name: Build
         env:
-          CC: clang
-          CXX: clang++
+          CC: gcc # clang
+          CXX: g++ #clang++
           CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
           CXXFLAGS: -stdlib=libc++
           LDFLAGS: -no-pie -static-libgcc -static-libstdc++ -fuse-ld=lld #-static
