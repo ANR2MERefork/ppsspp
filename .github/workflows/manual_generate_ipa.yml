@@ -7,7 +7,7 @@ on:
     branches:
     - master
     # For testing.
-    #- test_arch
+    - test_arch
     tags:
       - "v*.*"
     paths-ignore:
