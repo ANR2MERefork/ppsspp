@@ -35,9 +35,9 @@ jobs:
       matrix:
         include:
         - os: ubuntu-24.04
-          id: x64
+          id: x86_64
         - os: ubuntu-24.04-arm
-          id: arm64
+          id: aarch64
         
     runs-on: '${{ matrix.os }}'
     container: ghcr.io/pkgforge-dev/archlinux:latest
@@ -59,11 +59,13 @@ jobs:
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
           
       - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
+        id: version
         if: ${{ steps.valid-tags.outputs.count == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+          echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
           
       #- name: Setup ccache # Doesn't support archlinux container?
       #  uses: hendrikmuhs/ccache-action@v1.2
@@ -88,8 +90,8 @@ jobs:
 
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
-          CPU_ARCH=$(uname -m)
-          if [[ "$CPU_ARCH" == "x86_64" ]]; then
+          ARCH=$(uname -m)
+          if [[ "$ARCH" == "x86_64" ]]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
           	PKG_TYPE='aarch64.pkg.tar.xz'
@@ -131,7 +133,7 @@ jobs:
           	vulkan-nouveau \
           	vulkan-radeon 
 
-          if [[ "$CPU_ARCH" == "x86_64" ]]; then
+          if [[ "$ARCH" == "x86_64" ]]; then
           	pacman -Syu --noconfirm vulkan-intel
           fi
           
@@ -147,7 +149,7 @@ jobs:
           echo "All done!"
           echo "---------------------------------------------------------------"
       
-      - name: Build
+      - name: Build PPSSPP
         env:
           CC: gcc # clang
           CXX: g++ #clang++
@@ -206,6 +208,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ matrix.id }} AppImage
+          name: linux-${{ steps.version.outputs.tag }}-${{ matrix.id }} AppImage
           path: artifacts/
           
