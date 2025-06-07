@@ -107,7 +107,9 @@ jobs:
             desktop-file-utils \
             git \
             cmake \
-            llvm-git \
+            clang \
+            llvm-libs \
+            llvm \
             lld \
             libxss \
             mesa \
