@@ -152,10 +152,10 @@ jobs:
       - name: Build Release
         id: version
         env:
-          CC: clang
-          CXX: clang++
+          CC: gcc #clang
+          CXX: g++ #clang++
           CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-          CXXFLAGS: -stdlib=libc++ -lc++abi # clang only
+          #CXXFLAGS: -stdlib=libc++ -lc++abi # clang only
           LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-fuse-ld=lld #-static
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -171,8 +171,8 @@ jobs:
           gcc --version
           g++ --version
           
-          clang --version
-          clang++ --version
+          #clang --version
+          #clang++ --version
           
           # Build ppsspp
           ./b.sh --release
@@ -220,7 +220,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd artifacts || exit 1
-          #mv PPSSPP-test-anylinux-* PPSSPPSDL-anylinux-${GITHUB_REF##*/}-* || exit 1
           find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'echo "$1" && mv "$1" "${1//PPSSPP-test-anylinux-/PPSSPPSDL-anylinux-${GITHUB_REF##*/}-}"' _ {} \;
           
       - name: Upload release
