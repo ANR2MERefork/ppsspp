@@ -170,7 +170,7 @@ jobs:
           gcc --version
           g++ --version
           
-          clang --version
+          clang-18 --version
           clang++ --version
           
           # Build ppsspp
