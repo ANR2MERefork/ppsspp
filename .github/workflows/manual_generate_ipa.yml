@@ -175,7 +175,12 @@ jobs:
           #clang++ --version
           
           # Build ppsspp
-          ./b.sh --release --no-sdl2 --no-png
+          #./b.sh --release --no-sdl2 --no-png
+          mkdir -p build
+          pushd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF .. 
+          make -j$(nproc)
+          popd
 
       - name: Create AppImage
         shell: bash
