@@ -1,8 +1,8 @@
 name: Generate Linux AppImage
 on:
-  release:
-    types:
-      - published
+  #release:
+  #  types:
+  #    - published
   push:
     branches:
     - master
@@ -62,13 +62,11 @@ jobs:
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
           
       - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
-        id: version
         if: ${{ steps.valid-tags.outputs.count == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
-          echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
           
       #- name: Setup ccache # Doesn't support archlinux container?
       #  uses: hendrikmuhs/ccache-action@v1.2
@@ -152,7 +150,8 @@ jobs:
           echo "All done!"
           echo "---------------------------------------------------------------"
       
-      - name: Build PPSSPP
+      - name: Build Release
+        id: version
         env:
           CC: gcc # clang
           CXX: g++ #clang++
@@ -164,6 +163,7 @@ jobs:
         run: |
           echo "Building..."
           uname -m
+          echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
 
           # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
@@ -216,7 +216,7 @@ jobs:
         run: |
           cd artifacts || exit 1
           #mv PPSSPP-test-anylinux-* PPSSPPSDL-anylinux-${GITHUB_REF##*/}-* || exit 1
-          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'mv "$1" "${1%.PPSSPP-test-anylinux-}.PPSSPPSDL-anylinux-${GITHUB_REF##*/}-"' _ {} \;
+          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'echo "$1" && mv "$1" "${1%.PPSSPP-test-anylinux-}.PPSSPPSDL-anylinux-${GITHUB_REF##*/}-"' _ {} \;
           
       - name: Upload release
         uses: softprops/action-gh-release@v2
