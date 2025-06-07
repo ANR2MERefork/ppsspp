@@ -107,8 +107,7 @@ jobs:
             desktop-file-utils \
             git \
             cmake \
-            clang18 \
-            llvm18 \
+            llvm-git \
             lld \
             libxss \
             mesa \
@@ -170,7 +169,7 @@ jobs:
           gcc --version
           g++ --version
           
-          clang-18 --version
+          clang --version
           clang++ --version
           
           # Build ppsspp
