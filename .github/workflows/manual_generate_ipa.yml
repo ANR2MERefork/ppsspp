@@ -2,7 +2,7 @@ name: Generate Linux AppImage
 on:
   release:
     types:
-      - created
+      - published
   push:
     branches:
     - master
@@ -215,7 +215,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd artifacts || exit 1
-          mv PPSSPP-test-anylinux-* PPSSPPSDL-anylinux-${GITHUB_REF##*/}-* || exit 1
+          #mv PPSSPP-test-anylinux-* PPSSPPSDL-anylinux-${GITHUB_REF##*/}-* || exit 1
+          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'mv "$1" "${1%.PPSSPP-test-anylinux-}.PPSSPPSDL-anylinux-${{GITHUB_REF##*/}}-"' _ {} \;
           
       - name: Upload release
         uses: softprops/action-gh-release@v2
