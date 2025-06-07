@@ -197,7 +197,7 @@ jobs:
           echo "Creating AppImage..."
           chmod +x ./build/PPSSPPSDL
           chmod +x ./scripts/makeappimage_64-bit.sh
-          VERSION=${{ steps.version.outputs.isTag }} && ${{ steps.version.outputs.tag }} || ${GITHUB_REF##*/}
+          VERSION=${{ steps.version.outputs.isTag }} && "${GITHUB_REF##*/}" || "${{ steps.version.outputs.tag }}"
           ./scripts/makeappimage_64-bit.sh "$VERSION"
 
       - name: Prepare artifacts
