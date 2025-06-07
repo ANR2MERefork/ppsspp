@@ -1,8 +1,5 @@
 name: Generate Linux AppImage
 on:
-  #release:
-  #  types:
-  #    - published
   push:
     branches:
     - master
@@ -153,10 +150,10 @@ jobs:
       - name: Build Release
         id: version
         env:
-          CC: gcc # clang
-          CXX: g++ #clang++
+          CC: clang
+          CXX: clang++
           CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
-          #CXXFLAGS: -stdlib=libc++ # clang only
+          CXXFLAGS: -stdlib=libc++ -lc++abi # clang only
           LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-fuse-ld=lld #-static
           USE_CCACHE: 1
           APPIMAGE_EXTRACT_AND_RUN: 1
@@ -168,6 +165,11 @@ jobs:
           # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+
+          gcc --version
+          g++ --version
+          clang --version
+          clang++ --version
           
           # Build ppsspp
           ./b.sh --release
@@ -226,10 +228,4 @@ jobs:
           files: |
             artifacts/*.AppImage
             artifacts/*.AppImage.zsync
-          #body: >
-          #  PPSSPP is a cross-platform PSP emulator.
-          #  Visit PPSSPP [official website](https://ppsspp.org)
-          #  for a [full changelog](https://ppsspp.org/index.html#news)
-          #  as well as the [downloads section](https://ppsspp.org/downloads.html)
-          #  for other platforms.
         
