@@ -169,6 +169,7 @@ jobs:
 
           gcc --version
           g++ --version
+          ldd clang
           clang --version
           clang++ --version
           
