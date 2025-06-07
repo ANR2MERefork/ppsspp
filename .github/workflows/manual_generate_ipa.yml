@@ -107,7 +107,7 @@ jobs:
             desktop-file-utils \
             git \
             cmake \
-            clang \
+            clang18 \
             llvm18 \
             lld \
             libxss \
@@ -169,7 +169,7 @@ jobs:
 
           gcc --version
           g++ --version
-          ldd clang
+          
           clang --version
           clang++ --version
           
