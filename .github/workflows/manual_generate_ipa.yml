@@ -216,7 +216,7 @@ jobs:
         run: |
           cd artifacts || exit 1
           #mv PPSSPP-test-anylinux-* PPSSPPSDL-anylinux-${GITHUB_REF##*/}-* || exit 1
-          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'mv "$1" "${1%.PPSSPP-test-anylinux-}.PPSSPPSDL-anylinux-${{GITHUB_REF##*/}}-"' _ {} \;
+          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'mv "$1" "${1%.PPSSPP-test-anylinux-}.PPSSPPSDL-anylinux-${GITHUB_REF##*/}-"' _ {} \;
           
       - name: Upload release
         uses: softprops/action-gh-release@v2
