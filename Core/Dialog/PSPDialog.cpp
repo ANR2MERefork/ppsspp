@@ -141,7 +141,7 @@ int PSPDialog::FinishInit() {
 int PSPDialog::FinishShutdown() {
 	if (ReadStatus() != SCE_UTILITY_STATUS_SHUTDOWN)
 		return -1;
-	ChangeStatus(SCE_UTILITY_STATUS_NONE, 0);
+	ChangeStatus(SCE_UTILITY_STATUS_NONE, 13);
 	return 0;
 }
 
