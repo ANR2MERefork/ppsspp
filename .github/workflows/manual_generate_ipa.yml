@@ -1,8 +1,12 @@
-name: Manual Generate iOS IPA
+name: Manual Generate Linux Package
 on:
   workflow_dispatch:
     inputs:
-
+      refToBuild:
+        description: 'Commit SHA1 to build (optional)'
+        type: string
+        default: ''
+        
       buildVariant:
         type: choice
         description: 'Build Variant'
@@ -12,87 +16,233 @@ on:
         - release
         - debug
 
+      cpuArch:
+        type: choice
+        description: 'CPU Architecture'
+        required: true
+        default: 'amd64'
+        options: 
+        - amd64
+        - i386
+        - arm64v8
+        - arm32v7
+        - arm32v6
+        - arm32v5
+        - riscv64
+        - mips64le
+        - ppc64le
+        - s390x
+
+env:
+  PLATFORM_ARCH: >-
+    ${{ fromJSON('{
+      "amd64" : "amd64 amd64/debian:bullseye",
+      "i386" : "386 i386/debian:bullseye",
+      "arm64v8" : "arm64 arm64v8/debian:bullseye",
+      "arm32v7" : "arm/v7 arm32v7/debian:bullseye",
+      "arm32v6" : "arm/v6 balenalib/rpi-raspbian:bullseye",
+      "arm32v5" : "arm/v5 arm32v5/debian:bullseye",
+      "riscv64" : "riscv64 riscv64/debian:trixie",
+      "mips64" : "mips64 mips64/debian:bullseye",
+      "mips64le" : "mips64le mips64le/debian:bullseye",
+      "ppc64le" : "ppc64le ppc64le/debian:bullseye",
+      "s390x" : "s390x s390x/debian:bullseye"
+    }')[inputs.cpuArch] }}
+
 jobs:
 
-  ipa:
-    name: Generate ${{ github.event.inputs.buildVariant }} IPA
-    runs-on: macos-latest
-
+  build:
+    name: Generate ${{ inputs.buildVariant }} ${{ inputs.cpuArch }} build
+    runs-on: 'ubuntu-22.04' # ${{ (startsWith(inputs.cpuArch, 'amd64') || startsWith(inputs.cpuArch, 'i386')) && 'ubuntu-22.04' || 'ubuntu-24.04-arm' }} # arm runner said to be faster
+      
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v1 # v2 or newer doesn't support short SHA ref
         with:
           fetch-depth: 0
           submodules: recursive
-        
+          ref: ${{ inputs.refToBuild != '' && inputs.refToBuild || github.sha }}
+
       - name: Check Valid Version Tags
         id: valid-tags
         shell: bash
         run: |
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
-      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
         if: ${{ steps.valid-tags.outputs.count == '0' }}
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
-      - name: Set Env Var(s)
-        run: |
-          echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
-        
-      - name: Create macOS git-version.cpp & Version.txt
-        run: |
-          echo "const char *PPSSPP_GIT_VERSION = \"${GIT_VERSION}\";" > git-version.cpp
-          echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
-          # Create Version.txt file (should probably do this during building process)
-          mkdir build-ios
-          mkdir build-ios/PPSSPP.app
-          echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
-          # Testing values ...
-          echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
-          echo "count=${{steps.valid-tags.outputs.count}}"
-          echo $(echo $GIT_VERSION | cut -c 2-)
-          # Testing file location ...
-          find . -name "Version.txt"
-          
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@main
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ios
+          key: linux-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
           create-symlink: true
       
-      - name: Execute build
-        env:
-          CC: clang
-          CXX: clang++
-          USE_CCACHE: 1
-        run: |
-          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_SLOPPINESS=pch_defines,clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-          export CCACHE_FILECLONE=true
-          export CCACHE_DEPEND=true
-          export CCACHE_COMPILERCHECK=content
-          ./b.sh --ios --${{ github.event.inputs.buildVariant }}
+      - name: Setup and Run Guest Container for ${{ inputs.cpuArch }} (target arch)
+        id: debian-target
+        uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: none # ${{ github.event.inputs.cpuArch }}
+          distro: none # alpine_latest # ${{ github.event.inputs.cpuArch == 'riscv64' && 'alpine_edge' || 'alpine_latest' }} # ubuntu_latest/bookworm
+          base_image: --platform=linux/${{ env.PLATFORM_ARCH }} # ${{ inputs.cpuArch }}/debian:latest #--platform=linux/${{ github.event.inputs.cpuArch }} debian:trixie
+          
+          # Not required, but speeds up builds
+          githubToken: ${{ github.token }}
+          
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+
+          # Pass some environment variables to the container
+          env: | # YAML, but pipe character is necessary
+            artifact_name: git-${{ inputs.buildVariant }}-${{ inputs.cpuArch }}
+            CC: gcc #clang # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-gcc -lc++ # musl-gcc found on package musl on Arch Linux / musl-tools on Debian / musl-dev on Alpine
+            CXX: g++ #clang++ # /usr/bin/${{ inputs.cpuArch }}-alpine-linux-musl-g++ -lc++ -fno-sized-deallocation -fno-aligned-new # -std=c++11 
+            CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+            LDFLAGS: -no-pie
+            USE_CCACHE: 1
+            APPIMAGE_EXTRACT_AND_RUN: 1
+
+          # The shell to run commands with in the container
+          shell: /bin/bash
+
+          # Install some dependencies in the container. This speeds up builds if
+          # you are also using githubToken. Any dependencies installed here will
+          # be part of the container image that gets cached, so subsequent
+          # builds don't have to re-install them. The image layer is cached
+          # publicly in your project's package repository, so it is vital that
+          # no secrets are present in the container state or logs.
+          install: |
+            apt-get update -y -qq
+            #apt-get install -q -y --reinstall ca-certificates
+            #apt-get install -q -y software-properties-common
+            apt-get install -q -y git file 
+
+            # Prerequisites to build PPSSPP
+            apt install -q -y build-essential libgl1-mesa-dev libglu1-mesa-dev libsdl2-dev libsdl2-ttf-dev libfontconfig1-dev libvulkan-dev libglew-dev
+
+            # Prerequisites to build CMake
+            apt install -q -y libtool autoconf unzip wget libssl-dev libcurl4-openssl-dev libxml2-dev
+
+            # TODO: Install gcc-9 or newer, because building using gcc-8 (Debian 10) on arm64v8 could get Segmentation fault (works good on arm32v tho)
+            #if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
+              # Install gcc/g++ debs from http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/
+              #echo "Installing GCC-10"
+              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/gcc-10_10.2.1-6_arm64.deb -O gcc_arm64.deb
+              #wget http://ftp.cz.debian.org/debian/pool/main/g/gcc-10/g++-10_10.2.1-6_arm64.deb -O g++_arm64.deb
+              #apt install -y -f ./gcc_arm64.deb ./g++_arm64.deb # need more dependencies tho
+
+              #apt-get install -y -q --reinstall lsb-release
+              #apt-get install -y -q software-properties-common
+              #add-apt-repository -y "deb http://deb.debian.org/debian `lsb_release -sc` main contrib non-free"
+              #add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+              #apt update -y -q
+              apt install -y -q gcc g++ clang # lldb lld
+
+              #export CC=clang
+              #export CXX=clang++
+            #fi
+
+            # Check if CMake is installed
+            required_cmake_version="3.16"
+            installed_cmake_version="0.00"
+            if command -v cmake &> /dev/null; then
+                # Get the installed version of CMake
+                installed_cmake_version=$(cmake --version | grep -oP '\d+\.\d+\.\d+')
+            fi
+
+            # Compare versions
+            if [ "$(printf '%s\n' "$required_cmake_version" "$installed_cmake_version" | sort -V | head -n1)" != "$required_cmake_version" ]; then
+                echo "CMake version is lower than $required_cmake_version, or not installed. Installing a newer version..."
+                # Remove old CMake
+                apt purge cmake -y
+                # Install a newer version of CMake (need v3.16+)
+                #export CC=clang
+                #export CXX=clang++
+                cmake_version=3.31.6 # 3.26.6
+                #if [ "${{ inputs.cpuArch }}" == "arm64v8" ]; then
+                #  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version-linux-aarch64.sh -O cmake.sh
+                #  chmod +x cmake.sh
+                #  ./cmake.sh --skip-license --exclude-subdir --prefix=/usr/local
+                #else
+                  wget https://github.com/Kitware/CMake/releases/download/v$cmake_version/cmake-$cmake_version.tar.gz
+                  tar -xzf cmake-$cmake_version.tar.gz
+                  cd cmake-$cmake_version/
+                  ./bootstrap #./configure
+                  make -j$(nproc)
+                  make install
+                  cd -
+                #fi
+            else
+                echo "CMake version is $installed_cmake_version, which is sufficient."
+            fi
+            
+          run: |
+            echo "Running inside container!"
+            uname -m
+            gcc -v 2>&1 | grep -o -e '[^ ]*pie' # Checking default pie flags
+            gcc --version
+            g++ --version
+            ld -v
+            cmake --version
+            
+            # Fix dubious ownership issue when running git describe inside a container
+            git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+            
+            # Export ccache env var(s)
+            export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+            export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+
+            ls
+            find . -name "b.sh" -exec file {} \;
+            
+            # Build ppsspp
+            ./b.sh --${{ inputs.buildVariant }} --headless --unittest
+
+            # Checking binaries arch
+            find . -name "PPSSPPSDL" -exec file {} \;
+            file ./ffmpeg/linux/x86/lib/libavcodec.a
+            find . -name PPSSPPHeadless -exec file {} \;
+            find . -name PPSSPPUnitTest -exec file {} \;
+
+            # Copy artifacts
+            if [ -e build*/PPSSPPSDL ]; then
+              #mkdir artifacts/ppsspp
+              cp -a build*/PPSSPPSDL artifacts/
+              chmod +x artifacts/PPSSPPSDL
+              cp -r assets artifacts/assets
+            fi
+            
+            if [ -e build*/PPSSPPHeadless ]; then
+              cp build*/PPSSPPHeadless artifacts/
+              #cp -r assets artifacts/assets
+            fi
+            
+            if [ -e build*/PPSSPPUnitTest ]; then
+              cp build*/PPSSPPUnitTest artifacts/
+            fi
+
+      - name: Run script on the Host system
+        run: uname -m
+        shell: bash
       
       - name: Package build
         run: |
-          # Testing file location ...
-          find . -name "Version.txt"
-          find . -name "*.app"
-          mkdir ppsspp
-          if [ -e build*/PPSSPP.app ]; then
-            mkdir ppsspp/Payload
-            cp -a build*/PPSSPP.app ppsspp/Payload
-            # GitHub Actions zipping kills symlinks and permissions.
-            cd ppsspp
-            zip -qry PPSSPP.ipa Payload
-            rm -rf Payload
-            cd -
+          find . -name "PPSSPPSDL"
+          #mkdir artifacts
+          if [ -e android/build/*/apk/*/*/*.apk ]; then
+            cp android/build/*/apk/*/*/*.apk artifacts/
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iOS-${{ github.event.inputs.buildVariant }} build
-          path: ppsspp/
+          name: linux-${{ github.event.inputs.buildVariant }}-${{ github.event.inputs.cpuArch }} build
+          path: artifacts/
