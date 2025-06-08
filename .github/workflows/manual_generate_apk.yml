@@ -45,23 +45,40 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          #cache: 'gradle' # incompatible with gradle/actions/setup-gradle@v3 caching
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: wrapper
+          cache-read-only: false # allows branches other than main/master to update the cache too
+          cache-disabled: false # this cache is incompatible with actions/setup-java@v4 cache:gradle and actions/cache
+          #cache-overwrite-existing: true # allows overwriting an existing Gradle User Home (~/.gradle/caches)
+          gradle-home-cache-cleanup: true # experimental feature to reduce the cache size by removing unused files before saving to cache
         
-      #- name: Setup SDK # gradlew will install SDK automatically, thus this step not needed
-      #  uses: android-actions/setup-android@v3
+      - name: Setup SDK # gradlew may install SDK platform tools automatically if an existing one is not detected, thus this step not needed
+        uses: android-actions/setup-android@v3
           
-      #- name: Setup NDK # gradle will install NDK (side by side) automatically, thus explictly seting up NDK here will cause not enough storage issue when building debug variant
-      #  uses: nttld/setup-ndk@v1
-      #  with:
-      #    ndk-version: r21e
+      - name: Setup NDK # gradle may install NDK automatically if an existing one is not detected, thus explictly seting up NDK here could cause not enough storage issue when building debug variant
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r21e
+          link-to-sdk: true # this will let gradle/gradlew to use existing NDK & SDK platform tools instead of automatically downloading it
+          #local-cache: true # locally caching 1gb+ cache size of NDK might be too much with little benefit, it will always be added to tool cache anyway
+          #add-to-path: false
 
       - name: Test androidGitVersion
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
           gradle --quiet androidGitVersion
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       
       - name: Assemble APK
         run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       
       #- name: Gradle Test
       #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
