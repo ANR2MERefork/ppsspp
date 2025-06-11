@@ -281,7 +281,7 @@ jobs:
     - name: Package build
       if: matrix.extra == 'test' || matrix.id == 'ios'
       run: |
-        mkdir ppsspp
+        mkdir -p ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPSDL ppsspp/
         elif [ -e build*/PPSSPPSDL.app ]; then
@@ -345,6 +345,7 @@ jobs:
         files: |
           ppsspp/*.zip
           ppsspp/*.ipa
+          ppsspp/*.deb
         body: >
           PPSSPP is a cross-platform PSP emulator.
           Visit PPSSPP [official website](https://ppsspp.org)
