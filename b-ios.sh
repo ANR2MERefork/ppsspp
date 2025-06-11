@@ -5,12 +5,13 @@ mkdir -p ppsspp # Yeah, we're creating another ppsspp folder for artifacts uploa
 mkdir -p build-ios
 cd build-ios
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
-xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
-xcodebuild -exportArchive -archivePath ./build/YourApp.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
+#xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
+xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean archive -archivePath ./build/PPSSPP.xcarchive
+xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
 #ln -s ./ Payload
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
-make -j4
+#cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
+#make -j4
 cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
 
