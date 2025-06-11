@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Assuming we're at the ppsspp directory
-mkdir build-ios
+mkdir -p build-ios
 cd build-ios
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
@@ -9,7 +9,7 @@ cd build-ios
 #ln -s ./ Payload
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 make -j4
-cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
+cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
 
 
@@ -37,7 +37,7 @@ version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-
 echo ${version_number} > PPSSPP.app/Version.txt
 sudo -S chown -R 1004:3 Payload
 echo "Making ipa..."
-zip -r9 ../build/ipa/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
+zip -r9 ../build/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
 echo "IPA DONE :)"
 echo "Making deb..."
 
@@ -69,7 +69,8 @@ chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.
 mkdir ${package_name}/Applications
 cp -a PPSSPP.app ${package_name}/Applications/PPSSPP.app
 sudo -S chown -R 1004:3 ${package_name}
-sudo -S dpkg -b ${package_name} ../build/deb/${package_name}.deb
+sudo -S dpkg -b ${package_name} ../build/${package_name}.deb
 sudo -S rm -r ${package_name}
-sudo -S chown $USER ../build/deb/${package_name}.deb
+echo "User = $USER"
+sudo -S chown $USER ../build/${package_name}.deb
 echo "Done, you should get the ipa and deb now :)"
