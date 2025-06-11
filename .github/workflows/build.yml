@@ -188,7 +188,7 @@ jobs:
           extra: ios
           cc: clang
           cxx: clang++
-          args: ./b-ios.sh #./b.sh --ios
+          args: chmod +x b-ios.sh && ./b-ios.sh #./b.sh --ios
           id: ios
 
     runs-on: ${{ matrix.os }}
