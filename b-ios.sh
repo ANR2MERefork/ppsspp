@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# Assuming we're at the ppsspp directory
+# Assuming we're at the ppsspp (root) directory
 mkdir -p ppsspp # Yeah, we're creating another ppsspp folder for artifacts upload
 mkdir -p build-ios
 cd build-ios
-#cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
+cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -exportArchive -archivePath ./build/YourApp.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
