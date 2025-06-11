@@ -1,5 +1,6 @@
 #!/bin/sh
 
+LDID=/usr/local/bin/ldid
 # Assuming we're at the ppsspp (root) directory
 mkdir -p ppsspp # Yeah, we're creating another ppsspp folder for artifacts upload
 mkdir -p build-ios
@@ -14,6 +15,7 @@ xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./bu
 #make -j4
 cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
+#${LDID} -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
 
 
 echo '<?xml version="1.0" encoding="UTF-8"?>
@@ -35,6 +37,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>' > ent.xml
 #ldid -S ent.xml Payload/PPSSPP.app/PPSSPP
+#${LDID} -w -Sent.xml -K../../certificate.p12 -Upassword PPSSPP.app
 ldid -Sent.xml PPSSPP.app/PPSSPP
 version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@-\1-\2@;s@^v@@;s@%@~@g')"`
 echo ${version_number} > PPSSPP.app/Version.txt
@@ -72,7 +75,7 @@ chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.
 mkdir ${package_name}/Applications
 cp -a PPSSPP.app ${package_name}/Applications/PPSSPP.app
 sudo -S chown -R 1004:3 ${package_name}
-sudo -S dpkg -b ${package_name} ../build/${package_name}.deb
+sudo -S dpkg -b ${package_name} ../ppsspp/${package_name}.deb
 sudo -S rm -r ${package_name}
 echo "User = $USER"
 sudo -S chown $USER ../ppsspp/${package_name}.deb
