@@ -224,6 +224,11 @@ jobs:
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
+    - name: Install iOS dependencies
+      if: matrix.id == 'ios'
+      run: |
+        brew install ldid
+
     - name: Create iOS Version.txt file
       if: matrix.id == 'ios'
       run: |
