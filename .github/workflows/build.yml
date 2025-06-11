@@ -227,7 +227,13 @@ jobs:
     - name: Install iOS dependencies
       if: matrix.id == 'ios'
       run: |
-        brew install ldid
+        brew install ldid dpkg
+        # Check Xcode version
+        xcodebuild -version
+        # List available Xcode versions
+        ls /Applications | grep Xcode
+        # Select a specific Xcode version
+        #sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
 
     - name: Create iOS Version.txt file
       if: matrix.id == 'ios'
