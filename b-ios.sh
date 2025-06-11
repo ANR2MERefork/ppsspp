@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Assuming we're at the ppsspp directory
+mkdir -p build
 mkdir -p build-ios
 cd build-ios
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
