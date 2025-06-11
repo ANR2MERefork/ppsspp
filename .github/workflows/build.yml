@@ -233,7 +233,7 @@ jobs:
         # List available Xcode versions
         ls /Applications | grep Xcode
         # Select a specific Xcode version
-        #sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+        #sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer # The recommended Xcode version is 9.4.1
 
     - name: Create iOS Version.txt file
       if: matrix.id == 'ios'
