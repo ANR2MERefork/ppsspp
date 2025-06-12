@@ -294,8 +294,6 @@ jobs:
         elif [ -e build-ios/PPSSPP.app ]; then
           mkdir ppsspp/Payload
           cp -a build-ios/PPSSPP.app ppsspp/Payload
-          ls ppsspp/Payload/PPSSPP.app/
-          ls ppsspp/Payload/PPSSPP.app/assets/
           cp -a build-ios/assets/icon_regular_72.png ppsspp/Payload/PPSSPP.app/AppIcon.png
           # GitHub Actions zipping kills symlinks and permissions.
           pushd ppsspp
