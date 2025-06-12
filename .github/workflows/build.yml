@@ -232,8 +232,8 @@ jobs:
         xcodebuild -version
         # List available Xcode versions
         ls /Applications | grep Xcode
-        # Select a specific Xcode version
-        #sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer # The recommended Xcode version is 9.4.1
+        # Select a specific Xcode version. The recommended Xcode version is 9.4.1 according to https://github.com/Halo-Michael/ppsspp-builder
+        #sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
 
     - name: Create iOS Version.txt file
       if: matrix.id == 'ios'
@@ -294,6 +294,7 @@ jobs:
         elif [ -e build*/PPSSPP.app ]; then
           mkdir ppsspp/Payload
           cp -a build*/PPSSPP.app ppsspp/Payload
+          cp -a ppsspp/Payload/PPSSPP.app/assets/icon_regular_72.png ppsspp/Payload/PPSSPP.app/AppIcon.png
           # GitHub Actions zipping kills symlinks and permissions.
           pushd ppsspp
           zip -qry PPSSPP.ipa Payload
