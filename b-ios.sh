@@ -8,14 +8,15 @@ cd build-ios
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean archive -archivePath ./build/PPSSPP.xcarchive
-xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
+#xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
 #ln -s ./ Payload
-#cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
-#make -j4
+cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
+make -j4
 cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
 #${LDID} -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
+cp -a Payload/PPSSPP.app/assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
 
 
 echo '<?xml version="1.0" encoding="UTF-8"?>
