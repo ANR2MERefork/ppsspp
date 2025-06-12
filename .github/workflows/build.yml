@@ -291,12 +291,12 @@ jobs:
           zip -qry PPSSPPSDL.zip PPSSPPSDL.app
           rm -rf PPSSPPSDL.app
           popd
-        elif [ -e build*/PPSSPP.app ]; then
+        elif [ -e build-ios/PPSSPP.app ]; then
           mkdir ppsspp/Payload
-          cp -a build*/PPSSPP.app ppsspp/Payload
+          cp -a build-ios/PPSSPP.app ppsspp/Payload
           ls ppsspp/Payload/PPSSPP.app/
           ls ppsspp/Payload/PPSSPP.app/assets/
-          cp -a ppsspp/Payload/PPSSPP.app/assets/icon_regular_72.png ppsspp/Payload/PPSSPP.app/AppIcon.png
+          cp -a build-ios/assets/icon_regular_72.png ppsspp/Payload/PPSSPP.app/AppIcon.png
           # GitHub Actions zipping kills symlinks and permissions.
           pushd ppsspp
           zip -qry PPSSPP.ipa Payload
