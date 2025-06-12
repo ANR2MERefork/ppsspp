@@ -5,6 +5,9 @@ LDID=/usr/local/bin/ldid
 mkdir -p build # For the final IPA & DEB file
 mkdir -p build-ios
 cd build-ios
+# It seems xcodebuild is looking for "build-ios/git-version.cpp" file
+echo "const char *PPSSPP_GIT_VERSION = \"$(git describe --always --tags)\";" > git-version.cpp
+echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 #xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
