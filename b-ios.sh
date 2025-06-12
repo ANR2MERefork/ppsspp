@@ -2,13 +2,13 @@
 
 LDID=/usr/local/bin/ldid
 # Assuming we're at the ppsspp (root) directory
-mkdir -p ppsspp # Yeah, we're creating another ppsspp folder for artifacts upload
+mkdir -p build # For the final IPA & DEB file
 mkdir -p build-ios
 cd build-ios
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_ALLOWED=NO
-#xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
+xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
 #ln -s ./ Payload
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
@@ -44,7 +44,7 @@ version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-
 echo ${version_number} > PPSSPP.app/Version.txt
 sudo -S chown -R 1004:3 Payload
 echo "Making ipa..."
-zip -r9 ../ppsspp/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
+zip -r9 ../build/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
 echo "IPA DONE :)"
 echo "Making deb..."
 
@@ -76,8 +76,8 @@ chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.
 mkdir ${package_name}/Applications
 cp -a PPSSPP.app ${package_name}/Applications/PPSSPP.app
 sudo -S chown -R 1004:3 ${package_name}
-sudo -S dpkg -b ${package_name} ../ppsspp/${package_name}.deb
+sudo -S dpkg -b ${package_name} ../build/${package_name}.deb
 sudo -S rm -r ${package_name}
 echo "User = $USER"
-sudo -S chown $USER ../ppsspp/${package_name}.deb
+sudo -S chown $USER ../build/${package_name}.deb
 echo "Done, you should get the ipa and deb now :)"
