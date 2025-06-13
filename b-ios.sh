@@ -20,6 +20,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
    <string>manual</string>
 </dict>
 </plist>' > exportOptions.plist
+# TODO: Generate a self-signed certificate (but probably not a good idea to generate a different cert all the time). Example at https://stackoverflow.com/questions/27474751/how-can-i-codesign-an-app-without-being-in-the-mac-developer-program/53562496#53562496
 
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
@@ -27,7 +28,8 @@ xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #ls -R
 if [ -e "Release-iphoneos" ]; then
-	cp -Rfa "Release-iphoneos/PPSSPP.app" .
+	ls -la PPSSPP.app
+	#cp -Rfa "Release-iphoneos/PPSSPP.app" .
 fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
