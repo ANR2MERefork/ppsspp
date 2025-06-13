@@ -282,8 +282,8 @@ jobs:
       if: matrix.extra == 'test' || matrix.id == 'ios'
       run: |
         # Test to find IPA, DEB, APP & xcarchive file
-        find . -type f \( -name "*.ipa" -o -name "*.deb" -o -name "*.app" -o -name "*.xcarchive" \)
-        find ~/Library -type f \( -name "*.ipa" -o -name "*.deb" -o -name "*.app" -o -name "*.xcarchive" \)
+        find . \( -name "*.ipa" -o -name "*.deb" -o -name "*.app" -o -name "*.xcarchive" \)
+        find ~/Library \( -name "*.ipa" -o -name "*.deb" -o -name "*.app" -o -name "*.xcarchive" \)
         mkdir -p ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPSDL ppsspp/
