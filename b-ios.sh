@@ -1,6 +1,5 @@
 #!/bin/sh
 
-LDID=/usr/local/bin/ldid
 # Assuming we're at the ppsspp (repo's root) directory
 mkdir -p build # For the final IPA & DEB file
 mkdir -p build-ios
@@ -22,15 +21,16 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
-xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
+ls -R
 cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
 ln -s ./ Payload
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
 #cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 #ln -s ./ Payload
-#${LDID} -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
+#ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
 ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
 #cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
 
@@ -54,7 +54,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>' > ent.xml
 #ldid -S ent.xml Payload/PPSSPP.app/PPSSPP
-#${LDID} -w -Sent.xml -K../../certificate.p12 -Upassword PPSSPP.app
+#ldid -w -Sent.xml -K../../certificate.p12 -Upassword PPSSPP.app
 ldid -Sent.xml PPSSPP.app/PPSSPP
 version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@-\1-\2@;s@^v@@;s@%@~@g')"`
 echo ${version_number} > PPSSPP.app/Version.txt
