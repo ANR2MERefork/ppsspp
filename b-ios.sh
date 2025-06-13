@@ -61,6 +61,8 @@ echo ${version_number} > PPSSPP.app/Version.txt
 sudo -S chown -R 1004:3 Payload
 echo "Making ipa..."
 zip -r9 ../build/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
+zip -r9 ../build/PPSSPP_v2.ipa "Release-iphoneos"
+cp -a build/PPSSPP.xcarchive ../build/
 echo "IPA DONE :)"
 
 echo "Making deb..."
