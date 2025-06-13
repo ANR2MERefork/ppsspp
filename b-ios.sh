@@ -22,7 +22,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
-xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
 ln -s ./ Payload
@@ -62,8 +62,8 @@ sudo -S chown -R 1004:3 Payload
 echo "Making ipa..."
 zip -r9 ../build/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
 echo "IPA DONE :)"
-echo "Making deb..."
 
+echo "Making deb..."
 package_name="org.ppsspp.ppsspp-dev-latest_v${version_number}_iphoneos-arm"
 mkdir $package_name
 mkdir ${package_name}/DEBIAN
