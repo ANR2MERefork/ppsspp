@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -ex
+
 # Assuming we're at the ppsspp (repo's root) directory
 mkdir -p build # For the final IPA & DEB file
 mkdir -p build-ios
@@ -23,13 +25,14 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
-ls -R
-cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
-ln -s ./ Payload
+#ls -R
+if [ -e "Release-iphoneos" ]; then
+	mv -f "Release-iphoneos/PPSSPP.app" ./
+fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
 #cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
-#ln -s ./ Payload
+ln -s ./ Payload
 #ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
 ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
 #cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
