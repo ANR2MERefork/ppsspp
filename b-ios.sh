@@ -1,25 +1,36 @@
 #!/bin/sh
 
 LDID=/usr/local/bin/ldid
-# Assuming we're at the ppsspp (root) directory
+# Assuming we're at the ppsspp (repo's root) directory
 mkdir -p build # For the final IPA & DEB file
 mkdir -p build-ios
 cd build-ios
-# It seems xcodebuild is looking for "build-ios/git-version.cpp" file
+# It seems xcodebuild is looking for "git-version.cpp" file inside "build-ios" directory instead of at repo's root dir.
 echo "const char *PPSSPP_GIT_VERSION = \"$(git describe --always --tags)\";" > git-version.cpp
 echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
-#cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
+# Generate exportOptions.plist for xcodebuild
+echo '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+   <key>method</key>
+   <string>enterprise</string>
+</dict>
+</plist>' > exportOptions.plist
+
+cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
-#xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-#xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
-#cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
-#ln -s ./ Payload
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
-make -j4
-cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
+xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
+cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib Payload/PPSSPP.app/Frameworks
 ln -s ./ Payload
+#cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
+#make -j4
+#cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
+#ln -s ./ Payload
 #${LDID} -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
-cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
+ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
+#cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
 
 
 echo '<?xml version="1.0" encoding="UTF-8"?>
