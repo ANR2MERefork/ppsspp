@@ -14,7 +14,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
    <key>method</key>
-   <string>enterprise</string>
+   <string>development</string>
 </dict>
 </plist>' > exportOptions.plist
 
