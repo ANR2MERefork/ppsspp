@@ -27,7 +27,7 @@ xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #ls -R
 if [ -e "Release-iphoneos" ]; then
-	mv -fr "Release-iphoneos/PPSSPP.app" ./
+	mv -f Release-iphoneos/* .
 fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
