@@ -27,12 +27,12 @@ xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #ls -R
 if [ -e "Release-iphoneos" ]; then
-	mv -f "Release-iphoneos/PPSSPP.app" ./
+	mv -fr "Release-iphoneos/PPSSPP.app" ./
 fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
 #cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
-ln -s ./ Payload
+#ln -s ./ Payload
 #ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
 ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
 #cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
@@ -72,6 +72,7 @@ echo "Making deb..."
 package_name="org.ppsspp.ppsspp-dev-latest_v${version_number}_iphoneos-arm"
 mkdir $package_name
 mkdir ${package_name}/DEBIAN
+# TODO: Generate Preferences folder and it's contents too. Example of the contents at https://github.com/Halo-Michael/ppsspp-builder/tree/master/Preferences
 echo "Package: org.ppsspp.ppsspp-dev-latest
 Name: PPSSPP (Dev-Latest)
 Architecture: iphoneos-arm
