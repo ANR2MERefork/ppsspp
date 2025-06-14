@@ -28,6 +28,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 #brew install pillow #python3 -m pip install --upgrade --break-system-packages --user Pillow
 pushd ../ios/assets.xcassets/AppIcon.appiconset
 python3 ../../generate_icons.py
+ls -la
 popd
 
 # There are 2 ways to build PPSSPP, using make or xcodebuild
