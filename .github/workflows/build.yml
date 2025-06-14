@@ -227,7 +227,7 @@ jobs:
     - name: Install iOS dependencies
       if: matrix.id == 'ios'
       run: |
-        brew install ldid dpkg
+        brew install ldid dpkg pillow
         # Check Xcode version
         xcodebuild -version
         # List available Xcode versions
