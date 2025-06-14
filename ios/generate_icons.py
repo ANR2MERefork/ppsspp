@@ -4,12 +4,12 @@ import json
 
 # Input files
 icons = {
-    "light": "icon_gold_backfill_1024.png",
+    "light": "icon_backfill_1024.png",
     "dark": "dark.png",
     "tinted": "tinted.png"
 }
 
-output_dir = "IconGold.appiconset"
+output_dir = "AppIcon.appiconset"
 os.makedirs(output_dir, exist_ok=True)
 
 # Sizes and scales required by iOS
@@ -74,4 +74,4 @@ contents = {
 with open(os.path.join(output_dir, "Contents.json"), "w") as f:
     json.dump(contents, f, indent=4)
 
-print("✅ IconGold asset catalog with light, dark and tinted appearances generated.")
+print("✅ AppIcon asset catalog with light, dark and tinted appearances generated.")
