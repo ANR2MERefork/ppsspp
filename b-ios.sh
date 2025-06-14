@@ -24,14 +24,14 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 </plist>' > exportOptions.plist
 # TODO: Generate a self-signed certificate (but probably not a good idea to generate a different cert all the time). Example at https://stackoverflow.com/questions/27474751/how-can-i-codesign-an-app-without-being-in-the-mac-developer-program/53562496#53562496
 
-# Should we run this script first before building?
+# Should we run this script first before building? (Seems to only generate icons for Gold version) 
 #brew install pillow #python3 -m pip install --upgrade --break-system-packages --user Pillow
-pushd ../ios/assets.xcassets/AppIcon.appiconset
-python3 ../../generate_icons.py
-ls -la
-popd
+#pushd ../ios/assets.xcassets/AppIcon.appiconset
+#python3 ../../generate_icons.py
+#ls -la
+#popd
 
-# There are 2 ways to build PPSSPP, using make or xcodebuild
+# There are 2 ways to build PPSSPP for iOS, using make or xcodebuild
 # Generate xcodeproject (only needed when building using xcode, similar to ./b.sh --ios-xcode)
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 # Build PPSSPP using xcode
