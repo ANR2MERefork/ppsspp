@@ -43,7 +43,7 @@ if [ -e "Release-iphoneos" ]; then
   	echo "LS after xcodebuild - start2"
  	ls -la "Release-iphoneos"
   	echo "LS after xcodebuild - end2"
-	cp -Rfa Release-iphoneos/PPSSPP.app/. ./
+	cp -Rfa Release-iphoneos/PPSSPP.app/. PPSSPP.app/
 fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
@@ -51,6 +51,7 @@ cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
 #ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
 if [ -e PPSSPP.app/Frameworks/libMoltenVK.dylib ]; then
+	echo "Signing PPSSPP.app/Frameworks/libMoltenVK.dylib ..."
 	ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
 fi
 #cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
@@ -77,6 +78,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 #ldid -S ent.xml Payload/PPSSPP.app/PPSSPP
 #ldid -w -Sent.xml -K../../certificate.p12 -Upassword PPSSPP.app
 if [ -e PPSSPP.app/PPSSPP ]; then
+	echo "Signing PPSSPP.app/PPSSPP ..."
 	ldid -Sent.xml PPSSPP.app/PPSSPP
 fi
 version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@-\1-\2@;s@^v@@;s@%@~@g')"`
