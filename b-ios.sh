@@ -27,7 +27,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 # Should we run this script first before building?
 #brew install pillow #python3 -m pip install --upgrade --break-system-packages --user Pillow
 pushd ../ios/assets.xcassets/AppIcon.appiconset
-python3 generate_icons.py
+python3 ../../generate_icons.py
 popd
 
 # There are 2 ways to build PPSSPP, using make or xcodebuild
