@@ -22,16 +22,24 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 </plist>' > exportOptions.plist
 # TODO: Generate a self-signed certificate (but probably not a good idea to generate a different cert all the time). Example at https://stackoverflow.com/questions/27474751/how-can-i-codesign-an-app-without-being-in-the-mac-developer-program/53562496#53562496
 
+echo "LS before cmake - start"
 ls -la
+echo "LS before cmake - end"
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
+echo "LS after cmake - start"
 ls -la
+echo "LS after cmake - end"
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #ls -R
 if [ -e "Release-iphoneos" ]; then
+	echo "LS after xcodebuild - start"
 	ls -la PPSSPP.app
+ 	echo "LS after xcodebuild - end"
+  	echo "LS after xcodebuild - start2"
  	ls -la "Release-iphoneos"
+  	echo "LS after xcodebuild - end2"
 	#cp -Rfa "Release-iphoneos/PPSSPP.app" .
 fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
@@ -39,7 +47,9 @@ fi
 #cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 #ln -s ./ Payload
 #ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
-ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
+if [ -e PPSSPP.app/Frameworks/libMoltenVK.dylib ]; then
+	ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
+fi
 #cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon.png
 
 
@@ -63,7 +73,9 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 </plist>' > ent.xml
 #ldid -S ent.xml Payload/PPSSPP.app/PPSSPP
 #ldid -w -Sent.xml -K../../certificate.p12 -Upassword PPSSPP.app
-ldid -Sent.xml PPSSPP.app/PPSSPP
+if [ -e PPSSPP.app/PPSSPP ]; then
+	ldid -Sent.xml PPSSPP.app/PPSSPP
+fi
 version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@-\1-\2@;s@^v@@;s@%@~@g')"`
 echo ${version_number} > PPSSPP.app/Version.txt
 sudo -S chown -R 1004:3 Payload
