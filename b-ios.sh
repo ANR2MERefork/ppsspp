@@ -4,6 +4,9 @@ set -ex
 
 # Assuming we're at the ppsspp (repo's root) directory
 mkdir -p build # For the final IPA & DEB file
+if [ -e "build-ios" ]; then
+	echo "build-ios already existed!"
+fi
 mkdir -p build-ios
 cd build-ios
 # It seems xcodebuild is looking for "git-version.cpp" file inside "build-ios" directory instead of at repo's root dir.
