@@ -4,9 +4,7 @@ set -ex
 
 # Assuming we're at the ppsspp (repo's root) directory
 mkdir -p build # For the final IPA & DEB file
-if [ -e "build-ios" ]; then
-	echo "build-ios already existed!"
-fi
+#rm -rf build-ios
 mkdir -p build-ios
 cd build-ios
 # It seems xcodebuild is looking for "git-version.cpp" file inside "build-ios" directory instead of at repo's root dir.
@@ -25,24 +23,14 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 </plist>' > exportOptions.plist
 # TODO: Generate a self-signed certificate (but probably not a good idea to generate a different cert all the time). Example at https://stackoverflow.com/questions/27474751/how-can-i-codesign-an-app-without-being-in-the-mac-developer-program/53562496#53562496
 
-echo "LS before cmake - start"
-ls -la
-echo "LS before cmake - end"
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
-echo "LS after cmake - start"
-ls -la
-echo "LS after cmake - end"
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
 #ls -R
-if [ -e "Release-iphoneos" ]; then
-	echo "LS after xcodebuild - start"
-	ls -la PPSSPP.app
- 	echo "LS after xcodebuild - end"
-  	echo "LS after xcodebuild - start2"
- 	ls -la "Release-iphoneos"
-  	echo "LS after xcodebuild - end2"
+if [ -e Release-iphoneos ]; then
+	# It seems there is an existing (from cache?) PPSSPP.app symlink, so we copy the contents instead
+	mkdir -p PPSSPP.app
 	cp -Rfa Release-iphoneos/PPSSPP.app/. PPSSPP.app/
 fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
@@ -95,6 +83,7 @@ package_name="org.ppsspp.ppsspp-dev-latest_v${version_number}_iphoneos-arm"
 mkdir $package_name
 mkdir ${package_name}/DEBIAN
 # TODO: Generate Preferences folder and it's contents too. Example of the contents at https://github.com/Halo-Michael/ppsspp-builder/tree/master/Preferences
+
 echo "Package: org.ppsspp.ppsspp-dev-latest
 Name: PPSSPP (Dev-Latest)
 Architecture: iphoneos-arm
@@ -113,10 +102,16 @@ Version: 0v${version_number}
 chmod 0755 ${package_name}/DEBIAN/control
 mkdir ${package_name}/Library
 mkdir ${package_name}/Library/PPSSPPRepoIcons
-cp ../../org.ppsspp.ppsspp.png ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
+if [ -e ../ios/org.ppsspp.ppsspp.png ]; then
+	cp ../ios/org.ppsspp.ppsspp.png ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png # 120x120 pixels?
+ 	chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
+fi
+find ../ -name "Preferences"
+find ~/Library -name "Preferences"
 mkdir ${package_name}/Library/PreferenceLoader
-cp -a ../../Preferences ${package_name}/Library/PreferenceLoader/
-chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
+if [ -e ../ios/Preferences ]; then
+	cp -a ../ios/Preferences ${package_name}/Library/PreferenceLoader/
+fi
 mkdir ${package_name}/Applications
 cp -a PPSSPP.app ${package_name}/Applications/PPSSPP.app
 sudo -S chown -R 1004:3 ${package_name}
