@@ -189,12 +189,12 @@ jobs:
           tar -xf release-${SDL_VERSION}.tar.gz
           # Lets remove all shared library to make sure none gets linked
           find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
-          cd SDL-release-${SDL_VERSION}
-          mkdir build && cd build
+          cd SDL-release-${SDL_VERSION} && mkdir build && cd build
+          ../configure --prefix=/usr
           cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 ..
           make -j$(getconf _NPROCESSORS_ONLN) clean
-          make -j$(getconf _NPROCESSORS_ONLN) –configure --prefix=/usr
-          make -j$(getconf _NPROCESSORS_ONLN) install –configure --prefix=/usr
+          make -j$(getconf _NPROCESSORS_ONLN)
+          sudo make -j$(getconf _NPROCESSORS_ONLN) install
           cd .. && cd ..
           # End of Build SDL2 from source
 
