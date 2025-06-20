@@ -199,9 +199,9 @@ jobs:
           # End of Build SDL2 from source
 
           # Not sure how to install SDL2 to /usr instead of the default /usr/local, so we use env vars to prioritize /usr/local
-          export CPLUS_INCLUDE_PATH=/usr/local/include:$CPLUS_INCLUDE_PATH
+          export CPLUS_INCLUDE_PATH=/usr/local/include/SDL2:$CPLUS_INCLUDE_PATH
           export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-          export CPATH=/usr/local/include:$CPATH
+          export CPATH=/usr/local/include/SDL2:$CPATH
 
           # Build ppsspp
           #./b.sh --release --no-sdl2 --no-png
