@@ -126,7 +126,6 @@ jobs:
             libc++ \
             libc++abi \
             glew \
-            sdl2 \
             sdl2_ttf \
             python \
             patchelf \
@@ -191,6 +190,7 @@ jobs:
           # Lets remove all shared library to make sure none gets linked
           find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
           cd SDL-release-${SDL_VERSION}
+          ./bootstrap
           ./configure --prefix=/usr
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 -DLIBCXXABI_USE_LLVM_UNWINDER=YES ..
