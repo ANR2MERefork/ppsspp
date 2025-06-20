@@ -190,7 +190,7 @@ jobs:
           # Lets remove all shared library to make sure none gets linked
           find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
           cd SDL-release-${SDL_VERSION} && mkdir build && cd build
-          ../configure --prefix=/usr
+          #../configure --prefix=/usr # Failed with "configure: error: C compiler cannot create executables" error
           cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 ..
           make -j$(getconf _NPROCESSORS_ONLN) clean
           make -j$(getconf _NPROCESSORS_ONLN)
@@ -201,6 +201,7 @@ jobs:
           # Not sure how to install SDL2 to /usr instead of the default /usr/local, so we use env vars to prioritize /usr/local
           export CPLUS_INCLUDE_PATH=/usr/local/include:$CPLUS_INCLUDE_PATH
           export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+          export CPATH=/usr/local/include:$CPATH
 
           # Build ppsspp
           #./b.sh --release --no-sdl2 --no-png
