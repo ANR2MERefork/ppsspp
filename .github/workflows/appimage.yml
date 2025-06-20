@@ -180,6 +180,20 @@ jobs:
           #clang --version
           #clang++ --version
 
+          # Build SDL2 from source (The most recent version seems to have issue with fullscreen on Vulkan)
+          export SDL_VERSION=2.32.8 # 2.0.22
+          wget https://github.com/libsdl-org/SDL/archive/refs/tags/release-${SDL_VERSION}.tar.gz && \
+          tar -xf release-${SDL_VERSION}.tar.gz
+          # Lets remove all shared library to make sure none gets linked
+          find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
+          cd SDL-release-${SDL_VERSION} && mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 -DLIBCXXABI_USE_LLVM_UNWINDER=YES ..
+          make -j$(getconf _NPROCESSORS_ONLN) clean
+          make -j$(getconf _NPROCESSORS_ONLN)
+          make -j$(getconf _NPROCESSORS_ONLN) install
+          cd .. && cd ..
+          # End of Build SDL2 from source
+
           # Build ppsspp
           #./b.sh --release --no-sdl2 --no-png
           mkdir -p build
