@@ -93,6 +93,7 @@ jobs:
 
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
+          export ARCH=$(uname -m)
           if [[ "$ARCH" == "x86_64" ]]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
@@ -141,8 +142,7 @@ jobs:
             vulkan-radeon \
             alsa-lib hidapi ibus jack libdecor libgl libpulse libusb libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
             sndio vulkan-driver vulkan-headers wayland wayland-protocols
-            
-          export ARCH=$(uname -m)
+          
           if [[ "$ARCH" == "x86_64" ]]; then
             pacman -Syu --noconfirm vulkan-intel
           fi
