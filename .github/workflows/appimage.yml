@@ -94,7 +94,7 @@ jobs:
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
           ARCH=$(uname -m)
-          echo "ARCH=$ARCH" >> $GITHUB_ENV
+          echo "ARCH=$ARCH" >> $GITHUB_ENV # Export ARCH to be reused on other steps
           if [[ "$ARCH" == "x86_64" ]]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
@@ -201,6 +201,7 @@ jobs:
           # End of Build SDL2 from source
 
           # Install SDL2 from AUR
+          echo "Install SDL2 from AUR"
           sed -i 's|EUID == 0|EUID == 69|g' /usr/bin/makepkg # because the docker image is ran as root this is needed lol
           git clone https://aur.archlinux.org/sdl2.git
           cd sdl2
@@ -208,6 +209,7 @@ jobs:
           makepkg -f
           pacman --noconfirm -Rsndd sdl2-compat
           pacman --noconfirm -U *.pkg.tar.*
+          echo "Done install SDL2 from AUR"
           # End of Install SDL2 from AUR
 
           # Not sure how to install SDL2 to /usr instead of the default /usr/local, so we use env vars to prioritize /usr/local
