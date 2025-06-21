@@ -201,6 +201,7 @@ jobs:
 
           # Install SDL2 from AUR
           sed -i 's|EUID == 0|EUID == 69|g' /usr/bin/makepkg # because the docker image is ran as root this is needed lol
+          sed -i "s|x86_64|$ARCH|" ./PKGBUILD
           git clone https://aur.archlinux.org/sdl2.git
           cd sdl2
           makepkg -f
