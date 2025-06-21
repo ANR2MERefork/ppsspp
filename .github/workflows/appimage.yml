@@ -140,8 +140,10 @@ jobs:
             zsync \
             vulkan-nouveau \
             vulkan-radeon \
-            alsa-lib hidapi ibus jack libdecor libgl libpulse libusb libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
-            sndio vulkan-headers wayland wayland-protocols
+            vulkan-headers \
+            alsa-lib sndio hidapi ibus jack libdecor libgl libpulse libusb \
+            libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
+            wayland wayland-protocols
           
           if [[ "$ARCH" == "x86_64" ]]; then
             pacman -Syu --noconfirm vulkan-intel
@@ -184,38 +186,16 @@ jobs:
           #clang --version
           #clang++ --version
 
-          # Build SDL2 from source (The most recent version seems to have issue with fullscreen on Vulkan)
-          #export SDL_VERSION=2.32.8 # 2.0.22
-          #wget https://github.com/libsdl-org/SDL/archive/refs/tags/release-${SDL_VERSION}.tar.gz && \
-          #tar -xf release-${SDL_VERSION}.tar.gz
-          ## Lets remove all shared library to make sure none gets linked
-          #find . -type f -regex ".*\.\(so\|so\..+\)$" -delete
-          #cd SDL-release-${SDL_VERSION} && mkdir build && cd build
-          ##../configure --prefix=/usr # Failed with "configure: error: C compiler cannot create executables" error
-          #cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF -DSDL_STATIC_PIC=OFF -DSDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS=1 ..
-          #make -j$(getconf _NPROCESSORS_ONLN) clean
-          #make -j$(getconf _NPROCESSORS_ONLN)
-          #sudo make -j$(getconf _NPROCESSORS_ONLN) install
-          #cd .. && cd ..
-          # End of Build SDL2 from source
-
           # Install SDL2 from AUR
-          echo "Install SDL2 from AUR"
           sed -i 's|EUID == 0|EUID == 69|g' /usr/bin/makepkg # because the docker image is ran as root this is needed lol
           git clone https://aur.archlinux.org/sdl2.git
-          cd sdl2
+          pushd sdl2
           sed -i "s|x86_64|$ARCH|" ./PKGBUILD
           makepkg -f
           pacman --noconfirm -Rsndd sdl2-compat
           pacman --noconfirm -U *.pkg.tar.*
-          cd ..
-          echo "Done install SDL2 from AUR"
+          popd
           # End of Install SDL2 from AUR
-
-          # Not sure how to install SDL2 to /usr instead of the default /usr/local, so we use env vars to prioritize /usr/local
-          #export CPLUS_INCLUDE_PATH=/usr/local/include/SDL2:$CPLUS_INCLUDE_PATH
-          #export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-          #export CPATH=/usr/local/include/SDL2:$CPATH
 
           # Build ppsspp
           #./b.sh --release --no-sdl2 --no-png
