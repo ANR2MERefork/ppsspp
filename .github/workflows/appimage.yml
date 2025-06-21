@@ -127,7 +127,6 @@ jobs:
             libc++ \
             libc++abi \
             glew \
-            sdl2 \
             sdl2_ttf \
             python \
             patchelf \
@@ -142,7 +141,7 @@ jobs:
             vulkan-nouveau \
             vulkan-radeon \
             alsa-lib hidapi ibus jack libdecor libgl libpulse libusb libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
-            sndio vulkan-driver vulkan-headers wayland wayland-protocols
+            sndio vulkan-headers wayland wayland-protocols
           
           if [[ "$ARCH" == "x86_64" ]]; then
             pacman -Syu --noconfirm vulkan-intel
