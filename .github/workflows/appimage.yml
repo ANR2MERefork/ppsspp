@@ -199,6 +199,14 @@ jobs:
           #cd .. && cd ..
           # End of Build SDL2 from source
 
+          # Install SDL2 from AUR
+          sed -i 's|EUID == 0|EUID == 69|g' /usr/bin/makepkg # because the docker image is ran as root this is needed lol
+          git clone https://aur.archlinux.org/sdl2.git
+          cd sdl2
+          makepkg -f
+          pacman --noconfirm -U *.pkg.tar.*
+          # End of Install SDL2 from AUR
+
           # Not sure how to install SDL2 to /usr instead of the default /usr/local, so we use env vars to prioritize /usr/local
           #export CPLUS_INCLUDE_PATH=/usr/local/include/SDL2:$CPLUS_INCLUDE_PATH
           #export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
