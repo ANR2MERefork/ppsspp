@@ -204,7 +204,7 @@ jobs:
           git clone https://aur.archlinux.org/sdl2.git
           cd sdl2
           makepkg -f
-          pacman --noconfirm -U *.pkg.tar.*
+          echo y | pacman --noconfirm -U *.pkg.tar.*
           # End of Install SDL2 from AUR
 
           # Not sure how to install SDL2 to /usr instead of the default /usr/local, so we use env vars to prioritize /usr/local
