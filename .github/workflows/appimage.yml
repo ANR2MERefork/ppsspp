@@ -93,7 +93,8 @@ jobs:
 
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
-          export ARCH=$(uname -m)
+          ARCH=$(uname -m)
+          echo "ARCH=$ARCH" >> $GITHUB_ENV
           if [[ "$ARCH" == "x86_64" ]]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
