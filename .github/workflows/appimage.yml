@@ -209,6 +209,7 @@ jobs:
           makepkg -f
           pacman --noconfirm -Rsndd sdl2-compat
           pacman --noconfirm -U *.pkg.tar.*
+          cd ..
           echo "Done install SDL2 from AUR"
           # End of Install SDL2 from AUR
 
