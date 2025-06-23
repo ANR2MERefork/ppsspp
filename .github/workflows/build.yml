@@ -72,10 +72,8 @@ jobs:
       if: github.ref_type == 'tag'
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: |
-        mkdir ppsspp
-        cp PPSSPP*.exe ppsspp/
-        cp Windows/*.bat ppsspp/
-        cp -r assets ppsspp/assets
+        rm -f ppsspp/Headless*
+        rm -f ppsspp/UnitTest*
         mkdir releases
         zip -r9 releases/PPSSPP-${GITHUB_REF_NAME}-Windows-${{ matrix.platform }}.zip ppsspp/*
 
