@@ -75,7 +75,7 @@ jobs:
         rm ppsspp/Headless*
         rm ppsspp/UnitTest*
         mkdir releases
-        zip -r9 releases/PPSSPP-${GITHUB_REF_NAME}-Windows-${{ matrix.platform }}.zip ppsspp/*
+        Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${GITHUB_REF_NAME}-Windows-${{ matrix.platform }}.zip"
 
     - name: Upload release
       uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
