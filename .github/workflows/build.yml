@@ -72,10 +72,11 @@ jobs:
       if: github.ref_type == 'tag'
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: |
-        rm ppsspp/Headless*
+        rm ppsspp/PPSSPPHeadless*
         rm ppsspp/UnitTest*
+        rm ppsspp/*.pdb
         mkdir releases
-        Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${GITHUB_REF_NAME}-Windows-${{ matrix.platform }}.zip"
+        Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ env.GITHUB_REF_NAME }}-Windows-${{ matrix.platform }}.zip"
 
     - name: Upload release
       uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
