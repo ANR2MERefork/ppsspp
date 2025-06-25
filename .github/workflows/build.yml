@@ -46,7 +46,7 @@ jobs:
       run: |
         $GIT_VERSION=git describe --always --tags
         echo "GitVer = ${{ github.ref_name }} / $GIT_VERSION"
-        echo "const char *PPSSPP_GIT_VERSION = \"${{ github.ref_name }}\";" > git-version.cpp
+        echo "const char *PPSSPP_GIT_VERSION = `"${{ github.ref_name }}`";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Build Windows
