@@ -41,18 +41,17 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
 
-    - name: Fetch tags for git describe to work properly
+    - name: Fetch tags for version to shows properly
       # This is required for git describe --always to work for git-version.cpp.
-      run: |
-        git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
+      run: git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
 
     - name: Create git-version.cpp for Windows
       #if: github.ref_type == 'tag'
       run: |
         $GIT_VERSION=git describe --always --tags
-        echo "GitVer = ${{ github.ref_name }} / $GIT_VERSION / ${GITHUB_REF_NAME}"
-        #echo "const char *PPSSPP_GIT_VERSION = `"${{ github.ref_name }}`";" > git-version.cpp
-        #echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
+        echo "Test GitVer = ${{ github.ref_name }} / $GIT_VERSION / ${GITHUB_REF_NAME}"
+        echo "const char *PPSSPP_GIT_VERSION = `"$GIT_VERSION`";" > git-version.cpp
+        echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
