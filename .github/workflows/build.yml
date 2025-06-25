@@ -53,7 +53,7 @@ jobs:
         echo "const char *PPSSPP_GIT_VERSION = `"$GIT_VERSION`";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
         # TODO: Generate Windows/win-version.h too.
-        $WIN_VERSION_COMMA=$GIT_VERSION -replace '^v', '' -replace '-(\d+)-[0-9a-f]+$', '.$1'
+        $WIN_VERSION_COMMA=$GIT_VERSION -replace '^v', '' -replace '-(\d+)-g[0-9a-f]+$', '.$1'
         echo "Test WinVer = $WIN_VERSION_COMMA"
         echo "#define PPSSPP_WIN_VERSION_STRING `"$GIT_VERSION`"" > Windows/win-version.h
         echo "#define PPSSPP_WIN_VERSION_COMMA $WIN_VERSION_COMMA" >> Windows/win-version.h
