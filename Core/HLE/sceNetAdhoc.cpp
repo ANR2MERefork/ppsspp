@@ -4611,7 +4611,7 @@ int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
 void __NetTriggerCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
-	hleSkipDeadbeef();
+	//hleSkipDeadbeef();
 	int delayus = adhocDefaultDelay;
 
 	auto params = adhocctlEvents.begin();
@@ -4695,7 +4695,7 @@ void __NetTriggerCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
-	hleCall(ThreadManForUser, int, sceKernelDelayThread, adhocDefaultDelay);
+	//hleCall(ThreadManForUser, int, sceKernelDelayThread, adhocDefaultDelay);
 	hleNoLogVoid();
 }
 
