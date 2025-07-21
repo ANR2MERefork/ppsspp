@@ -4696,7 +4696,7 @@ void __NetTriggerCallbacks()
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
 	//hleCall(ThreadManForUser, int, sceKernelDelayThread, adhocDefaultDelay);
-	ScheduleAdhocctlState(0, adhocctlState, adhocEventDelay, "adhocctl waiting for new event");
+	ScheduleAdhocctlState(256, adhocctlState, adhocEventDelay, "adhocctl waiting for new event");
 	hleNoLogVoid();
 }
 
