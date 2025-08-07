@@ -151,7 +151,7 @@ static int DefaultDepthRaster() {
 #endif
 }
 
-std::string CreateRandMAC() {
+std::string CreateRandMAC(u8* out_mac) {
 	std::stringstream randStream;
 	srand(time(nullptr));
 	for (int i = 0; i < 6; i++) {
@@ -160,6 +160,9 @@ std::string CreateRandMAC() {
 			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 			value &= 0xfc;
 		}
+		if (out_mac) {
+			out_mac[i] = (u8)value;
+		} 
 		if (value <= 15)
 			randStream << '0' << std::hex << value;
 		else
