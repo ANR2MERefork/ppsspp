@@ -670,7 +670,7 @@ private:
 	std::vector<std::string> appendedConfigUpdatedGames_;
 };
 
-std::string CreateRandMAC();
+std::string CreateRandMAC(u8* out_mac = nullptr);
 bool TryUpdateSavedPath(Path *path);
 
 // TODO: Find a better place for this.
