@@ -1590,9 +1590,9 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
 	// Generate an SSID name & BSSID/MAC address
-    char dummyMAC[ETHER_ADDR_LEN];
+    u8 dummyMAC[ETHER_ADDR_LEN];
 	char dummySSID[APCTL_SSID_MAXLEN] = {};
-	strncopy(dummySSID, CreateRandMAC(&dummyMAC).c_str(), sizeof(dummySSID) - 1);
+	strncpy(dummySSID, CreateRandMAC(&dummyMAC).c_str(), sizeof(dummySSID) - 1);
 
 	switch (infoId) {
 	case PSP_NET_APCTL_DESC_IBSS: // IBSS, 6 bytes
