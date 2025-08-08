@@ -1546,8 +1546,8 @@ static int sceNetApctlScanUser() {
 // This one logs like a syscall because it's called at the end of some.
 int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
-	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
-	int entries = 4;
+	// Faking 7 entries, games like MGS:PW Recruit will need to have a different AP for each entry (MGS:PW can use up to 6 entries)
+	int entries = 7;
 	if (!Memory::IsValidAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
@@ -1589,20 +1589,15 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	if (!Memory::IsValidAddress(resultAddr))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
-	// Generate an SSID name
-	char dummySSID[APCTL_SSID_MAXLEN] = "WifiAP0";
-	dummySSID[6] += static_cast<char>(entryId);
+	// Generate an SSID name & BSSID/MAC address
+    char dummyMAC[ETHER_ADDR_LEN];
+	char dummySSID[APCTL_SSID_MAXLEN] = CreateRandMAC(&dummyMAC);
 
 	switch (infoId) {
 	case PSP_NET_APCTL_DESC_IBSS: // IBSS, 6 bytes
 		if (entryId == 0)
 			Memory::Memcpy(resultAddr, netApctlInfo.bssid, sizeof(netApctlInfo.bssid), "GetBSSDescEntryUser");
 		else {
-			// Generate a BSSID/MAC address
-			char dummyMAC[ETHER_ADDR_LEN];
-			memset(dummyMAC, entryId, sizeof(dummyMAC));
-			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
-			dummyMAC[0] &= 0xfc;
 			Memory::Memcpy(resultAddr, dummyMAC, sizeof(dummyMAC), "GetBSSDescEntryUser");
 		}
 		break;
