@@ -1591,7 +1591,8 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 
 	// Generate an SSID name & BSSID/MAC address
     char dummyMAC[ETHER_ADDR_LEN];
-	char dummySSID[APCTL_SSID_MAXLEN] = CreateRandMAC(&dummyMAC);
+	char dummySSID[APCTL_SSID_MAXLEN] = {} 
+	strncopy(dummySSID, CreateRandMAC(&dummyMAC).c_str(), sizeof(dummySSID) - 1);
 
 	switch (infoId) {
 	case PSP_NET_APCTL_DESC_IBSS: // IBSS, 6 bytes
